@@ -1,0 +1,37 @@
+{
+  "scanSettings": {
+    "configMode": "AUTO",
+    "configExternalURL": "",
+    "projectToken": "",
+    "baseBranches": [
+      "1.1.0"
+    ]
+  },
+  "scanSettingsSAST": {
+    "enableScan": false,
+    "scanPullRequests": false,
+    "incrementalScan": true,
+    "baseBranches": [
+      "1.1.0"
+    ],
+    "snippetSize": 10
+  },
+  "checkRunSettings": {
+    "vulnerableCheckRunConclusionLevel": "failure",
+    "displayMode": "diff",
+    "useMendCheckNames": true
+  },
+  "checkRunSettingsSAST": {
+    "checkRunConclusionLevel": "failure",
+    "severityThreshold": "high"
+  },
+  "issueSettings": {
+    "minSeverityLevel": "LOW",
+    "issueType": "DEPENDENCY"
+  },
+  "remediateSettings": {
+    "workflowRules": {
+      "enabled": true
+    }
+  }
+}
