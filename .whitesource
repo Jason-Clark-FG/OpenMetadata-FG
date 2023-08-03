@@ -4,7 +4,8 @@
     "configExternalURL": "",
     "projectToken": "",
     "baseBranches": [
-      "1.1.0"
+      "1.1.0",
+      "main"
     ]
   },
   "scanSettingsSAST": {
@@ -12,7 +13,8 @@
     "scanPullRequests": false,
     "incrementalScan": true,
     "baseBranches": [
-      "1.1.0"
+      "1.1.0",
+      "main"
     ],
     "snippetSize": 10
   },
