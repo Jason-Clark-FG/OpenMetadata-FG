@@ -12360,9 +12360,7 @@ react@^16.14.0:
     prop-types "^15.6.2"
 
 reactflow@^11.1.1:
-  version "11.1.1"
-  resolved "https://registry.yarnpkg.com/reactflow/-/reactflow-11.1.1.tgz#52e976aeb8a881e3b44bf4473399cf9f9b4bb7dd"
-  integrity sha512-UTFPHs1MXlIdLOQYMpezOZpZGCCdHBdzMxUSXzSfHT6JoRv9etJvHvDthGf5LEYyQt8kxHnkpyKDjAXdm3NGdA==
+  version "11.1.2"
   dependencies:
     "@reactflow/background" "11.0.2"
     "@reactflow/controls" "11.0.2"
