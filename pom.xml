@@ -95,7 +95,7 @@
     <jdbi3.version>3.37.1</jdbi3.version>
     <commons-cli.version>1.5.0</commons-cli.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <flyway.version>9.20.0</flyway.version>
+    <flyway.version>9.21.2</flyway.version>
     <redshift-jdbc.version>2.1.0.17</redshift-jdbc.version>
     <gson.version>2.10.1</gson.version>
     <mysql.connector.version>8.0.33</mysql.connector.version>
