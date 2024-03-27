@@ -19,24 +19,26 @@ services:
   mysql:
     container_name: openmetadata_mysql
     image: docker.getcollate.io/openmetadata/db:1.2.3
-    command: "--sort_buffer_size=10M"
+    command: "--sort_buffer_size=20M"
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST:-%}
+      OM_DATABASE: ${OM_DATABASE:-openmetadata_db}
     expose:
       - 3306
     ports:
       - "3306:3306"
     volumes:
-     - ./docker-volume/db-data:/var/lib/mysql
+      - ./docker-volume/db-data:/var/lib/mysql
+      - ./docker-volume/mysql-entrypoint/mysql-script.sql:/docker-entrypoint-initdb.d/mysql-script.sql
     networks:
       - app_net
     healthcheck:
-      test: mysql --user=root --password=$$MYSQL_ROOT_PASSWORD --silent --execute "use openmetadata_db"
+      test: mysql --user=root --password=$${MYSQL_ROOT_PASSWORD} --silent --execute "use $${OM_DATABASE}" 2>/dev/null || exit 1
       interval: 15s
       timeout: 10s
       retries: 10
-
   elasticsearch:
     container_name: openmetadata_elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
@@ -44,6 +46,8 @@ services:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
       - xpack.security.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
+      - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-}
     networks:
       - app_net
     ports:
@@ -51,7 +55,13 @@ services:
       - "9300:9300"
     volumes:
       - es-data:/usr/share/elasticsearch/data
-
+      - ./docker-volume/logs/elasticsearch:/usr/share/elasticsearch/logs
+    restart: always
+    healthcheck:
+      test: curl --silent --user elastic:$${ELASTIC_PASSWORD} "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=15s" || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
   execute-migrate-all:
     container_name: execute_migrate_all
     image: docker.getcollate.io/openmetadata/server:1.2.3
@@ -61,10 +71,8 @@ services:
       SERVER_PORT: ${SERVER_PORT:-8585}
       SERVER_ADMIN_PORT: ${SERVER_ADMIN_PORT:-8586}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      
       # Migration 
       MIGRATION_LIMIT_PARAM: ${MIGRATION_LIMIT_PARAM:-1200}
-
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
@@ -83,7 +91,6 @@ services:
       AUTHENTICATION_CALLBACK_URL: ${AUTHENTICATION_CALLBACK_URL:-""}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
       AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
-
       # JWT Configuration
       RSA_PUBLIC_KEY_FILE_PATH: ${RSA_PUBLIC_KEY_FILE_PATH:-"./conf/public_key.der"}
       RSA_PRIVATE_KEY_FILE_PATH: ${RSA_PRIVATE_KEY_FILE_PATH:-"./conf/private_key.der"}
@@ -118,13 +125,11 @@ services:
       ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
       ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-10}
       ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
-
       #eventMonitoringConfiguration
       EVENT_MONITOR: ${EVENT_MONITOR:-prometheus}
       EVENT_MONITOR_BATCH_SIZE: ${EVENT_MONITOR_BATCH_SIZE:-10}
       EVENT_MONITOR_PATH_PATTERN: ${EVENT_MONITOR_PATH_PATTERN:-["/api/v1/tables/*", "/api/v1/health-check"]}
       EVENT_MONITOR_LATENCY: ${EVENT_MONITOR_LATENCY:-[]}
-
       #pipelineServiceClientConfiguration
       PIPELINE_SERVICE_CLIENT_ENABLED: ${PIPELINE_SERVICE_CLIENT_ENABLED:-true}
       PIPELINE_SERVICE_CLIENT_CLASS_NAME: ${PIPELINE_SERVICE_CLIENT_CLASS_NAME:-"org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"}
@@ -138,18 +143,16 @@ services:
       AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
       AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
       FERNET_KEY: ${FERNET_KEY:-jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=}
-
       #secretsManagerConfiguration
       SECRET_MANAGER: ${SECRET_MANAGER:-noop}
       #parameters:
       OM_SM_REGION: ${OM_SM_REGION:-""}
       OM_SM_ACCESS_KEY_ID: ${OM_SM_ACCESS_KEY_ID:-""}
       OM_SM_ACCESS_KEY: ${OM_SM_ACCESS_KEY:-""}
-
       #email configuration:
       OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
       OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
-      AUTHORIZER_ENABLE_SMTP : ${AUTHORIZER_ENABLE_SMTP:-false}
+      AUTHORIZER_ENABLE_SMTP: ${AUTHORIZER_ENABLE_SMTP:-false}
       OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
       OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
       SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
@@ -157,15 +160,12 @@ services:
       SMTP_SERVER_USERNAME: ${SMTP_SERVER_USERNAME:-""}
       SMTP_SERVER_PWD: ${SMTP_SERVER_PWD:-""}
       SMTP_SERVER_STRATEGY: ${SMTP_SERVER_STRATEGY:-"SMTP_TLS"}
-
       #changeEventConfig
       OM_URI: ${OM_URI:- "http://localhost:8585"}
-
       # Heap OPTS Configurations
       OPENMETADATA_HEAP_OPTS: ${OPENMETADATA_HEAP_OPTS:--Xmx1G -Xms1G}
       # Mask passwords values in UI
       MASK_PASSWORDS_API: ${MASK_PASSWORDS_API:-false}
-
       #OpenMetadata Web Configuration
       WEB_CONF_URI_PATH: ${WEB_CONF_URI_PATH:-"/api"}
       #HSTS
@@ -200,7 +200,6 @@ services:
         condition: service_healthy
     networks:
       - app_net
-
   openmetadata-server:
     container_name: openmetadata_server
     restart: always
@@ -210,7 +209,6 @@ services:
       SERVER_PORT: ${SERVER_PORT:-8585}
       SERVER_ADMIN_PORT: ${SERVER_ADMIN_PORT:-8586}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-
       # OpenMetadata Server Authentication Configuration
       AUTHORIZER_CLASS_NAME: ${AUTHORIZER_CLASS_NAME:-org.openmetadata.service.security.DefaultAuthorizer}
       AUTHORIZER_REQUEST_FILTER: ${AUTHORIZER_REQUEST_FILTER:-org.openmetadata.service.security.JwtFilter}
@@ -229,7 +227,6 @@ services:
       AUTHENTICATION_CALLBACK_URL: ${AUTHENTICATION_CALLBACK_URL:-""}
       AUTHENTICATION_JWT_PRINCIPAL_CLAIMS: ${AUTHENTICATION_JWT_PRINCIPAL_CLAIMS:-[email,preferred_username,sub]}
       AUTHENTICATION_ENABLE_SELF_SIGNUP: ${AUTHENTICATION_ENABLE_SELF_SIGNUP:-true}
-
       # JWT Configuration
       RSA_PUBLIC_KEY_FILE_PATH: ${RSA_PUBLIC_KEY_FILE_PATH:-"./conf/public_key.der"}
       RSA_PRIVATE_KEY_FILE_PATH: ${RSA_PRIVATE_KEY_FILE_PATH:-"./conf/private_key.der"}
@@ -264,13 +261,11 @@ services:
       ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS: ${ELASTICSEARCH_KEEP_ALIVE_TIMEOUT_SECS:-600}
       ELASTICSEARCH_BATCH_SIZE: ${ELASTICSEARCH_BATCH_SIZE:-10}
       ELASTICSEARCH_INDEX_MAPPING_LANG: ${ELASTICSEARCH_INDEX_MAPPING_LANG:-EN}
-
       #eventMonitoringConfiguration
       EVENT_MONITOR: ${EVENT_MONITOR:-prometheus}
       EVENT_MONITOR_BATCH_SIZE: ${EVENT_MONITOR_BATCH_SIZE:-10}
       EVENT_MONITOR_PATH_PATTERN: ${EVENT_MONITOR_PATH_PATTERN:-["/api/v1/tables/*", "/api/v1/health-check"]}
       EVENT_MONITOR_LATENCY: ${EVENT_MONITOR_LATENCY:-[]}
-
       #pipelineServiceClientConfiguration
       PIPELINE_SERVICE_CLIENT_ENABLED: ${PIPELINE_SERVICE_CLIENT_ENABLED:-true}
       PIPELINE_SERVICE_CLIENT_CLASS_NAME: ${PIPELINE_SERVICE_CLIENT_CLASS_NAME:-"org.openmetadata.service.clients.pipeline.airflow.AirflowRESTClient"}
@@ -284,18 +279,16 @@ services:
       AIRFLOW_TRUST_STORE_PATH: ${AIRFLOW_TRUST_STORE_PATH:-""}
       AIRFLOW_TRUST_STORE_PASSWORD: ${AIRFLOW_TRUST_STORE_PASSWORD:-""}
       FERNET_KEY: ${FERNET_KEY:-jJ/9sz0g0OHxsfxOoSfdFdmk3ysNmPRnH3TUAbz3IHA=}
-
       #secretsManagerConfiguration
       SECRET_MANAGER: ${SECRET_MANAGER:-noop}
       #parameters:
       OM_SM_REGION: ${OM_SM_REGION:-""}
       OM_SM_ACCESS_KEY_ID: ${OM_SM_ACCESS_KEY_ID:-""}
       OM_SM_ACCESS_KEY: ${OM_SM_ACCESS_KEY:-""}
-      
       #email configuration:
       OM_EMAIL_ENTITY: ${OM_EMAIL_ENTITY:-"OpenMetadata"}
       OM_SUPPORT_URL: ${OM_SUPPORT_URL:-"https://slack.open-metadata.org"}
-      AUTHORIZER_ENABLE_SMTP : ${AUTHORIZER_ENABLE_SMTP:-false}
+      AUTHORIZER_ENABLE_SMTP: ${AUTHORIZER_ENABLE_SMTP:-false}
       OPENMETADATA_SERVER_URL: ${OPENMETADATA_SERVER_URL:-""}
       OPENMETADATA_SMTP_SENDER_MAIL: ${OPENMETADATA_SMTP_SENDER_MAIL:-""}
       SMTP_SERVER_ENDPOINT: ${SMTP_SERVER_ENDPOINT:-""}
@@ -303,15 +296,12 @@ services:
       SMTP_SERVER_USERNAME: ${SMTP_SERVER_USERNAME:-""}
       SMTP_SERVER_PWD: ${SMTP_SERVER_PWD:-""}
       SMTP_SERVER_STRATEGY: ${SMTP_SERVER_STRATEGY:-"SMTP_TLS"}
-
       #changeEventConfig
       OM_URI: ${OM_URI:- "http://localhost:8585"}
-
       # Heap OPTS Configurations
       OPENMETADATA_HEAP_OPTS: ${OPENMETADATA_HEAP_OPTS:--Xmx1G -Xms1G}
       # Mask passwords values in UI
       MASK_PASSWORDS_API: ${MASK_PASSWORDS_API:-false}
-      
       #OpenMetadata Web Configuration
       WEB_CONF_URI_PATH: ${WEB_CONF_URI_PATH:-"/api"}
       #HSTS
@@ -333,7 +323,6 @@ services:
       WEB_CONF_XSS_CSP_ENABLED: ${WEB_CONF_XSS_CSP_ENABLED:-false}
       WEB_CONF_XSS_CSP_POLICY: ${WEB_CONF_XSS_CSP_POLICY:-"default-src 'self'"}
       WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY: ${WEB_CONF_XSS_CSP_REPORT_ONLY_POLICY:-""}
-      
     expose:
       - 8585
       - 8586
@@ -342,7 +331,7 @@ services:
       - "8586:8586"
     depends_on:
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       mysql:
         condition: service_healthy
       execute-migrate-all:
@@ -350,14 +339,16 @@ services:
     networks:
       - app_net
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider",  "http://localhost:8586/healthcheck" ]
-
+      test: wget -q --spider "http://localhost:8586/healthcheck" || exit 1
+    volumes:
+      - ./docker-volume/jwtkeys:/etc/openmetadata/jwtkeys
+      - ./docker-volume/logs/server:/opt/openmetadata/logs
   ingestion:
     container_name: openmetadata_ingestion
     image: docker.getcollate.io/openmetadata/ingestion:1.2.3
     depends_on:
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       mysql:
         condition: service_healthy
       openmetadata-server:
@@ -382,9 +373,13 @@ services:
       # AIRFLOW__LINEAGE__AIRFLOW_SERVICE_NAME: local_airflow
       # AIRFLOW__LINEAGE__OPENMETADATA_API_ENDPOINT: http://openmetadata-server:8585/api
       # AIRFLOW__LINEAGE__JWT_TOKEN: ...
+
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "$${DB_SCHEME}://$${DB_USER}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${AIRFLOW_DB}$${DB_PROPERTIES}"
     entrypoint: /bin/bash
     command:
-      - "/opt/airflow/ingestion_dependency.sh"
+      - "/opt/airflow/entrypoint/entrypoint.sh"
     expose:
       - 8080
     ports:
@@ -395,11 +390,28 @@ services:
       - ingestion-volume-dag-airflow:/opt/airflow/dag_generated_configs
       - ingestion-volume-dags:/opt/airflow/dags
       - ingestion-volume-tmp:/tmp
-
-
+      - ./docker-volume/ingestion-entrypoint:/opt/airflow/entrypoint
+      - ./docker-volume/logs/ingestion:/opt/airflow/logs
+    restart: always
+    healthcheck:
+      test: airflow jobs check --job-type SchedulerJob --local || exit 1
+  static:
+    container_name: openmetadata_static
+    image: ghcr.io/jason-clark-fg/darkhttpd-site:latest
+    restart: always
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+    networks:
+      - app_net
+    depends_on:
+      ingestion:
+        condition: service_healthy
 networks:
   app_net:
     ipam:
       driver: default
       config:
         - subnet: "172.16.240.0/24"
+name: openmetadata
