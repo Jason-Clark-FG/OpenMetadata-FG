@@ -27,11 +27,7 @@ from metadata.generated.schema.type.tagLabel import (
 )
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.pii.algorithms.tags import PIISensitivityTag
-from metadata.pii.algorithms.utils import (
-    build_reason,
-    get_top_classes,
-    normalize_scores,
-)
+from metadata.pii.algorithms.utils import build_reason, get_top_classes
 from metadata.pii.base_processor import AutoClassificationProcessor
 from metadata.pii.constants import PII
 from metadata.utils import fqn
@@ -98,7 +94,8 @@ class PIIProcessor(AutoClassificationProcessor):
             sample_data, column_name=column.name.root, column_data_type=column.dataType
         )
 
-        scores = normalize_scores(scores, tol=self._tolerance)
+        # Filter noise and cap at 1.0 (don't normalize to sum=1)
+        scores = {k: min(v, 1.0) for k, v in scores.items() if v > self._tolerance}
 
         # winner is at most 1 tag
         winner = get_top_classes(scores, 1, self.confidence_threshold)
