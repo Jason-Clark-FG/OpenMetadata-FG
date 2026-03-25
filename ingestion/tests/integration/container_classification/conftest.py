@@ -11,6 +11,7 @@
 """MinIO and S3 container classification test fixtures"""
 import csv
 import io
+import json
 import uuid
 from pathlib import Path
 
@@ -247,6 +248,33 @@ def upload_test_data(
         content_type="application/octet-stream",
     )
 
+    metadata_config = {
+        "entries": [
+            {
+                "dataPath": "customers.csv",
+                "structureFormat": "csv",
+                "separator": ",",
+            },
+            {
+                "dataPath": "orders.csv",
+                "structureFormat": "csv",
+                "separator": ",",
+            },
+            {
+                "dataPath": "employees.parquet",
+                "structureFormat": "parquet",
+            },
+        ]
+    }
+    metadata_json = json.dumps(metadata_config).encode("utf-8")
+    minio_client.put_object(
+        bucket_name,
+        ".openmetadata.json",
+        io.BytesIO(metadata_json),
+        len(metadata_json),
+        content_type="application/json",
+    )
+
     yield
 
     for obj in minio_client.list_objects(bucket_name):
@@ -254,7 +282,7 @@ def upload_test_data(
 
 
 @pytest.fixture(scope="module")
-def storage_service_config(minio, service_name):
+def storage_service_config(minio, service_name, bucket_name):
     """Storage service configuration for S3/MinIO"""
     minio_container, _ = minio
     return {
@@ -270,6 +298,7 @@ def storage_service_config(minio, service_name):
                         "awsRegion": "us-east-1",
                         "endPointURL": f"http://localhost:{minio_container.get_exposed_port(9000)}",
                     },
+                    "bucketNames": [bucket_name],
                 }
             },
             "sourceConfig": {"config": {"type": "StorageMetadata"}},
