@@ -8248,11 +8248,6 @@ public abstract class EntityRepository<T extends EntityInterface> {
     }
   }
 
-  // Validate if a given column exists in the table
-  public static void validateColumn(Table table, String columnName) {
-    validateColumn(table, columnName, Boolean.TRUE);
-  }
-
   public static void validateColumn(List<Column> columns, String columnName) {
     validateColumn(columns, columnName, Boolean.TRUE);
   }
