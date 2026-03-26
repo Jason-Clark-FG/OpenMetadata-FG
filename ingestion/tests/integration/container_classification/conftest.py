@@ -14,10 +14,10 @@ import io
 import json
 import uuid
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from minio import Minio
 
 from _openmetadata_testutils.factories.metadata.generated.schema.api.classification.create_classification import (
     CreateClassificationRequestFactory,
@@ -43,6 +43,9 @@ from metadata.generated.schema.entity.teams.user import AuthenticationMechanism,
 from metadata.generated.schema.type.predefinedRecognizer import Name
 from metadata.generated.schema.type.recognizer import Recognizer
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
+from metadata.ingestion.source.storage.storage_service import (
+    OPENMETADATA_TEMPLATE_FILE_NAME,
+)
 from metadata.workflow.classification import AutoClassificationWorkflow
 from metadata.workflow.metadata import MetadataWorkflow
 
@@ -64,6 +67,27 @@ def service_name():
 @pytest.fixture(scope="module")
 def bucket_name():
     return "test-pii-bucket"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_cloudwatch():
+    """Mock CloudWatch client since MinIO doesn't support it"""
+    from metadata.clients.aws_client import AWSClient
+
+    original_get_client = AWSClient.get_client
+
+    def get_client_override(self, service_name):
+        if service_name == "cloudwatch":
+            mock_cw = MagicMock()
+            mock_cw.get_metric_data.return_value = {
+                "MetricDataResults": [{"StatusCode": "Complete", "Values": [0]}]
+            }
+            mock_cw.list_metrics.return_value = {"Metrics": []}
+            return mock_cw
+        return original_get_client(self, service_name)
+
+    with patch.object(AWSClient, "get_client", get_client_override):
+        yield
 
 
 @pytest.fixture(scope="module")
@@ -97,8 +121,8 @@ def pii_customers_csv():
             "John Smith",
             "john.smith@example.com",
             "+1-555-123-4567",
-            "123-45-6789",
-            "4532-1234-5678-9010",
+            "479-13-8850",
+            "4242-4242-4242-4242",
             "123 Main St",
             "2024-01-15",
         ],
@@ -107,8 +131,8 @@ def pii_customers_csv():
             "Alice Johnson",
             "alice.j@company.org",
             "+1-555-987-6543",
-            "987-65-4321",
-            "5555-4444-3333-2222",
+            "153-10-3105",
+            "5555-5555-5555-4444",
             "456 Oak Ave",
             "2024-02-20",
         ],
@@ -118,7 +142,7 @@ def pii_customers_csv():
             "bob.w@test.com",
             "+1-555-246-8135",
             "456-78-9012",
-            "4111-1111-1111-1111",
+            "4000-0566-5566-5556",
             "789 Pine Rd",
             "2024-03-10",
         ],
@@ -128,7 +152,7 @@ def pii_customers_csv():
             "carol.davis@mail.net",
             "+1-555-369-2580",
             "234-56-7890",
-            "3782-822463-10005",
+            "2223-0031-2200-3222",
             "321 Elm St",
             "2024-04-05",
         ],
@@ -138,7 +162,7 @@ def pii_customers_csv():
             "d.brown@domain.io",
             "+1-555-147-2589",
             "345-67-8901",
-            "6011-1111-1111-1117",
+            "5200-8282-8282-8210",
             "654 Maple Dr",
             "2024-05-12",
         ],
@@ -226,7 +250,7 @@ def upload_test_data(
 
     minio_client.put_object(
         bucket_name,
-        "customers.csv",
+        "customers/data.csv",
         io.BytesIO(pii_customers_csv),
         len(pii_customers_csv),
         content_type="text/csv",
@@ -234,7 +258,7 @@ def upload_test_data(
 
     minio_client.put_object(
         bucket_name,
-        "orders.csv",
+        "orders/data.csv",
         io.BytesIO(non_pii_orders_csv),
         len(non_pii_orders_csv),
         content_type="text/csv",
@@ -242,7 +266,7 @@ def upload_test_data(
 
     minio_client.put_object(
         bucket_name,
-        "employees.parquet",
+        "employees/data.parquet",
         io.BytesIO(pii_employees_parquet),
         len(pii_employees_parquet),
         content_type="application/octet-stream",
@@ -251,17 +275,17 @@ def upload_test_data(
     metadata_config = {
         "entries": [
             {
-                "dataPath": "customers.csv",
+                "dataPath": "customers",
                 "structureFormat": "csv",
                 "separator": ",",
             },
             {
-                "dataPath": "orders.csv",
+                "dataPath": "orders",
                 "structureFormat": "csv",
                 "separator": ",",
             },
             {
-                "dataPath": "employees.parquet",
+                "dataPath": "employees",
                 "structureFormat": "parquet",
             },
         ]
@@ -269,7 +293,7 @@ def upload_test_data(
     metadata_json = json.dumps(metadata_config).encode("utf-8")
     minio_client.put_object(
         bucket_name,
-        ".openmetadata.json",
+        OPENMETADATA_TEMPLATE_FILE_NAME,
         io.BytesIO(metadata_json),
         len(metadata_json),
         content_type="application/json",
@@ -327,7 +351,10 @@ def ingest_storage_metadata(
     service = metadata.get_by_name(entity=StorageService, fqn=service_name)
     if service:
         metadata.delete(
-            entity=StorageService, entity_id=service.id, hard_delete=True, recursive=True
+            entity=StorageService,
+            entity_id=service.id,
+            hard_delete=True,
+            recursive=True,
         )
 
 
@@ -470,16 +497,29 @@ def non_sensitive_pii_tag(
 
 @pytest.fixture(scope="module")
 def autoclassification_config(
-    storage_service_config, bot_workflow_config, bucket_name, service_name
+    storage_service_config, bot_workflow_config, bucket_name, service_name, minio
 ):
+    minio_container, _ = minio
     return {
         "source": {
             "type": "s3",
             "serviceName": service_name,
+            "serviceConnection": {
+                "config": {
+                    "type": "S3",
+                    "awsConfig": {
+                        "awsAccessKeyId": minio_container.access_key,
+                        "awsSecretAccessKey": minio_container.secret_key,
+                        "awsRegion": "us-east-1",
+                        "endPointURL": f"http://localhost:{minio_container.get_exposed_port(9000)}",
+                    },
+                    "bucketNames": [bucket_name],
+                }
+            },
             "sourceConfig": {
                 "config": {
                     "type": "AutoClassification",
-                    "containerFilterPattern": {"includes": [f"^{bucket_name}.*"]},
+                    "bucketFilterPattern": {"includes": [f"^{bucket_name}$"]},
                     "storeSampleData": True,
                     "sampleDataCount": 50,
                     "enableAutoClassification": True,

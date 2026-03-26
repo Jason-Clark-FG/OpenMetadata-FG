@@ -23,6 +23,11 @@
       "$ref": "../type/filterPattern.json#/definitions/filterPattern",
       "title": "Classification Filter Pattern"
     },
+    "bucketFilterPattern": {
+      "description": "Regex to only fetch buckets (top-level containers) that match the pattern.",
+      "$ref": "../type/filterPattern.json#/definitions/filterPattern",
+      "title": "Bucket Filter Pattern"
+    },
     "containerFilterPattern": {
       "description": "Regex to only fetch containers that matches the pattern.",
       "$ref": "../type/filterPattern.json#/definitions/filterPattern",

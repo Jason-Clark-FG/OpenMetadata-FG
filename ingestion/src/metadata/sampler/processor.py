@@ -105,41 +105,34 @@ class SamplerProcessor(Processor):
 
     def _run(self, record: ProfilerSourceAndEntity) -> Either[SamplerResponse]:
         """Fetch the sample data and pass it down the pipeline"""
-        if not record.entity.columns:
-            logger.warning(
-                "Skipping sampler for table '%s': no columns found",
-                record.entity.fullyQualifiedName.root,
-            )
-            return Either()
+        entity = record.entity
 
-        try:
-            entity = record.entity
-
-            # Handle Table entities (existing flow)
-            if isinstance(entity, Table):
-                return self._run_for_table(entity, record)
-
-            # Handle Container entities (new flow)
-            if isinstance(entity, Container):
-                return self._run_for_container(entity, record)
-
-            # Unsupported entity type
-            return Either(
-                left=StackTraceError(
-                    name=record.entity.fullyQualifiedName.root,
-                    error=f"Unsupported entity type {type(entity).__name__} for sampling",
-                    stackTrace=traceback.format_exc(),
+        # Check for columns based on entity type
+        if isinstance(entity, Table):
+            if not entity.columns:
+                logger.warning(
+                    "Skipping sampler for table '%s': no columns found",
+                    entity.fullyQualifiedName.root,
                 )
-            )
+                return Either()
+            return self._run_for_table(entity, record)
 
-        except Exception as exc:
-            return Either(
-                left=StackTraceError(
-                    name=record.entity.fullyQualifiedName.root,
-                    error=f"Unexpected exception processing entity {record.entity.fullyQualifiedName.root}: {exc}",
-                    stackTrace=traceback.format_exc(),
+        if isinstance(entity, Container):
+            if not entity.dataModel or not entity.dataModel.columns:
+                logger.warning(
+                    "Skipping sampler for container '%s': no columns found",
+                    entity.fullyQualifiedName.root,
                 )
+                return Either()
+            return self._run_for_container(entity, record)
+
+        return Either(
+            left=StackTraceError(
+                name=record.entity.fullyQualifiedName.root,
+                error=f"Unsupported entity type {type(entity).__name__} for sampling",
+                stackTrace=traceback.format_exc(),
             )
+        )
 
     def _run_for_table(
         self, entity: Table, record: ProfilerSourceAndEntity

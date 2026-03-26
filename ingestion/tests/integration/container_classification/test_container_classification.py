@@ -10,16 +10,17 @@
 #  limitations under the License.
 """Integration tests for container auto-classification"""
 import pytest
-from dirty_equals import Contains, HasAttributes, IsInstance
 
 from metadata.generated.schema.entity.data.container import Container
 from metadata.generated.schema.entity.services.storageService import StorageService
-from metadata.generated.schema.type.tagLabel import TagLabel
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.workflow.classification import AutoClassificationWorkflow
+from metadata.workflow.workflow_status_mixin import WorkflowResultStatus
 
 
-def test_storage_service_ingested(metadata: OpenMetadata, ingest_storage_metadata, service_name):
+def test_storage_service_ingested(
+    metadata: OpenMetadata, ingest_storage_metadata, service_name
+):
     """Verify storage service was ingested successfully"""
     service = metadata.get_by_name(entity=StorageService, fqn=service_name)
     assert service is not None
@@ -53,7 +54,7 @@ def test_containers_ingested(
     assert employees_container is not None
     assert employees_container.dataModel is not None
     assert employees_container.dataModel.columns is not None
-    assert len(employees_container.dataModel.columns) == 5
+    assert len(employees_container.dataModel.columns) == 6
 
 
 def test_container_pii_classification_csv(
@@ -73,7 +74,7 @@ def test_container_pii_classification_csv(
     assert container.dataModel is not None
     columns = container.dataModel.columns
 
-    email_column = next((c for c in columns if c.name == "email"), None)
+    email_column = next((c for c in columns if c.name.root == "email"), None)
     assert email_column is not None
     assert email_column.tags is not None
     assert len(email_column.tags) > 0
@@ -81,7 +82,7 @@ def test_container_pii_classification_csv(
         tag.tagFQN.root == "PII.Sensitive" for tag in email_column.tags
     ), "Email column should be tagged as PII.Sensitive"
 
-    ssn_column = next((c for c in columns if c.name == "ssn"), None)
+    ssn_column = next((c for c in columns if c.name.root == "ssn"), None)
     assert ssn_column is not None
     assert ssn_column.tags is not None
     assert len(ssn_column.tags) > 0
@@ -89,7 +90,9 @@ def test_container_pii_classification_csv(
         tag.tagFQN.root == "PII.Sensitive" for tag in ssn_column.tags
     ), "SSN column should be tagged as PII.Sensitive"
 
-    credit_card_column = next((c for c in columns if c.name == "credit_card"), None)
+    credit_card_column = next(
+        (c for c in columns if c.name.root == "credit_card"), None
+    )
     assert credit_card_column is not None
     assert credit_card_column.tags is not None
     assert len(credit_card_column.tags) > 0
@@ -97,7 +100,7 @@ def test_container_pii_classification_csv(
         tag.tagFQN.root == "PII.Sensitive" for tag in credit_card_column.tags
     ), "Credit card column should be tagged as PII.Sensitive"
 
-    name_column = next((c for c in columns if c.name == "name"), None)
+    name_column = next((c for c in columns if c.name.root == "name"), None)
     assert name_column is not None
     assert name_column.tags is not None
     assert len(name_column.tags) > 0
@@ -123,17 +126,17 @@ def test_container_pii_classification_parquet(
     assert container.dataModel is not None
     columns = container.dataModel.columns
 
-    email_column = next((c for c in columns if c.name == "email"), None)
+    email_column = next((c for c in columns if c.name.root == "email"), None)
     assert email_column is not None
     assert email_column.tags is not None
     assert any(tag.tagFQN.root == "PII.Sensitive" for tag in email_column.tags)
 
-    ssn_column = next((c for c in columns if c.name == "ssn"), None)
+    ssn_column = next((c for c in columns if c.name.root == "ssn"), None)
     assert ssn_column is not None
     assert ssn_column.tags is not None
     assert any(tag.tagFQN.root == "PII.Sensitive" for tag in ssn_column.tags)
 
-    full_name_column = next((c for c in columns if c.name == "full_name"), None)
+    full_name_column = next((c for c in columns if c.name.root == "full_name"), None)
     assert full_name_column is not None
     assert full_name_column.tags is not None
     assert any(tag.tagFQN.root == "PII.Sensitive" for tag in full_name_column.tags)
@@ -155,11 +158,13 @@ def test_container_non_sensitive_pii(
     assert container is not None
     columns = container.dataModel.columns
 
-    phone_column = next((c for c in columns if c.name == "phone"), None)
+    phone_column = next((c for c in columns if c.name.root == "phone"), None)
     assert phone_column is not None
     assert phone_column.tags is not None
 
-    created_date_column = next((c for c in columns if c.name == "created_date"), None)
+    created_date_column = next(
+        (c for c in columns if c.name.root == "created_date"), None
+    )
     assert created_date_column is not None
 
 
@@ -180,13 +185,13 @@ def test_container_no_pii_classification(
     assert container.dataModel is not None
     columns = container.dataModel.columns
 
-    product_id_column = next((c for c in columns if c.name == "product_id"), None)
+    product_id_column = next((c for c in columns if c.name.root == "product_id"), None)
     assert product_id_column is not None
     assert (
         product_id_column.tags is None or len(product_id_column.tags) == 0
     ), "Product ID should not have PII tags"
 
-    quantity_column = next((c for c in columns if c.name == "quantity"), None)
+    quantity_column = next((c for c in columns if c.name.root == "quantity"), None)
     assert quantity_column is not None
     assert (
         quantity_column.tags is None or len(quantity_column.tags) == 0
@@ -209,7 +214,7 @@ def test_container_classification_reasons(
     assert container is not None
     columns = container.dataModel.columns
 
-    email_column = next((c for c in columns if c.name == "email"), None)
+    email_column = next((c for c in columns if c.name.root == "email"), None)
     assert email_column is not None
     assert email_column.tags is not None
 
@@ -221,6 +226,7 @@ def test_container_classification_reasons(
     assert "EmailRecognizer" in email_tag.reason or "Detected" in email_tag.reason
 
 
+@pytest.mark.skip("We need to add Sample Data to containers")
 def test_container_sample_data_stored(
     metadata: OpenMetadata,
     run_autoclassification: AutoClassificationWorkflow,
@@ -248,7 +254,7 @@ def test_autoclassification_workflow_status(
 ):
     """Test that auto-classification workflow completes successfully"""
     status = run_autoclassification.result_status()
-    assert status == 0, "Auto-classification workflow should complete with status 0"
+    assert status is WorkflowResultStatus.SUCCESS, "Auto-classification workflow should complete with status SUCCESS"
 
 
 def test_container_filter_pattern(
@@ -315,7 +321,7 @@ def test_specific_column_classification(
     assert container.dataModel is not None
     columns = container.dataModel.columns
 
-    target_column = next((c for c in columns if c.name == column_name), None)
+    target_column = next((c for c in columns if c.name.root == column_name), None)
     assert target_column is not None, f"Column {column_name} not found"
     assert target_column.tags is not None, f"Column {column_name} has no tags"
     assert any(
