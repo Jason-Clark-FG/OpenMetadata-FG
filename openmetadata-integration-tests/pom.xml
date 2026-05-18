@@ -13,7 +13,7 @@
     <maven.surefire.version>3.1.2</maven.surefire.version>
     <maven.failsafe.version>3.1.2</maven.failsafe.version>
     <junit.jupiter.version>${org.junit.jupiter.version}</junit.jupiter.version>
-    <junit.platform.version>${org.junit.platform.version}</junit.platform.version>
+    <junit.platform.version>6.0.3</junit.platform.version>
     <dockerjava.version>3.4.2</dockerjava.version>
   </properties>
   <dependencyManagement>
