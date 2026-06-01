@@ -674,7 +674,7 @@
     <dependency>
       <groupId>org.json</groupId>
       <artifactId>json</artifactId>
-      <version>20240303</version>
+      <version>20260522</version>
     </dependency>
     
     <dependency>
