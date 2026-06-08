@@ -105,7 +105,7 @@ jobs:
         make install_all install_test
 
     - name: Start Server and Ingest Sample Data
-      uses: nick-fields/retry@v3.0.2
+      uses: nick-fields/retry@v4.0.0
       env:
         INGESTION_DEPENDENCY: "mysql,elasticsearch,sample-data"
       with:
