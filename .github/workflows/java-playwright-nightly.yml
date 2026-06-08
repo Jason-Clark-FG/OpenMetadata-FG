@@ -222,7 +222,7 @@ jobs:
         run: mvn -DskipTests install -pl :openmetadata-integration-tests -am
 
       - name: Download server image artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: jpw-server-image-${{ github.run_id }}
           path: /tmp
