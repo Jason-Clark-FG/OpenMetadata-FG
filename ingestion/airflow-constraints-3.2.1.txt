@@ -384,7 +384,7 @@ grpcio-status==1.80.0
 grpcio-tools==1.80.0
 grpcio==1.80.0
 gssapi==1.11.1
-gunicorn==25.3.0
+gunicorn==26.0.0
 h11==0.16.0
 h2==4.3.0
 hdfs==2.7.3
