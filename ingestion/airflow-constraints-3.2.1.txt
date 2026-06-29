@@ -645,7 +645,7 @@ starlette==0.52.1
 statsd==4.0.1
 std-uritemplate==2.0.8
 strictyaml==1.7.3
-structlog==25.5.0
+structlog==26.1.0
 svcs==25.1.0
 tableauserverclient==0.40
 tabulate==0.10.0
