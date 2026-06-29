@@ -90,7 +90,7 @@
     <maven-javadoc-plugin.version>3.6.0</maven-javadoc-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
     <jakarta.version>3.0.2</jakarta.version>
-    <jaxb.version>3.0.2</jaxb.version>
+    <jaxb.version>4.0.9</jaxb.version>
     <wiremock-standalone.version>2.15.0</wiremock-standalone.version>
     <jacoco-plugin.version>0.8.10</jacoco-plugin.version>
     <!-- Upgrading to jdbi version causes test failures-->
