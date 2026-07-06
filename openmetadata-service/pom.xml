@@ -18,7 +18,7 @@
     <azure-identity-extensions.version>1.0.0</azure-identity-extensions.version>
     <expiring.map.version>0.5.11</expiring.map.version>
     <java.saml>2.9.0</java.saml>
-    <xmlsec.version>2.3.4</xmlsec.version>
+    <xmlsec.version>4.0.4</xmlsec.version>
     <quartz.version>2.5.0-rc2</quartz.version>
     <pac4j.version>5.7.10</pac4j.version>
     <maven-javadoc-plugin.version>3.6.0</maven-javadoc-plugin.version>
