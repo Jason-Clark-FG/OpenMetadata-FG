@@ -50,7 +50,7 @@ jobs:
         run: echo "python=${{ github.event_name != 'pull_request_target' && 'true' || steps.filter.outputs.python }}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for the labeler
-        uses: lewagon/wait-on-check-action@v1.7.0
+        uses: lewagon/wait-on-check-action@v1.9.0
         if: ${{ github.event_name == 'pull_request_target' && steps.scope.outputs.python == 'true' }}
         with:
           ref: ${{ github.event.pull_request.head.sha }}
