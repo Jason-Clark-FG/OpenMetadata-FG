@@ -29,7 +29,7 @@
     <logback-core.version>1.5.36</logback-core.version>
     <logback-classic.version>1.5.36</logback-classic.version>
     <resilience4j-ratelimiter.version>2.3.0</resilience4j-ratelimiter.version>
-    <tika.version>3.2.3</tika.version>
+    <tika.version>4.0.0</tika.version>
   </properties>
 
   <dependencyManagement>
