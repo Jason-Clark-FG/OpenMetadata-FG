@@ -157,7 +157,7 @@
     <unboundsdk.version>6.0.11</unboundsdk.version>
     <dropwizard-web.version>3.0.1</dropwizard-web.version>
     <snakeyaml.version>2.3</snakeyaml.version>
-    <woodstox.version>5.4.0</woodstox.version>
+    <woodstox.version>7.2.2</woodstox.version>
     <slack.version>1.29.2</slack.version>
     <spotless.version>2.41.1</spotless.version>
     <picocli.version>4.7.6</picocli.version>
