@@ -122,7 +122,7 @@
     "cron-parser": "^5.6.2",
     "cronstrue": "^2.53.0",
     "crypto-random-string-with-promisify-polyfill": "^5.0.0",
-    "diff": "^8.0.3",
+    "diff": "^9.0.0",
     "dompurify": "^3.4.13",
     "elkjs": "^0.9.3",
     "eventemitter3": "^5.0.1",
