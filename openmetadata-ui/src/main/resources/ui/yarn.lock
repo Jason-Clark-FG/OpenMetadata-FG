@@ -2196,8 +2196,9 @@
     compare-versions "^4.1.2"
 
 "@openmetadata/ui-core-components@link:../../../../../openmetadata-ui-core-components/src/main/resources/ui":
-  version "0.0.0"
-  uid ""
+  version "1.0.0"
+  dependencies:
+    "@untitledui/file-icons" "^0.0.9"
 
 "@ota-meshi/ast-token-store@^0.3.0":
   version "0.3.0"
@@ -3731,10 +3732,10 @@
   resolved "https://registry.yarnpkg.com/@tiptap/extension-table-row/-/extension-table-row-2.27.2.tgz#8fe2a648fb005e9cbf9da2bc08e3c04becd260ce"
   integrity sha512-Nw9+tA56Y5HtLVP01NGCZSUuTQhJPtfK9OfmDgGgcxynn2cRVdEtj+9FNZqRhQ1iRVaAI+Rd4xRvX9qYePMOxw==
 
-"@tiptap/extension-table@^2.3.0":
-  version "2.27.2"
-  resolved "https://registry.yarnpkg.com/@tiptap/extension-table/-/extension-table-2.27.2.tgz#0f738d5205579a770323d19da5c5b49a1f61a169"
-  integrity sha512-pDbhOpT5phZkcsyPjGBQlXv0+0hmdrvqHJ+dJjkGcCtlfy2pHiEIhmIItOFagc7wXy8G9iUFZ9Jie4zvDf+brg==
+"@tiptap/extension-table@^2.27.3":
+  version "2.27.3"
+  resolved "https://registry.yarnpkg.com/@tiptap/extension-table/-/extension-table-2.27.3.tgz#d38f761c2d8b8b24c448750119fde4caaffa043c"
+  integrity sha512-xBDaT/ixkmrHKuCUlJNbzRolxjf0fFkHxybyeqfcGNDbVwOb6pOGZly6mGjBG1TXrx3U37y0jmFpwW6WU1zokA==
 
 "@tiptap/extension-task-item@^2.3.0":
   version "2.27.2"
