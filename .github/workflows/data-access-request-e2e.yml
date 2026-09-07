@@ -74,7 +74,7 @@ jobs:
           disable-reviews: true # To not auto approve changes
 
       - name: Trigger Collate Playwright run & wait
-        uses: benc-uk/workflow-dispatch@v1.3.2
+        uses: benc-uk/workflow-dispatch@v1.3.3
         # Must stay above wait-timeout-seconds below. The step timeout kills the action
         # outright, so when it is the smaller of the two the action can never reach its own
         # wait budget and reports a bare "has timed out" with no downstream conclusion.
