@@ -2196,8 +2196,9 @@
     compare-versions "^4.1.2"
 
 "@openmetadata/ui-core-components@link:../../../../../openmetadata-ui-core-components/src/main/resources/ui":
-  version "0.0.0"
-  uid ""
+  version "1.0.0"
+  dependencies:
+    "@untitledui/file-icons" "^0.0.9"
 
 "@ota-meshi/ast-token-store@^0.3.0":
   version "0.3.0"
@@ -3716,10 +3717,10 @@
   resolved "https://registry.yarnpkg.com/@tiptap/extension-strike/-/extension-strike-2.27.2.tgz#9291f6dd9bcf00e1c2b7e043f9d9b18cf35f1db1"
   integrity sha512-HHIjhafLhS2lHgfAsCwC1okqMsQzR4/mkGDm4M583Yftyjri1TNA7lzhzXWRFWiiMfJxKtdjHjUAQaHuteRTZw==
 
-"@tiptap/extension-table-cell@^2.3.0":
-  version "2.27.2"
-  resolved "https://registry.yarnpkg.com/@tiptap/extension-table-cell/-/extension-table-cell-2.27.2.tgz#ff7a7b854bd7536e81345813cef1c3f38f2eff55"
-  integrity sha512-9Lk46MjZMFzVZfOj9Kd7VgC6Odt6vmEhlCYVumErShUY7EkFqCw3b2IYoUtQkntfOEx/Afnhff/okNQwPsJeUA==
+"@tiptap/extension-table-cell@^2.27.3":
+  version "2.27.3"
+  resolved "https://registry.yarnpkg.com/@tiptap/extension-table-cell/-/extension-table-cell-2.27.3.tgz#5ea510e0eae7f54f8fee35f323b7db315990f899"
+  integrity sha512-f697x9RDiva8EFZvLBxEp6Nx6sY5KRbHdNMhbCnqC1PrkRKNCTOib9ddWpqIERzs3HhmqZWL7XCPzvE/t8C+IQ==
 
 "@tiptap/extension-table-header@^2.3.0":
   version "2.27.2"
