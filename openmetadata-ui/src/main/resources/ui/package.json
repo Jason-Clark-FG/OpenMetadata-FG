@@ -252,7 +252,7 @@
     "@vitejs/plugin-react-swc": "^4.1.0",
     "babel-eslint": "^10.1.0",
     "esbuild": "^0.28.1",
-    "babel-jest": "^29.7.0",
+    "babel-jest": "^30.5.2",
     "dotenv": "^16.0.0",
     "eslint": "^9.39.0",
     "eslint-config-prettier": "^9.1.0",
