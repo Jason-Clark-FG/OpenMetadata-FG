@@ -157,7 +157,7 @@ jobs:
 
       - name: Checkout
         if: steps.check-fork.outputs.is_fork != 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           repository: ${{ steps.pr-details.outputs.full_repo || github.repository }}
           ref: ${{ steps.checkout-ref.outputs.ref }}

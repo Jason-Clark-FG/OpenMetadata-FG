@@ -195,7 +195,7 @@ jobs:
       docker-compose: ${{ steps.filter.outputs.docker-compose }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         if: ${{ github.event_name == 'merge_group' }}
         with:
           fetch-depth: 0
@@ -274,7 +274,7 @@ jobs:
       toolchain: ${{ steps.fingerprints.outputs.toolchain }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -340,7 +340,7 @@ jobs:
           disable-reviews: true
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -522,7 +522,7 @@ jobs:
       entity_matrix: ${{ steps.select.outputs.entity_matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           fetch-depth: 0
@@ -570,7 +570,7 @@ jobs:
       requires_airflow: ${{ steps.plan.outputs.requires_airflow }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -886,7 +886,7 @@ jobs:
       ingestion_cache_hit: ${{ steps.validate-ingestion.outputs.usable }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -1013,7 +1013,7 @@ jobs:
 
       - name: Checkout
         if: ${{ needs.restore-playwright-fixture.outputs.fixture_cache_hit != 'true' || (needs.plan-playwright.outputs.requires_airflow == 'true' && needs.restore-playwright-fixture.outputs.ingestion_cache_hit != 'true') }}
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -1361,7 +1361,7 @@ jobs:
 
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha) }}
           # actions/checkout@v7 refuses to fetch fork code under pull_request_target
@@ -2025,7 +2025,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
           persist-credentials: false

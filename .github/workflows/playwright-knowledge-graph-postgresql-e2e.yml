@@ -68,7 +68,7 @@ jobs:
       rdf: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && 'true' || steps.filter.outputs.rdf }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         if: ${{ github.event_name == 'merge_group' }}
         with:
           fetch-depth: 0
@@ -203,7 +203,7 @@ jobs:
     if: ${{ needs.gate.outputs.should_run == 'true' && needs.changes.outputs.rdf == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           # pull_request_target runs in the base repo's context, so
           # github.sha is the base tip. Explicitly check out the fork's
@@ -315,7 +315,7 @@ jobs:
           docker-images: false
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           # Same head.sha vs base.sha routing as the build job above.
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}

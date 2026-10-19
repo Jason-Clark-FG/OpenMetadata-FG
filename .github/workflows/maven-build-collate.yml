@@ -70,7 +70,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           filter: blob:none
@@ -116,7 +116,7 @@ jobs:
           disable-reviews: true # To not auto approve changes
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           allow-unsafe-pr-checkout: true

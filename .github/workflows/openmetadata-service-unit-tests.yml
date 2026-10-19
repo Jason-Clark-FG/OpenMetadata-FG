@@ -44,7 +44,7 @@ jobs:
       docker: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.docker }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         if: ${{ github.event_name != 'workflow_dispatch' }}
 
       - uses: dorny/paths-filter@v4
@@ -92,7 +92,7 @@ jobs:
     if: ${{ needs.changes.outputs.java == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
@@ -187,7 +187,7 @@ jobs:
     if: ${{ needs.changes.outputs.k8s_operator == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
@@ -241,7 +241,7 @@ jobs:
     if: ${{ needs.changes.outputs.docker == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
