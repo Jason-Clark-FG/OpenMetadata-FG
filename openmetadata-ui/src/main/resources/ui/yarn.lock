@@ -2492,8 +2492,9 @@
     compare-versions "^4.1.2"
 
 "@openmetadata/ui-core-components@link:../../../../../openmetadata-ui-core-components/src/main/resources/ui":
-  version "0.0.0"
-  uid ""
+  version "1.0.0"
+  dependencies:
+    "@untitledui/file-icons" "^0.0.9"
 
 "@ota-meshi/ast-token-store@^0.3.0":
   version "0.3.0"
@@ -6300,10 +6301,10 @@ cron-parser@^5.10.2:
   dependencies:
     luxon "^3.7.2"
 
-cronstrue@^2.53.0:
-  version "2.61.0"
-  resolved "https://registry.yarnpkg.com/cronstrue/-/cronstrue-2.61.0.tgz#97c79c77045c052afb44cb9f5f8eaf54398094f2"
-  integrity sha512-ootN5bvXbIQI9rW94+QsXN5eROtXWwew6NkdGxIRpS/UFWRggL0G5Al7a9GTBFEsuvVhJ2K3CntIIVt7L2ILhA==
+cronstrue@^3.38.0:
+  version "3.38.0"
+  resolved "https://registry.yarnpkg.com/cronstrue/-/cronstrue-3.38.0.tgz#8ba0833d9abcda7fa803b3f0d7c031407015594a"
+  integrity sha512-i10xR7fS4AH9LKwmt3gYdt/5lSsB2qFGSNfC8aeyYybxo48DCMz+nUrSVI4kUj8yo+SgTbMJqp/BWEem9avlcA==
 
 cross-fetch@^3.1.5:
   version "3.2.0"
