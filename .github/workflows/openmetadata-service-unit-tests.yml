@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload surefire reports
         if: ${{ failure() && hashFiles('openmetadata-service/target/surefire-reports/TEST-*.xml') != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: openmetadata-service-surefire-reports
           path: openmetadata-service/target/surefire-reports/
@@ -215,7 +215,7 @@ jobs:
 
       - name: Upload surefire reports
         if: ${{ failure() && hashFiles('openmetadata-k8s-operator/target/surefire-reports/TEST-*.xml') != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: k8s-operator-surefire-reports
           path: openmetadata-k8s-operator/target/surefire-reports/

@@ -81,7 +81,7 @@ jobs:
             --out-dir "$REPORT_DIR"
 
       - name: Upload the report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-flaky-report
           path: |

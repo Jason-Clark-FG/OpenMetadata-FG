@@ -456,7 +456,7 @@ jobs:
         id: upload-report
         if: ${{ always() && needs.playwright.outputs.playwright_ci_result != 'skipped' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/playwright-report
@@ -578,7 +578,7 @@ jobs:
         id: upload-timing-history
         if: ${{ always() && github.event_name != 'merge_group' && needs.playwright.outputs.playwright_ci_result != 'skipped' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-timing-history-${{ needs.playwright.outputs.detect_changes_mode }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/playwright-timing-history
@@ -616,7 +616,7 @@ jobs:
       - name: Upload Playwright shadow-gate ledger
         if: ${{ always() && github.event_name != 'merge_group' && needs.playwright.outputs.playwright_ci_result != 'skipped' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-shadow-gate-postgresql-pr-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/playwright-shadow-gate/outcome.json
@@ -676,7 +676,7 @@ jobs:
       - name: Upload Playwright PR comment payload
         if: ${{ always() && github.event_name != 'merge_group' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-pr-comment-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/playwright-pr-comment/summary.json
@@ -832,7 +832,7 @@ jobs:
       - name: Upload the main-health ledger
         if: ${{ always() }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-main-health-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/main-health/outcome.json

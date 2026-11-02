@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload Retire.js Report
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: retire-js-report
           path: openmetadata-ui/src/main/resources/ui/retire-report.json
@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload Retire.js Slack artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: retire-slack
           path: |
@@ -280,7 +280,7 @@ jobs:
 
       - name: Upload Snyk Reports
         if: always() && steps.maven-build.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: security-report
           path: security-report

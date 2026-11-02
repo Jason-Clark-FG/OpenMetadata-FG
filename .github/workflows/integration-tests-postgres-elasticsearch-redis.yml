@@ -177,7 +177,7 @@ jobs:
       - name: Upload Integration Test Runtime
         id: upload-runtime
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: java-it-build-postgres-elasticsearch-redis-${{ github.run_id }}
           overwrite: true
@@ -192,7 +192,7 @@ jobs:
       # safe even when the first attempt already staged blobs.
       - name: Upload Integration Test Runtime (retry)
         if: ${{ steps.upload-runtime.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: java-it-build-postgres-elasticsearch-redis-${{ github.run_id }}
           overwrite: true
@@ -426,7 +426,7 @@ jobs:
       - name: Upload Integration Test Diagnostics
         if: ${{ always() }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: java-it-postgres-elasticsearch-redis-${{ matrix.lane.name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -439,7 +439,7 @@ jobs:
       - name: Upload Integration Test Reports
         if: ${{ always() }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: java-it-reports-postgres-elasticsearch-redis-${{ matrix.lane.name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: openmetadata-integration-tests/target/failsafe-reports/TEST-*.xml
