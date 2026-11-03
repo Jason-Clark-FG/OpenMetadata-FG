@@ -30,9 +30,12 @@ import org.openmetadata.service.jdbi3.locator.ConnectionType;
 
 /**
  * Brings stored webhook configurations, on alert destinations and on user and team profiles, to the
- * form new writes store: encrypted in the entity row, its versions and the change descriptions
- * recorded with them, and masked in the stored change events of users and teams. Values already in
- * that form are kept, so running it again changes nothing.
+ * form new writes store: in the entity row, each secret encrypted for the destination or profile
+ * webhook that holds it, and in its versions, the change descriptions recorded with them and the
+ * stored change events of users and teams, the mask, since nothing sends from those. A stored value
+ * that cannot be shown to have been entered for its webhook is removed, and the destination is
+ * disabled, or the profile webhook removed, until it is entered again. Values already in that form
+ * are kept, so running it again changes nothing.
  */
 @Slf4j
 public final class WebhookSecretsMigration {
@@ -45,11 +48,18 @@ public final class WebhookSecretsMigration {
   public static void encryptProfileWebhookSecrets(Handle handle, ConnectionType connectionType) {
     if (isKeyDefined()) {
       Sql sql = new Sql(connectionType);
-      for (String table : List.of("user_entity", "team_entity")) {
-        rewriteById(handle, sql, table, ProfileWebhookSecrets::encryptEntityTree);
-      }
+      rewriteById(
+          handle,
+          sql,
+          "user_entity",
+          row -> ProfileWebhookSecrets.bindStoredEntity(Entity.USER, row));
+      rewriteById(
+          handle,
+          sql,
+          "team_entity",
+          row -> ProfileWebhookSecrets.bindStoredEntity(Entity.TEAM, row));
       for (String entityType : List.of(Entity.USER, Entity.TEAM)) {
-        rewriteVersions(handle, sql, entityType, ProfileWebhookSecrets::encryptEntityTree);
+        rewriteVersions(handle, sql, entityType, ProfileWebhookSecrets::maskEntityTree);
       }
       rewriteChangeEvents(handle, sql);
     }
@@ -58,8 +68,8 @@ public final class WebhookSecretsMigration {
   public static void encryptAlertDestinationSecrets(Handle handle, ConnectionType connectionType) {
     if (isKeyDefined()) {
       Sql sql = new Sql(connectionType);
-      rewriteById(handle, sql, "event_subscription_entity", DestinationSecrets::encryptAlertTree);
-      rewriteVersions(handle, sql, Entity.EVENT_SUBSCRIPTION, DestinationSecrets::encryptAlertTree);
+      rewriteById(handle, sql, "event_subscription_entity", DestinationSecrets::bindStoredAlert);
+      rewriteVersions(handle, sql, Entity.EVENT_SUBSCRIPTION, DestinationSecrets::maskAlertTree);
     }
   }
 
@@ -94,7 +104,7 @@ public final class WebhookSecretsMigration {
       }
       rewritten += execute(batch);
     } while (rows.size() == PAGE_SIZE);
-    LOG.info("Encrypted the webhook secrets of {} rows of {}", rewritten, table);
+    LOG.info("Bound the webhook secrets of {} rows of {}", rewritten, table);
   }
 
   private static void rewriteVersions(
@@ -124,7 +134,7 @@ public final class WebhookSecretsMigration {
       }
       rewritten += execute(batch);
     } while (rows.size() == PAGE_SIZE);
-    LOG.info("Encrypted the webhook secrets of {} versions of {}", rewritten, entityType);
+    LOG.info("Masked the webhook secrets of {} versions of {}", rewritten, entityType);
   }
 
   // A change event carries the entity as written and its change description; delivery reads the
@@ -178,7 +188,7 @@ public final class WebhookSecretsMigration {
         json = JsonUtils.pojoToJson(tree);
       }
     } catch (RuntimeException e) {
-      LOG.warn("Skipping a row whose webhook secrets could not be encrypted: {}", e.getMessage());
+      LOG.warn("Skipping a row whose webhook secrets could not be bound: {}", e.getMessage());
     }
     return json;
   }

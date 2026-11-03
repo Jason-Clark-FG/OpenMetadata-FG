@@ -109,7 +109,8 @@ public class Migration extends MigrationProcessImpl {
         () -> encryptAuthenticationSecrets(collectionDAO));
     // Webhook endpoints, header values and credentials were stored as written on user and team
     // profiles, and on alert destinations saved before they were encrypted; new writes encrypt
-    // them, this encrypts what is already stored. Idempotent.
+    // each one for the webhook that holds it, this does the same for what is already stored and
+    // removes what cannot be shown to be its own. Idempotent.
     runOnce(
         migrationDAO,
         getVersion(),
