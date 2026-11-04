@@ -112,7 +112,7 @@ class WebhookSecretOwnershipIT {
 
       TestSuiteBootstrap.getJdbi()
           .useHandle(
-              handle -> WebhookSecretsMigration.encryptAlertDestinationSecrets(handle, dialect()));
+              handle -> WebhookSecretsMigration.bindAlertDestinationSecrets(handle, dialect()));
       FixtureEvents.insert(FixtureEvents.tableEvents());
       DirectTick.run(AlertFixtures.stored(alert.getId()));
 

@@ -39,13 +39,13 @@ import org.openmetadata.service.jdbi3.locator.ConnectionType;
  */
 @Slf4j
 public final class WebhookSecretsMigration {
-  public static final String PROFILE_STEP_NAME = "encryptProfileWebhookSecrets";
-  public static final String ALERT_STEP_NAME = "encryptAlertDestinationSecrets";
+  public static final String PROFILE_STEP_NAME = "bindProfileWebhookSecrets";
+  public static final String ALERT_STEP_NAME = "bindAlertDestinationSecrets";
   private static final int PAGE_SIZE = 500;
 
   private WebhookSecretsMigration() {}
 
-  public static void encryptProfileWebhookSecrets(Handle handle, ConnectionType connectionType) {
+  public static void bindProfileWebhookSecrets(Handle handle, ConnectionType connectionType) {
     if (isKeyDefined()) {
       Sql sql = new Sql(connectionType);
       rewriteById(
@@ -65,7 +65,7 @@ public final class WebhookSecretsMigration {
     }
   }
 
-  public static void encryptAlertDestinationSecrets(Handle handle, ConnectionType connectionType) {
+  public static void bindAlertDestinationSecrets(Handle handle, ConnectionType connectionType) {
     if (isKeyDefined()) {
       Sql sql = new Sql(connectionType);
       rewriteById(handle, sql, "event_subscription_entity", DestinationSecrets::bindStoredAlert);

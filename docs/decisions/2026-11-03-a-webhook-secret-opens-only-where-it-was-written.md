@@ -37,7 +37,8 @@ encrypted for anything else could therefore be decrypted for a webhook.
   keys an HMAC and is never sent, where it is encrypted for its owner again; any other ciphertext is
   removed, and its destination is disabled, or its profile webhook removed, until the values are
   entered again. Versions, change descriptions and the stored change events of users and teams keep
-  the mask, since nothing sends from them. Running the step again changes nothing.
+  the mask, since nothing sends from them. Running the step again changes nothing. It runs after
+  the 2.1.0 destination id step, because each destination's id owns its secrets.
 
 ## Consequences
 

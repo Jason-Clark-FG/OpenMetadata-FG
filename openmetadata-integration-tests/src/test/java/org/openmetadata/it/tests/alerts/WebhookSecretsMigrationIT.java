@@ -137,7 +137,7 @@ class WebhookSecretsMigrationIT {
 
     Jdbi jdbi = TestSuiteBootstrap.getJdbi();
     jdbi.useHandle(
-        handle -> WebhookSecretsMigration.encryptAlertDestinationSecrets(handle, dialect()));
+        handle -> WebhookSecretsMigration.bindAlertDestinationSecrets(handle, dialect()));
 
     SubscriptionDestination stored =
         AlertFixtures.stored(alert.getId()).getDestinations().getFirst();
@@ -253,13 +253,12 @@ class WebhookSecretsMigrationIT {
   private static void runAlertStep() {
     TestSuiteBootstrap.getJdbi()
         .useHandle(
-            handle -> WebhookSecretsMigration.encryptAlertDestinationSecrets(handle, dialect()));
+            handle -> WebhookSecretsMigration.bindAlertDestinationSecrets(handle, dialect()));
   }
 
   private static void runProfileStep() {
     TestSuiteBootstrap.getJdbi()
-        .useHandle(
-            handle -> WebhookSecretsMigration.encryptProfileWebhookSecrets(handle, dialect()));
+        .useHandle(handle -> WebhookSecretsMigration.bindProfileWebhookSecrets(handle, dialect()));
   }
 
   private static String changeEventJson(UUID eventId) {
