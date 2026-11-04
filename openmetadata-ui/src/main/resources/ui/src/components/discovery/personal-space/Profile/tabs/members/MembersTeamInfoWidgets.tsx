@@ -98,10 +98,8 @@ const EditPencil: FC<{
   return (
     <ButtonUtility
       aria-label={t('label.edit-entity', { entity })}
-      color="tertiary"
       data-testid={dataTestId}
-      icon={<Edit01 className="tw:size-3.5 tw:text-brand-secondary" />}
-      size="xs"
+      icon={Edit01}
     />
   );
 };
@@ -514,6 +512,9 @@ const OwnerField: FC<MembersTeamInfoWidgetsProps> = ({
           <UserTeamSelectableList
             hasPermission
             owner={owners}
+            // As a plain inline box the trigger span's line box is taller than
+            // the icon button, which lifts it off-centre in the widget header.
+            triggerClassName="tw:inline-flex"
             onUpdate={(next) => void onPatch({ ...team, owners: next })}>
             <EditPencil
               dataTestId="edit-owners"
@@ -572,7 +573,7 @@ const MembersTeamInfoWidgets: FC<MembersTeamInfoWidgetsProps> = ({
 
   return (
     <Box
-      className="tw:flex-wrap tw:px-8 tw:pb-6"
+      className="tw:flex-wrap tw:px-8"
       data-testid="team-info-widgets"
       direction="row"
       gap={4}>
