@@ -120,7 +120,10 @@ const TestCaseSchedulerSection: FC<TestCaseSchedulerSectionProps> = ({
   );
 
   return (
-    <div className="test-case-scheduler-section" data-testid="scheduler-card">
+    // The gap matches the 20px (@size-mlg) between the form's other sections.
+    <div
+      className="test-case-scheduler-section tw:flex tw:flex-col tw:gap-5"
+      data-testid="scheduler-card">
       <Alert closable={false} title="" variant="gray">
         <Transi18next
           i18nKey="message.entity-pipeline-information"
