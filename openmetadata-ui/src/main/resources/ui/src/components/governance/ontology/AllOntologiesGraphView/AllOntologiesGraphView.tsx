@@ -34,6 +34,7 @@ import {
   getModelRelations,
   OntologyStudioModel,
 } from '../../../../utils/governance/ontology/OntologyStudioModel.utils';
+import Loader from '../../../common/Loader/Loader';
 import OntologyControlButtons from '../../../OntologyExplorer/OntologyControlButtons';
 import {
   OntologyGraphData,
@@ -254,8 +255,7 @@ const AllOntologiesGraphView = ({
     }
 
     return (
-      <Suspense
-        fallback={<Typography role="status">{t('label.loading')}</Typography>}>
+      <Suspense fallback={<Loader />}>
         <OntologyGraphG6
           studioMode
           edges={graph.edges}
@@ -280,6 +280,7 @@ const AllOntologiesGraphView = ({
       return createPortal(
         <Input
           aria-label={t('label.find-concept')}
+          autoComplete="off"
           icon={Search}
           inputDataTestId="ontology-graph-search"
           placeholder={t('label.find-concept')}
@@ -300,6 +301,7 @@ const AllOntologiesGraphView = ({
         }>
         <Input
           aria-label={t('label.find-concept')}
+          autoComplete="off"
           className="tw:w-54"
           icon={Search}
           inputDataTestId="ontology-graph-search"
