@@ -30,12 +30,15 @@ import org.apache.jena.graph.Triple;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFParser;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openmetadata.schema.api.rdf.SparqlQuery;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.rdf.federation.SparqlFederationGuard;
@@ -166,6 +169,60 @@ class OntologySparqlQueryServiceTest {
 
     assertTrue(result.body().contains("https://example.com/subject"), result.body());
     assertEquals(format.value(), result.format());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"DESCRIBE <https://example.com/subject>", "CONSTRUCT WHERE { ?s ?p ?o }"})
+  void preservesCustomPrefixesInGraphResults(final String query) {
+    final Model model = ModelFactory.createDefaultModel();
+    model.setNsPrefix("custom", "https://example.com/");
+    model.setNsPrefix("", "https://example.com/default/");
+    final String longNamespace = "https://example.com/" + "x".repeat(65_536) + "/";
+    model.setNsPrefix("long", longNamespace);
+    model.add(
+        model.createResource("https://example.com/subject"),
+        model.createProperty("https://example.com/predicate"),
+        model.createResource("https://example.com/object"));
+
+    final var result =
+        service(model).query(GLOSSARY_ID, request(query).withFormat(SparqlQuery.Format.TURTLE));
+    final Model parsed = RDFParser.fromString(result.body(), Lang.TURTLE).toModel();
+    try {
+      assertEquals("https://example.com/", parsed.getNsPrefixURI("custom"), result.body());
+      assertEquals("https://example.com/default/", parsed.getNsPrefixURI(""));
+      assertEquals(longNamespace, parsed.getNsPrefixURI("long"));
+      assertEquals(1, parsed.size());
+    } finally {
+      parsed.close();
+    }
+  }
+
+  @Test
+  void rejectsInvalidQueryWhileWorkerIsBusy() {
+    try (final var worker = OntologySparqlWorker.acquire(SparqlQueryLimits.TIMEOUT_MILLIS)) {
+      final var service =
+          new OntologySparqlQueryService(
+              (id, includeRelations) -> {
+                throw new AssertionError("Invalid requests must not materialize a model");
+              },
+              new SparqlFederationGuard(null));
+      assertThrows(
+          IllegalArgumentException.class, () -> service.query(GLOSSARY_ID, request("invalid")));
+    }
+  }
+
+  @Test
+  void refusesOversizedNamespaceBeforeStartingTheWorker() {
+    final Model model = modelWithStatement();
+    model.setNsPrefix("large", "https://example.com/" + "x".repeat(32 * 1024 * 1024));
+
+    final var failure =
+        assertThrows(
+            SparqlQueryLimits.QueryLimitExceededException.class,
+            () -> service(model).query(GLOSSARY_ID, request("ASK {}")));
+
+    assertTrue(failure.getMessage().contains("input"), failure.getMessage());
+    assertTrue(model.isClosed());
   }
 
   @Test
