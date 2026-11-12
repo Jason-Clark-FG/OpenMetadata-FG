@@ -22,7 +22,7 @@
     <integrationTests.skipParallel>false</integrationTests.skipParallel>
     <integrationTests.forkTimeoutSeconds>3600</integrationTests.forkTimeoutSeconds>
     <integrationTests.globalStateTests>TagRecognizerFeedbackIT,WorkflowDefinitionResourceIT,ChangeRequestAdmissionIT,ChangeRequestApplyIT,ChangeRequestDecisionIT,ChangeRequestImportAndBulkIT,ChangeRequestLifecycleIT,ChangeRequestResourceIT,AppsResourceIT,TestSuiteReindexIT,DataContractValidationAppIT,SystemResourceIT,Sso*IT,VectorEmbeddingIntegrationIT,PatchTableEmbeddingIT,GlossaryOntologyExportIT,UserMetricsResourceIT,ConversationSchemaMigrationIT,MetricMigrationIT,EntityShapeIT,ContextMemoryExtractionIT,ContextMemoryExtractionRequestIT,ContextMemoryDerivationIT,CredentialDatabaseOutageIT,CredentialRedisNoRoundTripIT,CredentialRedisDownIT,OntologyConcurrentHardDeleteIT</integrationTests.globalStateTests>
-    <integrationTests.multiNodeTests>SessionMultiNodeIT,SessionRedisMultiNodeIT,CredentialRevocationTwoProcessIT,RevokeWaitForPropagationIT,OpsRegenerateBotTokensIT,CsvExportMultiNodeIT</integrationTests.multiNodeTests>
+    <integrationTests.multiNodeTests>SessionMultiNodeIT,SessionRedisMultiNodeIT,CredentialRevocationTwoProcessIT,RevokeWaitForPropagationIT,OpsRegenerateBotTokensIT,OpsFernetKeyRotationIT,CsvExportMultiNodeIT</integrationTests.multiNodeTests>
     <integrationTests.retryQueueTests>SearchIndexRetryQueueIT</integrationTests.retryQueueTests>
     <!-- Tests that need the RDF store. The rdf lane runs them against the published
          openmetadata/fuseki image pinned in FusekiTestImage (override with -DrdfContainerImage);
@@ -479,6 +479,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -546,6 +547,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -643,6 +645,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -709,6 +712,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -807,6 +811,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -874,6 +879,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -972,6 +978,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -1038,6 +1045,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -1135,6 +1143,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -1201,6 +1210,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -1297,6 +1307,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -1364,6 +1375,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -1477,6 +1489,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -1545,6 +1558,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
@@ -1649,6 +1663,7 @@
                     <include>**/CredentialRevocationTwoProcessIT.java</include>
                     <include>**/RevokeWaitForPropagationIT.java</include>
                     <include>**/OpsRegenerateBotTokensIT.java</include>
+                    <include>**/OpsFernetKeyRotationIT.java</include>
                     <include>**/CsvExportMultiNodeIT.java</include>
                     <include>**/SearchIndexRetryQueueIT.java</include>
                   </includes>
@@ -1716,6 +1731,7 @@
                     <exclude>**/CredentialRevocationTwoProcessIT.java</exclude>
                     <exclude>**/RevokeWaitForPropagationIT.java</exclude>
                     <exclude>**/OpsRegenerateBotTokensIT.java</exclude>
+                    <exclude>**/OpsFernetKeyRotationIT.java</exclude>
                     <exclude>**/CsvExportMultiNodeIT.java</exclude>
                     <exclude>**/SearchIndexRetryQueueIT.java</exclude>
                     <exclude>**/*UIIT.java</exclude>
