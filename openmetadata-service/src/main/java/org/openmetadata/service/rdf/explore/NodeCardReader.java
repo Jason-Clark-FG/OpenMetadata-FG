@@ -38,9 +38,14 @@ public final class NodeCardReader {
     this.nodeIris = new NodeIris(baseUri);
   }
 
-  /** One card per distinct node, in the order the nodes were given. */
+  /**
+   * One card per distinct node, in the order the nodes were given. A node whose IRI is not an
+   * absolute http(s) IRI, such as a {@code urn:} concept, cannot be placed in a query and gets no
+   * card.
+   */
   public List<NodeCard> read(final List<String> nodes) {
-    final List<String> distinct = nodes.stream().distinct().toList();
+    final List<String> distinct =
+        nodes.stream().distinct().filter(ExplorationQueries::isQueryable).toList();
     return distinct.isEmpty() ? List.of() : cardsFor(distinct);
   }
 

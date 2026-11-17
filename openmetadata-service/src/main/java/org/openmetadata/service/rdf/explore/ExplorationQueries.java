@@ -107,11 +107,21 @@ final class ExplorationQueries {
     return iris.stream().map(ExplorationQueries::iri).collect(Collectors.joining(" "));
   }
 
+  /**
+   * The one rule for every IRI the server interpolates: an absolute http(s) IRI that {@code
+   * java.net.URI} parses, with nothing that could close the IRI or open a pattern. Server-built
+   * queries skip the agent query validator, so this check stands on its own.
+   */
+  static boolean isQueryable(final String value) {
+    return value != null && value.equals(RdfIriValidator.validateEntityIri(value));
+  }
+
   static String iri(final String value) {
-    final String safe = RdfIriValidator.sanitizeStoredIri(value);
-    if (safe == null) {
-      throw new IllegalArgumentException("'%s' is not a node id".formatted(value));
+    if (!isQueryable(value)) {
+      throw new IllegalArgumentException(
+          "'%s' is not an absolute http(s) IRI, so it cannot be placed in a graph query"
+              .formatted(value));
     }
-    return "<" + safe + ">";
+    return "<" + value + ">";
   }
 }

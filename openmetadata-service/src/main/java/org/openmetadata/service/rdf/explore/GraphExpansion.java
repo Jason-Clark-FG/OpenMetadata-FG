@@ -45,7 +45,12 @@ public final class GraphExpansion {
         candidates.subList(0, PageBudget.rowsThatFit(candidates, cardsById, request.maxChars()));
     return ExpansionRow.toPage(
         page,
-        page.stream().map(ExpansionRow::other).distinct().map(cardsById::get).toList(),
+        page.stream()
+            .map(ExpansionRow::other)
+            .distinct()
+            .map(cardsById::get)
+            .filter(Objects::nonNull)
+            .toList(),
         rows.size() > page.size() ? request.offset() + page.size() : null);
   }
 

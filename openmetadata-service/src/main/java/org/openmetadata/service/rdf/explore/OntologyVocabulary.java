@@ -37,7 +37,6 @@ import org.apache.jena.shared.PrefixMapping;
 import org.apache.jena.vocabulary.OWL2;
 import org.apache.jena.vocabulary.RDFS;
 import org.openmetadata.service.rdf.OntologyDocument;
-import org.openmetadata.service.rdf.RdfIriValidator;
 
 /**
  * What the canonical ontology says about relationships and classes, read once into immutable maps
@@ -108,13 +107,12 @@ public final class OntologyVocabulary {
   /** The IRI behind a prefixed name or an absolute IRI, as a caller passes it back. */
   public String expand(final String name) {
     final String expanded = isAbsoluteIri(name) ? name : prefixes.expandPrefix(name);
-    final String safe = RdfIriValidator.sanitizeStoredIri(expanded);
-    if (safe == null || !isAbsoluteIri(safe)) {
+    if (!ExplorationQueries.isQueryable(expanded)) {
       throw new IllegalArgumentException(
-          "'%s' is not a relationship name. Pass a prefixed name such as %s exactly as a card's 'reachable' entry gives it."
+          "'%s' is not a relationship name. Pass a prefixed name such as %s, or an absolute http(s) IRI, exactly as a card's 'reachable' entry gives it."
               .formatted(name, EXAMPLE_RELATIONSHIP));
     }
-    return safe;
+    return expanded;
   }
 
   private static boolean isAbsoluteIri(final String name) {

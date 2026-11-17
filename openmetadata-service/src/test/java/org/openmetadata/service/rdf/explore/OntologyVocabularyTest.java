@@ -21,6 +21,8 @@ import java.util.List;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class OntologyVocabularyTest {
 
@@ -167,5 +169,29 @@ class OntologyVocabularyTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("'owner'")
         .hasMessageContaining("om:hasOwner");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "http://x/>}UNION{?a?b?c}#",
+        "http://x/\\u003E}UNION{?a ?b ?c}#",
+        "java://org.example.Evil",
+        "http://x/a{b",
+        "http://x/a|b",
+        "http://x/a^b"
+      })
+  void aRelationshipThatIsNotAnAbsoluteHttpIriIsACorrection(final String name) {
+    assertThatThrownBy(() -> fixture().expand(name))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("om:hasOwner")
+        .hasMessageContaining("reachable");
+  }
+
+  @Test
+  void aFullHttpIriFromTheOntologyStillExpands() {
+    assertThat(OntologyVocabulary.canonical().expand("http://www.w3.org/2000/01/rdf-schema#label"))
+        .isEqualTo("http://www.w3.org/2000/01/rdf-schema#label");
+    assertThat(OntologyVocabulary.canonical().expand("om:hasOwner")).isEqualTo(OM + "hasOwner");
   }
 }

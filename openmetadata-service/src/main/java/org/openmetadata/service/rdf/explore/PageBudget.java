@@ -55,10 +55,8 @@ final class PageBudget {
       final Set<String> counted) {
     final long group = GROUP_CHARS + row.node().length() + row.relationship().length();
     final long reference = row.other().length() + 3L;
-    final long card =
-        counted.contains(row.other())
-            ? 0
-            : JsonUtils.pojoToJson(cards.get(row.other())).length() + 1L;
-    return group + reference + card;
+    final NodeCard card = counted.contains(row.other()) ? null : cards.get(row.other());
+    final long cardChars = card == null ? 0 : JsonUtils.pojoToJson(card).length() + 1L;
+    return group + reference + cardChars;
   }
 }

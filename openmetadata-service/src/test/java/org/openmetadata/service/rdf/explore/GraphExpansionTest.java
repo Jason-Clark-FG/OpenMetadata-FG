@@ -184,4 +184,23 @@ class GraphExpansionTest {
     assertThat(page.expansions()).hasSize(1);
     assertThat(page.nextOffset()).isEqualTo(1);
   }
+
+  @Test
+  void aFarNodeWhoseIriIsNotHttpIsListedWithoutACard() {
+    final InMemoryGraph graph =
+        InMemoryGraph.ofTurtle(
+            "<%s> om:hasOwner <urn:concept:customer> , e:team-growth .\ne:team-growth rdfs:label \"growth\" ."
+                .formatted(ORDERS));
+    final GraphExpansion expansion =
+        new GraphExpansion(graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical());
+
+    final ExpandPage page =
+        expansion.expand(
+            new ExpandRequest(
+                List.of(ORDERS), List.of(HAS_OWNER), Set.of(Direction.OUTGOING), 10, 0, UNBOUNDED));
+
+    assertThat(page.expansions().getFirst().nodes())
+        .containsExactly(E + "team-growth", "urn:concept:customer");
+    assertThat(page.nodes()).extracting(NodeCard::id).containsExactly(E + "team-growth");
+  }
 }
