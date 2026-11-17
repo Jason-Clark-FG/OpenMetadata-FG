@@ -6,6 +6,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Utility methods for RDF operations
@@ -133,6 +134,14 @@ public final class RdfUtils {
       case "mcpservice" -> "McpService";
       default -> entityType.substring(0, 1).toUpperCase(Locale.ROOT) + entityType.substring(1);
     };
+  }
+
+  /**
+   * The IRI the projection mints for a catalog entity: {@code <base>entity/<type>/<id>}, as {@code
+   * JsonLdTranslator} writes it as the entity's subject.
+   */
+  public static String entityUri(String baseUri, String entityType, UUID entityId) {
+    return baseUri + "entity/" + entityType + "/" + entityId;
   }
 
   /**

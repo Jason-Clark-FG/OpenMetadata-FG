@@ -50,6 +50,11 @@ public final class OntologyDocument {
         format.extension());
   }
 
+  /** A fresh copy of the canonical ontology, so a reader can never change the served document. */
+  public static Model loadCanonicalModel() {
+    return loadModel(RESOURCES);
+  }
+
   static Model loadModel(List<String> resourcePaths) {
     List<String> requiredResourcePaths =
         List.copyOf(Objects.requireNonNull(resourcePaths, "resourcePaths"));
