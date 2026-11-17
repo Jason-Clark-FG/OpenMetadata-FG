@@ -25,6 +25,7 @@ import java.util.UUID;
  */
 public final class KnowledgeGraphExplorer {
 
+  private final OntologyVocabulary vocabulary;
   private final NodeCardReader cards;
   private final GraphExpansion expansion;
   private final NodeIris nodeIris;
@@ -37,6 +38,7 @@ public final class KnowledgeGraphExplorer {
       final String baseUri,
       final RunTraceStore traces,
       final Clock clock) {
+    this.vocabulary = Objects.requireNonNull(vocabulary);
     this.cards = new NodeCardReader(graph, vocabulary, baseUri);
     this.expansion = new GraphExpansion(graph, cards, vocabulary);
     this.nodeIris = new NodeIris(baseUri);
@@ -61,7 +63,11 @@ public final class KnowledgeGraphExplorer {
     record(
         run,
         Operation.EXPAND,
-        new RunStep.Input(null, request.nodes(), request.relationships(), null),
+        new RunStep.Input(
+            null,
+            request.nodes(),
+            request.relationships().stream().map(vocabulary::compact).toList(),
+            null),
         page.nodes(),
         RunSteps.expanded(page));
     return page;

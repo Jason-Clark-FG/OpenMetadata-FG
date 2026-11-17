@@ -53,7 +53,8 @@ class CatalogStartingPointsTest {
                       "fullyQualifiedName", "warehouse.shop.public.orders"),
                   Map.of(
                       "entityType", "tableColumn",
-                      "fullyQualifiedName", "warehouse.shop.public.orders.id"))));
+                      "fullyQualifiedName", "warehouse.shop.public.orders.id"),
+                  Map.of("entityType", "dashboard", "fullyQualifiedName", "bi.revenue"))));
 
   private CatalogStartingPoints startingPoints(final boolean vectorSearchEnabled) {
     return new CatalogStartingPoints(() -> vectorSearchEnabled, () -> semantic, () -> keyword);
@@ -90,6 +91,15 @@ class CatalogStartingPointsTest {
         .containsEntry("size", 5)
         .containsEntry("fields", "id")
         .doesNotContainKey("entityType");
+  }
+
+  @Test
+  void aHitWithoutTheIdentityItsNodeIsMintedFromIsLeftOut() throws Exception {
+    final List<SearchHit> hits =
+        startingPoints(false)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5));
+
+    assertThat(hits).extracting(SearchHit::entityType).doesNotContain("dashboard");
   }
 
   @Test

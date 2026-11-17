@@ -105,6 +105,7 @@ class KnowledgeGraphExplorerTest {
             Long.MAX_VALUE));
     final RunTrace trace = explorer.trace(run.run());
 
+    assertThat(trace.steps().get(1).input().relationships()).containsExactly("om:upstream");
     assertThat(trace.steps())
         .extracting(TraceStep::sequence, TraceStep::operation, TraceStep::nodes)
         .containsExactly(

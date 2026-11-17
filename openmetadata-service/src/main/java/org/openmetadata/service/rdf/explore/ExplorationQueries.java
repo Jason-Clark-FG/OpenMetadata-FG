@@ -21,6 +21,8 @@ import org.openmetadata.service.rdf.RdfIriValidator;
  * The SELECTs behind cards and expansion. Each UNION branch repeats its {@code VALUES} block so
  * the engine joins the bound nodes into the triple pattern instead of scanning every triple and
  * joining afterwards. No query names a graph: the asserted-only read path chooses the dataset.
+ * Card reads carry no row limit, so an oversized answer fails on the read path's output bound
+ * instead of coming back silently short.
  */
 final class ExplorationQueries {
 
@@ -33,9 +35,6 @@ final class ExplorationQueries {
   static final String DIRECTION = "direction";
   static final String COUNT = "count";
   static final String OTHER = "other";
-
-  /** Far more rows than any node's facts or populated relationships produce. */
-  private static final int ROW_CEILING = 5_000;
 
   private static final String PREFIXES =
       """
@@ -57,9 +56,9 @@ final class ExplorationQueries {
           OPTIONAL { ?value rdfs:label ?valueLabel }
           OPTIONAL { ?value skos:prefLabel ?valueDisplay }
           OPTIONAL { ?value om:tagFQN ?valueTag }
-        } LIMIT %d
+        }
         """
-            .formatted(iris(nodes), iris(FactPredicate.iris()), ROW_CEILING);
+            .formatted(iris(nodes), iris(FactPredicate.iris()));
   }
 
   static String reachable(final Collection<String> nodes) {
@@ -73,9 +72,9 @@ final class ExplorationQueries {
           { VALUES ?node { %1$s }
             ?other ?predicate ?node . BIND("incoming" AS ?direction) }
           FILTER(?predicate != rdf:type)
-        } GROUP BY ?node ?direction ?predicate LIMIT %2$d
+        } GROUP BY ?node ?direction ?predicate
         """
-            .formatted(values, ROW_CEILING);
+            .formatted(values);
   }
 
   /** One row per far node, ordered so pages never overlap; one row beyond the page shows more. */

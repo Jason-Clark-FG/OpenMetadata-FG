@@ -54,6 +54,8 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
  */
 public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> {
 
+  private static final String SPARQL_QUERY_ARGUMENT = "query";
+
   private final SparqlQueryTool sparqlQuery;
   private final StartingPoints startingPoints;
   private final Supplier<RunTraceStore> traces;
@@ -190,7 +192,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final KnowledgeGraphCall.Query query)
       throws IOException {
     final SparqlQueryTool.Result result =
-        sparqlQuery.executeAuthorized(securityContext, Map.of("query", query.sparql()));
+        sparqlQuery.executeAuthorized(
+            securityContext, Map.of(SPARQL_QUERY_ARGUMENT, query.sparql()));
     explorer(securityContext, repository).recordQuery(run, query.sparql());
     return new QueryResponse(run.run(), Operation.QUERY, result);
   }

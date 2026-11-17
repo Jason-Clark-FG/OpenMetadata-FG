@@ -128,13 +128,21 @@ final class CatalogStartingPoints implements StartingPoints {
         : List.of();
   }
 
+  /** A hit names a node only with the identity the projection mints it from. */
   private static Stream<SearchHit> hit(final Object result, final String idField) {
     return result instanceof Map<?, ?> fields
             && fields.get(ENTITY_TYPE) instanceof String entityType
         ? Stream.of(
-            new SearchHit(
-                entityType, text(fields, FULLY_QUALIFIED_NAME), uuid(text(fields, idField))))
+                new SearchHit(
+                    entityType, text(fields, FULLY_QUALIFIED_NAME), uuid(text(fields, idField))))
+            .filter(CatalogStartingPoints::isMintable)
         : Stream.empty();
+  }
+
+  private static boolean isMintable(final SearchHit hit) {
+    return Entity.TABLE_COLUMN.equals(hit.entityType())
+        ? hit.fullyQualifiedName() != null
+        : hit.id() != null;
   }
 
   private static String text(final Map<?, ?> fields, final String name) {
