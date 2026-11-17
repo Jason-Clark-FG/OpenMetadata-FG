@@ -78,6 +78,32 @@ final class ExplorationQueries {
             .formatted(values, ROW_CEILING);
   }
 
+  /** One row per far node, ordered so pages never overlap; one row beyond the page shows more. */
+  static String expansion(final ExpandRequest request) {
+    final String branches =
+        request.directions().stream()
+            .sorted()
+            .map(direction -> expansionBranch(request, direction))
+            .collect(Collectors.joining("\n  UNION\n  "));
+    return PREFIXES
+        + """
+        SELECT ?node ?predicate ?direction ?other WHERE {
+          %s
+        } ORDER BY ?node ?predicate ?direction ?other LIMIT %d OFFSET %d
+        """
+            .formatted(branches, request.limit() + 1, request.offset());
+  }
+
+  private static String expansionBranch(final ExpandRequest request, final Direction direction) {
+    final String pattern =
+        direction == Direction.OUTGOING
+            ? "?node ?predicate ?other . FILTER(isIRI(?other))"
+            : "?other ?predicate ?node .";
+    return "{ VALUES ?node { %s } VALUES ?predicate { %s } %s BIND(\"%s\" AS ?direction) }"
+        .formatted(
+            iris(request.nodes()), iris(request.relationships()), pattern, direction.value());
+  }
+
   static String iris(final Collection<String> iris) {
     return iris.stream().map(ExplorationQueries::iri).collect(Collectors.joining(" "));
   }

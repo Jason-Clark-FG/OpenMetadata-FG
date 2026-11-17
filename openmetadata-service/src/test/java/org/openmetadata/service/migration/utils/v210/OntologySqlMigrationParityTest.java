@@ -69,6 +69,22 @@ class OntologySqlMigrationParityTest {
         read(dialect.schemaChanges()), "rdf_custom_ontology", dialect.name() + " 2.1.0 migration");
   }
 
+  @ParameterizedTest(name = "{0} upgrade creates the knowledge-graph run trace table")
+  @MethodSource("dialects")
+  void upgradeCreatesTheExplorationRunTraceTable(final DialectSql dialect) throws IOException {
+    final String upgrade = read(dialect.schemaChanges());
+
+    for (final String token :
+        List.of(
+            "create table if not exists rdf_exploration_run_step",
+            "runid varchar(36) not null",
+            "createdat bigint not null",
+            "rdf_exploration_run_step_run_index",
+            "rdf_exploration_run_step_created_index")) {
+      assertContains(upgrade, token, dialect.name() + " 2.1.0 migration");
+    }
+  }
+
   @ParameterizedTest(name = "{0} upgrade backfills typed relationships and RDF rebuild")
   @MethodSource("dialects")
   void upgradeBackfillsRelationshipIdentityAndInvalidatesProjectionStatus(final DialectSql dialect)

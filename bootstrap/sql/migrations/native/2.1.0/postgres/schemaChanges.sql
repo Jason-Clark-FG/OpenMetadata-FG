@@ -938,3 +938,14 @@ ALTER TABLE mcp_pending_auth_requests
 ALTER TABLE context_file ADD COLUMN IF NOT EXISTS visibility VARCHAR(16)
     GENERATED ALWAYS AS (json -> 'shareConfig' ->> 'visibility') STORED;
 CREATE INDEX IF NOT EXISTS idx_context_file_visibility ON context_file (visibility);
+
+-- Steps of knowledge-graph exploration runs served by the MCP knowledge_graph tool, kept for a day
+-- (ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day). The id orders a run's steps.
+CREATE TABLE IF NOT EXISTS rdf_exploration_run_step (
+  id BIGSERIAL PRIMARY KEY,
+  runId VARCHAR(36) NOT NULL,
+  createdAt BIGINT NOT NULL,
+  json JSONB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rdf_exploration_run_step_run_index ON rdf_exploration_run_step (runId, id);
+CREATE INDEX IF NOT EXISTS rdf_exploration_run_step_created_index ON rdf_exploration_run_step (createdAt);

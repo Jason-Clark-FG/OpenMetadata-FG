@@ -1237,6 +1237,18 @@ PREPARE context_file_visibility_stmt FROM @context_file_visibility_ddl;
 EXECUTE context_file_visibility_stmt;
 DEALLOCATE PREPARE context_file_visibility_stmt;
 
+-- Steps of knowledge-graph exploration runs served by the MCP knowledge_graph tool, kept for a day
+-- (ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day). The id orders a run's steps.
+CREATE TABLE IF NOT EXISTS rdf_exploration_run_step (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  runId VARCHAR(36) NOT NULL,
+  createdAt BIGINT NOT NULL,
+  json JSON NOT NULL,
+  PRIMARY KEY (id),
+  KEY rdf_exploration_run_step_run_index (runId, id),
+  KEY rdf_exploration_run_step_created_index (createdAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Flowable schema upgrades run after this migration and inherit the database default. Existing
 -- ACT_* tables are aligned to the same collation by FlowableCharsetMigration.
 ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
