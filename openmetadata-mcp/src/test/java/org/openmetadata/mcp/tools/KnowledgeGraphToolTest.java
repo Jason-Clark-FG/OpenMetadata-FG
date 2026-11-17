@@ -1,0 +1,318 @@
+/*
+ *  Copyright 2026 Collate
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+package org.openmetadata.mcp.tools;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import java.io.IOException;
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.openmetadata.schema.api.rdf.RdfProjectionState;
+import org.openmetadata.schema.utils.JsonUtils;
+import org.openmetadata.service.rdf.RdfRepository;
+import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.explore.Direction;
+import org.openmetadata.service.rdf.explore.ExpansionGroup;
+import org.openmetadata.service.rdf.explore.ExplorationState;
+import org.openmetadata.service.rdf.explore.NodeCard;
+import org.openmetadata.service.rdf.explore.Operation;
+import org.openmetadata.service.rdf.explore.RunStep;
+import org.openmetadata.service.rdf.explore.RunTraceStore;
+import org.openmetadata.service.rdf.explore.SearchHit;
+import org.openmetadata.service.rdf.explore.TraceEdge;
+import org.openmetadata.service.rdf.explore.TraceNode;
+import org.openmetadata.service.rdf.explore.TraceStep;
+import org.openmetadata.service.security.AuthorizationException;
+import org.openmetadata.service.security.Authorizer;
+import org.openmetadata.service.security.DefaultAuthorizer;
+import org.openmetadata.service.security.auth.CatalogSecurityContext;
+
+class KnowledgeGraphToolTest {
+
+  private static final String E = JenaBackedRepository.BASE + "entity/";
+  private static final UUID ORDERS_ID = UUID.fromString("0b0b0b0b-0000-0000-0000-000000000001");
+  private static final UUID CUSTOMERS_ID = UUID.fromString("0b0b0b0b-0000-0000-0000-000000000002");
+  private static final String ORDERS = E + "table/" + ORDERS_ID;
+  private static final String CUSTOMERS = E + "table/" + CUSTOMERS_ID;
+  private static final String GRAPH =
+      """
+      <%1$s> a om:Table ; rdfs:label "orders" ;
+          om:fullyQualifiedName "warehouse.shop.public.orders" ;
+          om:hasOwner e:team-growth ; om:hasTag e:tag-pii , e:tag-finance .
+      <%2$s> a om:Table ; rdfs:label "customers" ;
+          om:hasOwner e:team-crm ; om:hasTag e:tag-pii .
+      e:team-growth a om:Team ; rdfs:label "growth" .
+      e:team-crm a om:Team ; rdfs:label "crm" .
+      e:tag-pii a om:Tag ; om:tagFQN "PII.Sensitive" .
+      e:tag-finance a om:Tag ; om:tagFQN "Domain.Finance" .
+      """
+          .formatted(ORDERS, CUSTOMERS);
+  private static final CatalogSecurityContext CALLER = RdfToolAuthorization.caller("analyst");
+  private static final Authorizer GRANTED = mock(Authorizer.class);
+
+  private final RecordingTraces traces = new RecordingTraces();
+  private final RdfRepository repository = JenaBackedRepository.ofTurtle(GRAPH);
+  private MockedStatic<DefaultAuthorizer> subjects;
+
+  @AfterEach
+  void releaseTheCallerResolution() {
+    if (subjects != null) {
+      subjects.close();
+    }
+  }
+
+  private KnowledgeGraphTool tool(final Supplier<RdfProjectionState> projectionState) {
+    return new KnowledgeGraphTool(
+        () -> repository,
+        projectionState,
+        (authorizer, caller, find) ->
+            List.of(
+                new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID),
+                new SearchHit("table", "warehouse.shop.public.customers", CUSTOMERS_ID)),
+        () -> traces,
+        Clock.systemUTC());
+  }
+
+  private KnowledgeGraphTool.Response call(final Map<String, Object> arguments) throws IOException {
+    return tool(() -> RdfProjectionState.READY).execute(GRANTED, CALLER, arguments);
+  }
+
+  private void callersAreAdministrators(final boolean administrators) {
+    subjects = RdfToolAuthorization.resolvingCallersAs(administrators);
+  }
+
+  @Test
+  void findReturnsCardsForTheSearchHitsAndMintsARun() throws IOException {
+    callersAreAdministrators(false);
+
+    final KnowledgeGraphTool.FindResponse response =
+        (KnowledgeGraphTool.FindResponse) call(Map.of("operation", "find", "question", "orders"));
+
+    assertThat(response.run()).isNotNull();
+    assertThat(response.nodes())
+        .extracting(NodeCard::id, NodeCard::label, NodeCard::inGraph)
+        .containsExactly(tuple(ORDERS, "orders", true), tuple(CUSTOMERS, "customers", true));
+  }
+
+  @Test
+  void aRunHandlePassedBackIsTheRunOfTheResponse() throws IOException {
+    callersAreAdministrators(false);
+    final UUID run = UUID.randomUUID();
+
+    final KnowledgeGraphTool.Response response =
+        call(Map.of("operation", "find", "question", "orders", "run", run.toString()));
+
+    assertThat(response.run()).isEqualTo(run);
+  }
+
+  @Test
+  void expandFollowsTwoRelationshipsFromTwoNodesAndPagesWithTheCursor() throws IOException {
+    callersAreAdministrators(false);
+    final Map<String, Object> arguments = new HashMap<>();
+    arguments.put("operation", "expand");
+    arguments.put("nodes", List.of(ORDERS, CUSTOMERS));
+    arguments.put("relationships", List.of("om:hasOwner", "om:hasTag"));
+    arguments.put("limit", 3);
+
+    final KnowledgeGraphTool.ExpandResponse first =
+        (KnowledgeGraphTool.ExpandResponse) call(arguments);
+    arguments.put("cursor", first.nextCursor());
+    arguments.put("run", first.run().toString());
+    final KnowledgeGraphTool.ExpandResponse second =
+        (KnowledgeGraphTool.ExpandResponse) call(arguments);
+
+    final List<String> walked = new ArrayList<>();
+    List.of(first, second)
+        .forEach(
+            page ->
+                page.expansions()
+                    .forEach(
+                        group -> group.nodes().forEach(far -> walked.add(group.node() + far))));
+    assertThat(walked)
+        .containsExactlyInAnyOrder(
+            ORDERS + E + "team-growth",
+            ORDERS + E + "tag-finance",
+            ORDERS + E + "tag-pii",
+            CUSTOMERS + E + "team-crm",
+            CUSTOMERS + E + "tag-pii");
+    assertThat(second.nextCursor()).isNull();
+    assertThat(first.expansions())
+        .extracting(ExpansionGroup::direction)
+        .containsOnly(Direction.OUTGOING);
+  }
+
+  @Test
+  void queryReturnsWhatTheSparqlQueryToolReturns() throws IOException {
+    callersAreAdministrators(false);
+    final String sparql =
+        "PREFIX om: <https://open-metadata.org/ontology/> "
+            + "SELECT ?owner WHERE { ?table om:hasOwner ?owner } ORDER BY ?owner LIMIT 10";
+
+    final KnowledgeGraphTool.QueryResponse response =
+        (KnowledgeGraphTool.QueryResponse) call(Map.of("operation", "query", "sparql", sparql));
+    final SparqlQueryTool.Result direct =
+        new SparqlQueryTool(
+                () -> repository,
+                SparqlQueryExecutionGuard.shared()::execute,
+                () -> RdfProjectionState.READY)
+            .execute(GRANTED, CALLER, Map.of("query", sparql));
+
+    assertThat(response.result()).isEqualTo(direct);
+    assertThat(response.result().body()).contains(E + "team-crm", E + "team-growth");
+  }
+
+  @Test
+  void aFindThenExpandRunIsTracedAsNodesEdgesStatesAndSteps() throws IOException {
+    callersAreAdministrators(false);
+    final UUID run = call(Map.of("operation", "find", "question", "orders")).run();
+    call(
+        Map.of(
+            "operation", "expand",
+            "run", run.toString(),
+            "nodes", List.of(ORDERS),
+            "relationships", List.of("om:hasOwner"),
+            "direction", "outgoing"));
+
+    final KnowledgeGraphTool.TraceResponse trace =
+        (KnowledgeGraphTool.TraceResponse)
+            call(Map.of("operation", "trace", "run", run.toString()));
+
+    assertThat(trace.steps())
+        .extracting(TraceStep::sequence, TraceStep::operation)
+        .containsExactly(tuple(1, Operation.FIND), tuple(2, Operation.EXPAND));
+    assertThat(trace.nodes())
+        .extracting(TraceNode::id, TraceNode::state)
+        .containsExactly(
+            tuple(ORDERS, ExplorationState.EXPLORED),
+            tuple(CUSTOMERS, ExplorationState.EXPLORED),
+            tuple(E + "team-growth", ExplorationState.EXPLORED));
+    assertThat(trace.edges())
+        .extracting(TraceEdge::node, TraceEdge::relationship, TraceEdge::other, TraceEdge::state)
+        .contains(
+            tuple(ORDERS, "om:hasOwner", null, ExplorationState.EXPLORED),
+            tuple(ORDERS, "om:hasOwner", E + "team-growth", ExplorationState.EXPLORED),
+            tuple(ORDERS, "om:hasTag", null, ExplorationState.OFFERED),
+            tuple(CUSTOMERS, "om:hasOwner", null, ExplorationState.OFFERED));
+    assertThat(traces.principals()).containsOnly("analyst");
+  }
+
+  @Test
+  void callersWithoutTheSparqlGrantAreRefusedBeforeTheGraphIsTouched() {
+    final RdfRepository untouched = mock(RdfRepository.class);
+    final KnowledgeGraphTool tool =
+        new KnowledgeGraphTool(
+            () -> untouched,
+            () -> RdfProjectionState.READY,
+            (authorizer, caller, find) -> List.of(),
+            () -> traces,
+            Clock.systemUTC());
+    final Authorizer denying = RdfToolAuthorization.denyingAuthorizer();
+
+    assertThatThrownBy(
+            () -> tool.execute(denying, CALLER, Map.of("operation", "find", "question", "x")))
+        .isInstanceOf(AuthorizationException.class);
+    RdfToolAuthorization.assertSparqlGrantRequested(denying, CALLER);
+    verifyNoInteractions(untouched);
+  }
+
+  @Test
+  void nonAdministratorsAreAnsweredOnlyFromAReadyProjection() {
+    callersAreAdministrators(false);
+
+    assertThatThrownBy(
+            () ->
+                tool(() -> RdfProjectionState.REBUILDING)
+                    .execute(GRANTED, CALLER, Map.of("operation", "find", "question", "orders")))
+        .isInstanceOf(RdfRetryLaterException.class)
+        .hasMessageContaining("PROJECTION_NOT_READY");
+  }
+
+  @Test
+  void aServerWithoutRdfSaysSoInsteadOfAnsweringEmpty() {
+    callersAreAdministrators(true);
+    final KnowledgeGraphTool tool =
+        new KnowledgeGraphTool(
+            () -> null,
+            () -> RdfProjectionState.READY,
+            (authorizer, caller, find) -> List.of(),
+            () -> traces,
+            Clock.systemUTC());
+
+    assertThatThrownBy(
+            () -> tool.execute(GRANTED, CALLER, Map.of("operation", "find", "question", "x")))
+        .isInstanceOf(RdfNotEnabledException.class);
+  }
+
+  @Test
+  void aRelationshipNameWithAnUnknownPrefixIsACorrection() {
+    callersAreAdministrators(false);
+
+    assertThatThrownBy(
+            () ->
+                call(
+                    Map.of(
+                        "operation", "expand",
+                        "nodes", List.of(ORDERS),
+                        "relationships", List.of("owner"))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("'owner'")
+        .hasMessageContaining("reachable");
+  }
+
+  @Test
+  void theResponseSerializesForTheTransport() throws IOException {
+    callersAreAdministrators(false);
+
+    final String json = JsonUtils.pojoToJson(call(Map.of("operation", "find", "question", "o")));
+
+    assertThat(json)
+        .contains("\"operation\":\"find\"", "\"reachable\"", "\"direction\":\"outgoing\"");
+  }
+
+  /** Keeps steps serialized, as the SQL store does, so a step that does not round-trip fails. */
+  private static final class RecordingTraces implements RunTraceStore {
+    private final Map<UUID, List<String>> steps = new HashMap<>();
+
+    @Override
+    public void append(final UUID run, final RunStep step) {
+      steps.computeIfAbsent(run, ignored -> new ArrayList<>()).add(JsonUtils.pojoToJson(step));
+    }
+
+    @Override
+    public List<RunStep> steps(final UUID run) {
+      return steps.getOrDefault(run, List.of()).stream()
+          .map(json -> JsonUtils.readValue(json, RunStep.class))
+          .toList();
+    }
+
+    List<String> principals() {
+      return steps.values().stream()
+          .flatMap(List::stream)
+          .map(json -> JsonUtils.readValue(json, RunStep.class).principal())
+          .toList();
+    }
+  }
+}

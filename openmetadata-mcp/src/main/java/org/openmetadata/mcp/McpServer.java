@@ -123,7 +123,12 @@ public class McpServer implements McpServerProvider {
    * ontology document straight off the classpath and works with RDF disabled.
    */
   private static final Set<String> RDF_DEPENDENT_TOOLS =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "shacl_validate");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "shacl_validate",
+          "knowledge_graph");
 
   private static final Set<String> WRITE_HELPER_TOOLS = Set.of("describe_entity_type");
 

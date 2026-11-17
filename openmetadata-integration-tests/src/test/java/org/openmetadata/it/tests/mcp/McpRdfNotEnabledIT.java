@@ -39,7 +39,12 @@ import org.openmetadata.service.Entity;
  */
 public class McpRdfNotEnabledIT extends McpTestBase {
   private static final Set<String> WITHHELD =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "shacl_validate");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "shacl_validate",
+          "knowledge_graph");
   private static final String RESOURCE = "https://open-metadata.org/ontology/Table";
   private static RdfAccessFixtures access;
   private static String grantedToken;

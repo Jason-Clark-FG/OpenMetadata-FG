@@ -38,7 +38,12 @@ import org.openmetadata.service.rdf.RdfRepository;
 class RdfToolGatingTest {
 
   private static final Set<String> RDF_DEPENDENT =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "shacl_validate");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "shacl_validate",
+          "knowledge_graph");
 
   @Test
   void rdfToolsAreWithheldWhenRdfIsDisabled() {

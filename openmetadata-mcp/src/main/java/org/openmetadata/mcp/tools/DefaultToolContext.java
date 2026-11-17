@@ -145,6 +145,9 @@ public class DefaultToolContext {
         case "ontology_describe":
           result = new OntologyDescribeTool().execute(authorizer, securityContext, params);
           break;
+        case "knowledge_graph":
+          result = new KnowledgeGraphTool().execute(authorizer, securityContext, params);
+          break;
         default:
           return new CallToolOutcome(
               errorResult(errorPayload("Unknown function: " + toolName, STATUS_BAD_REQUEST)),

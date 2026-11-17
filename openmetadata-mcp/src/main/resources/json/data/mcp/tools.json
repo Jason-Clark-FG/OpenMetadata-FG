@@ -1093,6 +1093,85 @@
           }
         }
       }
+    },
+    {
+      "name": "knowledge_graph",
+      "title": "Explore Knowledge Graph",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "description": "Explore the OpenMetadata knowledge graph step by step without writing SPARQL. 1) operation=find with a 'question' returns starting nodes as cards. 2) Read each card: 'facts' (description, tier, certification, owners, service, usage); 'reachable', one entry per relationship the node actually has, in each direction, with a count and 'about' saying what is behind it; and 'notCovered', facts the graph does not carry for that kind of node, so their absence proves nothing. 3) operation=expand with card ids in 'nodes' and 'reachable' names such as om:hasOwner or om:upstream in 'relationships' returns the nodes on the other side as cards; pass 'nextCursor' back as 'cursor' for the next page. 4) operation=query runs a SELECT exactly as sparql_query does, for joins and counts across many nodes. 5) operation=trace returns the nodes, edges and ordered steps a run explored. Every response has a 'run'; pass it back on every later call so the exploration is recorded as one run. Requires the ExecuteSparqlQuery permission; administrators always pass.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "find",
+              "expand",
+              "query",
+              "trace"
+            ],
+            "description": "find, expand, query or trace."
+          },
+          "run": {
+            "type": "string",
+            "description": "The 'run' an earlier knowledge_graph call returned. Omit on the first call; required for trace."
+          },
+          "question": {
+            "type": "string",
+            "description": "find: the words to look for, e.g. 'customer orders'."
+          },
+          "entityTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "find: optional entity types to search, e.g. ['table', 'dashboard']."
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "expand: the 'id' of one or more cards."
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "expand: relationship names from a card's 'reachable' list, e.g. ['om:hasOwner', 'om:upstream']."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outgoing",
+              "incoming",
+              "both"
+            ],
+            "description": "expand: which end of the relationship to follow. Default both.",
+            "default": "both"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "find: cards to return, default 5, max 10. expand: far nodes per page, default 10, max 50."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "expand: the 'nextCursor' of the previous page, passed back unchanged."
+          },
+          "sparql": {
+            "type": "string",
+            "description": "query: the SELECT to run, with PREFIX om: <https://open-metadata.org/ontology/>."
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      }
     }
   ]
 }

@@ -49,9 +49,15 @@ class RdfToolDescriptionVocabularyTest {
           "entity_neighborhood",
           "find_by_tag",
           "shacl_validate",
-          "ontology_describe");
+          "ontology_describe",
+          "knowledge_graph");
   private static final Set<String> QUERY_PERMISSION_TOOLS =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "ontology_describe");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "ontology_describe",
+          "knowledge_graph");
   private static final int SPARQL_QUERY_DESCRIPTION_BUDGET = 3_000;
   private static final Pattern OM_TERM = Pattern.compile("\\bom:([A-Za-z][A-Za-z0-9]*)");
   private static final Pattern COLUMN_LINEAGE_QUERY =
