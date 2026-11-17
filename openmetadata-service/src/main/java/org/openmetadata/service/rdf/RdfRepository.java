@@ -600,8 +600,9 @@ public class RdfRepository {
     projectionLoaders.ontologyGraphs().get().refresh(ontologyId, storageService);
   }
 
-  /** Re-projects every asset bound to a concept of the ontology, one page of assets at a time. */
-  public void refreshBoundAssets(final UUID ontologyId) {
+  /** Hands the assets bound to a concept of the ontology to {@code pageAction}, page by page. */
+  public void forEachBoundAssetPage(
+      final UUID ontologyId, final Consumer<List<EntityReference>> pageAction) {
     String after = "";
     List<EntityReference> page;
     do {
@@ -609,8 +610,10 @@ public class RdfRepository {
           projectionLoaders
               .boundAssets()
               .page(ontologyId, after, RdfProjectionLoaders.BoundAssets.PAGE_SIZE);
-      page.forEach(asset -> refreshEntity(asset.getType(), asset.getId()));
-      after = page.isEmpty() ? after : page.getLast().getId().toString();
+      if (!page.isEmpty()) {
+        pageAction.accept(page);
+        after = page.getLast().getId().toString();
+      }
     } while (page.size() == RdfProjectionLoaders.BoundAssets.PAGE_SIZE);
   }
 

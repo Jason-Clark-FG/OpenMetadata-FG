@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.jena.query.Dataset;
@@ -80,6 +82,7 @@ class RdfLiveWriteTest {
   private boolean lineageEdgeExists = true;
   private final Set<UUID> softDeleted = new HashSet<>();
   private final List<EntityReference> boundAssets = new ArrayList<>();
+  private UUID unreadableAsset;
   private final List<UUID> refreshedOntologyGraphs = new ArrayList<>();
   private final OntologyActiveGraph ontologyGraphs = ontologyGraphs();
   private final RdfRepository repository = repository();
@@ -279,22 +282,45 @@ class RdfLiveWriteTest {
   }
 
   @Test
-  void anActiveReleaseChangeReprojectsEveryAssetBoundToTheOntologysConcepts() {
+  void anActiveReleaseChangeReplacesTheGraphAndQueuesEachBoundAssetAsItsOwnWrite()
+      throws ReflectiveOperationException {
     EntityInterface.CANONICAL_ENTITY_NAME_MAP.put("table", Entity.TABLE);
     final UUID ontologyId = UUID.randomUUID();
-    final int assets = RdfProjectionLoaders.BoundAssets.PAGE_SIZE + 1;
-    for (int index = 0; index < assets; index++) {
+    for (int index = 0; index <= RdfProjectionLoaders.BoundAssets.PAGE_SIZE; index++) {
       boundAssets.add(new EntityReference().withType(Entity.TABLE).withId(new UUID(0, index + 1)));
     }
-
-    replay(new RdfLiveWrite.OntologyGraph(ontologyId));
+    unreadableAsset = new UUID(0, 2);
+    final List<RdfLiveWrite> queued = new ArrayList<>();
+    final Field queue = RdfUpdater.class.getDeclaredField("writeQueue");
+    queue.setAccessible(true);
+    final Object original = queue.get(null);
+    queue.set(null, (Consumer<List<RdfLiveWrite>>) queued::addAll);
+    try {
+      replay(new RdfLiveWrite.OntologyGraph(ontologyId));
+    } finally {
+      queue.set(null, original);
+    }
 
     assertEquals(List.of(ontologyId), refreshedOntologyGraphs);
+    assertTrue(dataset.getNamedModel(GRAPH).isEmpty(), "the release write projects no asset");
+    assertEquals(
+        boundAssets.stream()
+            .map(asset -> (RdfLiveWrite) new RdfLiveWrite.EntityUpdate(Entity.TABLE, asset.getId()))
+            .toList(),
+        queued);
+    for (RdfLiveWrite write : queued) {
+      if (((RdfLiveWrite.EntityUpdate) write).entityId().equals(unreadableAsset)) {
+        assertThrows(RuntimeException.class, () -> replay(write));
+      } else {
+        replay(write);
+      }
+    }
     final Model graph = dataset.getNamedModel(GRAPH);
     for (EntityReference asset : boundAssets) {
-      assertTrue(
+      assertEquals(
+          !asset.getId().equals(unreadableAsset),
           graph.contains(graph.createResource(BASE + "entity/table/" + asset.getId()), null),
-          () -> "asset " + asset.getId() + " was not re-projected");
+          () -> "asset " + asset.getId());
     }
   }
 
@@ -368,6 +394,9 @@ class RdfLiveWriteTest {
   }
 
   private EntityInterface<?> load(final UUID id) {
+    if (id.equals(unreadableAsset)) {
+      throw new IllegalStateException("asset " + id + " cannot be read");
+    }
     final boolean bound = boundAssets.stream().anyMatch(asset -> asset.getId().equals(id));
     if (!bound && currentEntity == null) {
       throw new EntityNotFoundException("Entity was hard deleted");

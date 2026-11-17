@@ -95,13 +95,24 @@ and export are unchanged: bindings stay out of them, as the decision above says.
   asset, removes its edges with no binding-specific hook.
 - **Sync.** A committed binding write or removal enqueues the bound asset's ordinary entity update.
   A concept's hard-delete cleanup reads its bound assets before deleting the rows and enqueues
-  them. The `ontologyGraph` live write, enqueued on every change of the active release, now also
-  re-projects every asset bound to a concept of that ontology, one page of 500 at a time. Cleanup
-  under the lock only removes rows of deleted assets, whose projection is already gone, and
-  enqueues nothing.
+  them. The `ontologyGraph` live write, enqueued on every change of the active release, replaces
+  the release graph and then enqueues an entity update for every asset bound to a concept of that
+  ontology, in pages of 500; it projects none of them itself. Each asset is then its own queued
+  write with its own retries and dead letter, so an asset that cannot be projected neither blocks
+  the release nor the other assets. Enqueueing from inside a delivery takes the queue's enqueue
+  lock, which is independent of the writer fence the delivery holds. Cleanup under the lock only
+  removes rows of deleted assets, whose projection is already gone, and enqueues nothing.
+- **Existing installations.** No migration projects existing bindings: a graph shows no binding
+  edges until the next RDF reindex, or until each bound asset is written again. During a rolling
+  upgrade an older server's entity writes do not know the binding edges are in the asset's scope,
+  so a binding change it misses or a column it drops can leave stale binding edges until a
+  reindex.
 
 Accepted consequence: the bindings API omits links to assets a reader cannot view, and the serving
 graph shows every link to anyone allowed to query it. Access filtering on the graph is deferred
 work. Guarded by `RdfConceptBindingProjectionTest`, `RdfConceptBindingWriteTest`,
 `OntologyServedBindingsStorageTest`, `OntologyConceptBindingProjectionTest`, `RdfLiveWriteTest`,
-`RdfUpdaterTest` and `RdfOntologyContractTest`.
+`RdfUpdaterTest`, `RdfOntologyContractTest`,
+`OntologyActiveGraphStorageTest#aWriteBeingDeliveredQueuesTheBoundAssetsItRefreshesAfterItself`
+and, against the Fuseki image,
+`RdfEntityDiffWriteIT#conceptBindingEdgesFollowTheBindingsAndLeaveTheReleaseGraphAlone`.
