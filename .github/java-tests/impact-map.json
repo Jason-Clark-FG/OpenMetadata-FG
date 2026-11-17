@@ -794,6 +794,7 @@
       ],
       "tests": [
         "*Rdf*IT",
+        "KnowledgeGraph*IT",
         "Lod*IT",
         "*Sparql*IT",
         "*Ontology*IT",

@@ -61,6 +61,16 @@ class SqlRunTraceStoreTest {
   }
 
   @Test
+  void aStepComesBackEqualToTheStepRecorded() {
+    final SqlRunTraceStore store = storeAt(rows, NOW);
+    final RunStep recorded = step("orders");
+
+    store.append(run, recorded);
+
+    assertThat(store.steps(run)).containsExactly(recorded);
+  }
+
+  @Test
   void aStepOlderThanTheRetentionIsNotReturned() {
     final SqlRunTraceStore store = storeAt(rows, NOW);
     store.append(run, step("old"));

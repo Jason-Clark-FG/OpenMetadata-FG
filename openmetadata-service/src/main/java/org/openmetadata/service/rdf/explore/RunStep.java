@@ -35,7 +35,12 @@ public record RunStep(
 
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   public record Input(
-      String question, List<String> nodes, List<String> relationships, String sparql) {}
+      String question, List<String> nodes, List<String> relationships, String sparql) {
+    public Input {
+      nodes = nodes == null ? List.of() : List.copyOf(nodes);
+      relationships = relationships == null ? List.of() : List.copyOf(relationships);
+    }
+  }
 
   /** A node returned as a card, with the relationships its card offered. */
   @JsonInclude(JsonInclude.Include.NON_EMPTY)

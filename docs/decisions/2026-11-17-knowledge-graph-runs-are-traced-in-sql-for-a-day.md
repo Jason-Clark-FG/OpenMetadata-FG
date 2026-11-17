@@ -4,7 +4,8 @@
 - **Revisions:** v1 2026-11-17 (initial)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `SqlRunTraceStoreTest`, `KnowledgeGraphExplorerTest`,
-  `OntologySqlMigrationParityTest#upgradeCreatesTheExplorationRunTraceTable`
+  `OntologySqlMigrationParityTest#upgradeCreatesTheExplorationRunTraceTable`,
+  `KnowledgeGraphRunTraceDaoIT` (MySQL and Postgres)
 - **Related:** ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards,
   ADR:2026-10-11-asserted-only-rdf-reads-name-every-non-inferred-graph,
   ADR:2026-10-26-the-rdf-graph-projects-the-live-catalog-only,

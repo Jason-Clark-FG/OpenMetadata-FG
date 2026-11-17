@@ -5,7 +5,7 @@
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `RdfToolGatingTest`,
-  `RdfToolDescriptionVocabularyTest`
+  `RdfToolDescriptionVocabularyTest`, `ExplorationQueriesTest`, `RdfKnowledgeGraphToolIT`
 - **Related:** ADR:2026-09-16-agent-sparql-execution,
   ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day,
   ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk
