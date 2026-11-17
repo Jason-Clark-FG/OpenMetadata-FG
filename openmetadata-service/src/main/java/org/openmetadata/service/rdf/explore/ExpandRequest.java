@@ -17,14 +17,16 @@ import java.util.Set;
 
 /**
  * Which relationships to follow from which nodes. {@code relationships} are full IRIs; {@code
- * offset} counts the (node, relationship, direction, far node) rows earlier pages returned.
+ * offset} counts the (node, relationship, direction, far node) rows earlier pages returned. A page
+ * ends early rather than serialize past {@code maxChars}, and always carries at least one row.
  */
 public record ExpandRequest(
     List<String> nodes,
     List<String> relationships,
     Set<Direction> directions,
     int limit,
-    int offset) {
+    int offset,
+    long maxChars) {
 
   public ExpandRequest {
     nodes = List.copyOf(nodes);

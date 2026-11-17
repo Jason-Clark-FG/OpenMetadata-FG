@@ -18,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.jena.query.QuerySolution;
 
 /** Follows named relationships from a set of nodes, one page of far nodes at a time. */
@@ -34,14 +36,22 @@ public final class GraphExpansion {
     this.vocabulary = Objects.requireNonNull(vocabulary);
   }
 
+  /** Up to {@code limit} rows, fewer when their cards would not fit {@code maxChars}. */
   public ExpandPage expand(final ExpandRequest request) {
     final List<ExpansionRow> rows = readRows(request);
-    final boolean hasMore = rows.size() > request.limit();
-    final List<ExpansionRow> page = hasMore ? rows.subList(0, request.limit()) : rows;
+    final List<ExpansionRow> candidates = rows.subList(0, Math.min(rows.size(), request.limit()));
+    final Map<String, NodeCard> cardsById = cardsOf(candidates);
+    final List<ExpansionRow> page =
+        candidates.subList(0, PageBudget.rowsThatFit(candidates, cardsById, request.maxChars()));
     return ExpansionRow.toPage(
         page,
-        cards.read(page.stream().map(ExpansionRow::other).toList()),
-        hasMore ? request.offset() + page.size() : null);
+        page.stream().map(ExpansionRow::other).distinct().map(cardsById::get).toList(),
+        rows.size() > page.size() ? request.offset() + page.size() : null);
+  }
+
+  private Map<String, NodeCard> cardsOf(final List<ExpansionRow> rows) {
+    return cards.read(rows.stream().map(ExpansionRow::other).toList()).stream()
+        .collect(Collectors.toMap(NodeCard::id, Function.identity()));
   }
 
   private List<ExpansionRow> readRows(final ExpandRequest request) {

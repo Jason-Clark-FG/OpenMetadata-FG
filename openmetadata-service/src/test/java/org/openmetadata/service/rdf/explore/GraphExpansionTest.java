@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.openmetadata.schema.utils.JsonUtils;
 
 class GraphExpansionTest {
 
@@ -52,13 +53,20 @@ class GraphExpansionTest {
         graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical());
   }
 
+  private static final long UNBOUNDED = Long.MAX_VALUE;
+
   private static ExpandRequest request(final int limit, final int offset) {
+    return request(limit, offset, UNBOUNDED);
+  }
+
+  private static ExpandRequest request(final int limit, final int offset, final long maxChars) {
     return new ExpandRequest(
         List.of(ORDERS, CUSTOMERS),
         List.of(HAS_OWNER, HAS_TAG),
         Set.of(Direction.OUTGOING, Direction.INCOMING),
         limit,
-        offset);
+        offset,
+        maxChars);
   }
 
   @Test
@@ -128,10 +136,52 @@ class GraphExpansionTest {
         expansion()
             .expand(
                 new ExpandRequest(
-                    List.of(ORDERS), List.of(UPSTREAM), Set.of(Direction.INCOMING), 10, 0));
+                    List.of(ORDERS),
+                    List.of(UPSTREAM),
+                    Set.of(Direction.INCOMING),
+                    10,
+                    0,
+                    UNBOUNDED));
 
     assertThat(page.expansions())
         .extracting(ExpansionGroup::relationship, ExpansionGroup::direction, ExpansionGroup::nodes)
         .containsExactly(tuple("om:upstream", Direction.INCOMING, List.of(REPORT)));
+  }
+
+  @Test
+  void aPageThatWouldNotFitTheResponseBudgetEndsEarlyAndTheCursorResumesThere() {
+    final GraphExpansion expansion = expansion();
+    final ExpandPage unbounded = expansion.expand(request(10, 0));
+    final long budget = JsonUtils.pojoToJson(unbounded).length() / 2;
+    final List<String> walked = new ArrayList<>();
+    final List<ExpandPage> pages = new ArrayList<>();
+    Integer offset = 0;
+    while (offset != null) {
+      final ExpandPage page = expansion.expand(request(10, offset, budget));
+      page.expansions()
+          .forEach(group -> group.nodes().forEach(far -> walked.add(group.node() + far)));
+      pages.add(page);
+      offset = page.nextOffset();
+    }
+
+    assertThat(pages.getFirst().nextOffset()).isNotNull();
+    assertThat(pages)
+        .allSatisfy(
+            page ->
+                assertThat(rows(page) == 1 || JsonUtils.pojoToJson(page).length() <= budget)
+                    .isTrue());
+    assertThat(walked).hasSize(5).doesNotHaveDuplicates();
+  }
+
+  private static int rows(final ExpandPage page) {
+    return page.expansions().stream().mapToInt(group -> group.nodes().size()).sum();
+  }
+
+  @Test
+  void aSingleRowLargerThanTheBudgetStillMakesProgress() {
+    final ExpandPage page = expansion().expand(request(10, 0, 1));
+
+    assertThat(page.expansions()).hasSize(1);
+    assertThat(page.nextOffset()).isEqualTo(1);
   }
 }

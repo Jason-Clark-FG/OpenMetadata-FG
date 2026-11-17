@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.openmetadata.mcp.util.PageCursor;
+import org.openmetadata.mcp.util.ResponseBudget;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.RdfProjectionStateResolver;
@@ -178,7 +179,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         expand.relationships().stream().map(vocabulary::expand).toList(),
         expand.directions(),
         expand.limit(),
-        expand.offset());
+        expand.offset(),
+        ResponseBudget.defaultBudgetChars());
   }
 
   private QueryResponse query(

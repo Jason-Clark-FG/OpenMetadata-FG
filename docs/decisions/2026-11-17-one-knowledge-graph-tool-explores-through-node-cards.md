@@ -42,7 +42,10 @@ drawn.
   projection mints (`RdfUtils.entityUri`; columns by FQN, `RdfUtils.columnUri`). A hit the graph
   holds nothing about comes back with `inGraph: false`.
 - **`expand`** pages rows of (node, relationship, direction, far node) ordered by those keys;
-  `cursor` is the opaque offset of the next page. Far nodes come back once each as cards.
+  `cursor` is the opaque offset of the next page. Far nodes come back once each as cards. A page
+  holds up to `limit` rows (default 10, max 50) and ends early, at least one row in, rather than
+  serialize past the MCP response budget, so a large page is cut where the cursor resumes instead
+  of being replaced by the dispatcher's truncation envelope. `find` returns at most 10 cards.
 - **`query`** is the `sparql_query` tool's own implementation, unchanged.
 - **Access and bounds** are those of the sibling RDF tools: the `ExecuteSparqlQuery` check on the
   `rdf` resource, a `READY` projection for non-administrators, every graph read inside the shared

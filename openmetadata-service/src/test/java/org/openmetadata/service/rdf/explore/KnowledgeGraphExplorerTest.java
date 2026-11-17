@@ -97,7 +97,12 @@ class KnowledgeGraphExplorerTest {
     explorer.expand(
         run,
         new ExpandRequest(
-            List.of(ORDERS), List.of(OM + "upstream"), Set.of(Direction.OUTGOING), 10, 0));
+            List.of(ORDERS),
+            List.of(OM + "upstream"),
+            Set.of(Direction.OUTGOING),
+            10,
+            0,
+            Long.MAX_VALUE));
     final RunTrace trace = explorer.trace(run.run());
 
     assertThat(trace.steps())
