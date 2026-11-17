@@ -684,6 +684,39 @@ om:TableConstraint a owl:Class ;
     rdfs:comment "A constraint (primary key, foreign key, unique, etc.) declared on a table." ;
     rdfs:subClassOf om:Entity .
 
+om:ConstraintMember a owl:Class ;
+    rdfs:label "Constraint Member" ;
+    rdfs:comment "One column of a table constraint at its position in the key, with the column it refers to for a foreign key. A composite key has one member per column; the key as a whole is unique, not each member." ;
+    rdfs:subClassOf om:Entity .
+
+om:hasConstraintMember a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has constraint member" ;
+    rdfs:comment "A member of this constraint, one per column, numbered by om:memberPosition. Read the members in position order to know a key's column order, or to pair each foreign key column with the column it references before writing a join on a composite key." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range om:ConstraintMember .
+
+om:memberPosition a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "member position" ;
+    rdfs:comment "Position of the member's column in the constraint, counted from 1 in the order the constraint declares its columns." ;
+    rdfs:domain om:ConstraintMember ;
+    rdfs:range xsd:int .
+
+om:memberColumn a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "member column" ;
+    rdfs:comment "The column of the constrained table at this position of the constraint." ;
+    rdfs:domain om:ConstraintMember ;
+    rdfs:range om:Column .
+
+om:memberReferredColumn a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "member referred column" ;
+    rdfs:comment "For a foreign key, the column the member column references: join om:memberColumn to om:memberReferredColumn for every member of the constraint, not for a subset, or the join multiplies rows." ;
+    rdfs:domain om:ConstraintMember ;
+    rdfs:range om:Column .
+
 om:LineageDetails a owl:Class ;
     rdfs:label "Lineage Details" ;
     rdfs:comment "Reified details of a lineage edge, including column-level mappings and the pipeline that produced it." ;
@@ -741,6 +774,20 @@ om:hasReplica a owl:ObjectProperty ;
     rdfs:subPropertyOf om:mappedTo ;
     rdfs:domain om:GlossaryTerm ;
     rdfs:range om:DataAsset .
+
+om:boundAsset a rdf:Property, owl:AnnotationProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "bound asset" ;
+    rdfs:comment "Catalog asset that implements an Ontology Studio concept. The subject is the concept under the IRI its ontology's active release gives it, so the concept's definition is in that release's graph; the object is the asset's catalog node. Follow it to go from a business term to the tables, topics or dashboards that hold its data, then om:hasColumn for the columns. Only concepts of an active release carry it; a binding to a draft concept appears once a release holding the concept is activated. The bindings API leaves out assets a reader cannot view; this edge does not." ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:range om:DataAsset .
+
+om:boundColumn a rdf:Property, owl:AnnotationProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "bound column" ;
+    rdfs:comment "Column that holds the values of an Ontology Studio property, such as Customer.email bound to customers.cust_email. The subject is the property under the IRI its ontology's active release gives it; the object is the om:Column node om:hasColumn reaches. Use it to turn a question about a business attribute into the column to select or filter. The edge does not say which concept the assignment was made for; a property shared by several concepts can point at columns of several assets. A column path that no longer resolves is left out." ;
+    rdfs:domain rdf:Property ;
+    rdfs:range om:Column .
 
 om:hasOwner a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
@@ -1381,7 +1428,7 @@ om:columnDescription a owl:DatatypeProperty ;
 om:isPrimaryKey a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "is primary key" ;
-    rdfs:comment "Whether this column is a primary key" ;
+    rdfs:comment "True for every column of the table's primary key, each member of a composite key included. A member of a composite key is not unique on its own: om:isUnique says when a column is, and the key's om:TableConstraint lists its members in order." ;
     rdfs:domain om:Column ;
     rdfs:range xsd:boolean .
 
@@ -3175,7 +3222,7 @@ om:isShared a rdf:Property ;
 om:isUnique a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isUnique" ;
-    rdfs:comment "True when the column alone is unique, from a column-level PRIMARY_KEY or UNIQUE constraint or a single-column PRIMARY_KEY or UNIQUE table constraint. Composite keys use om:hasConstrainedColumn and do not imply individual uniqueness." .
+    rdfs:comment "True when the column alone is unique, from a column-level UNIQUE constraint, a single-column PRIMARY_KEY or UNIQUE table constraint, or a column-level PRIMARY_KEY that no other column of the table shares. Composite keys use om:hasConstrainedColumn and om:hasConstraintMember and do not imply individual uniqueness; PRIMARY_KEY markers on several columns state one composite key." .
 
 om:joins a rdf:Property ;
     om:projectionStatus om:Stored ;

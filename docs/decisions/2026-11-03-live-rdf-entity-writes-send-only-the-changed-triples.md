@@ -1,7 +1,7 @@
 # Live RDF entity writes send only the changed triples
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership)
+- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership) · v3 2026-11-17 (incoming concept binding edges, constraint members)
 - **Deciders:** OpenMetadata RDF maintainers
 - **Guard:** `RdfEntityWritePlannerTest`, `RdfOwnedResourcesTest`, `RdfEntityDiffWriteIT`,
   `EntityWriteCircuitBreakerTest`, `InferenceInvalidatingRdfStorageTest`,
@@ -89,3 +89,19 @@ Columns referenced in other tables and relationship-managed lineage remain outsi
 This completes the constraint and profile cleanup deferred above. Other deferred resources remain
 outside the scope. Already disconnected resources still require `recreateIndex: true`.
 Guarded by `RdfOwnedResourcesTest`, `RdfEntityWritePlannerTest` and `RdfEntityDiffWriteIT` (#37755).
+
+## Amendment 2026-11-17
+
+An asset's scope also holds the concept binding edges into it and into its columns
+(`<concept> om:boundAsset <asset>`, `<property> om:boundColumn <column>`), the only triples of
+another subject an entity owns. The read, the difference, the replacement, the bulk reconcile and
+the delete match them through `RdfOwnedResources.incomingBindingTriplesPattern`, so they are
+compared and replaced like the entity's own triples; the subjects' other triples, which the active
+release graph holds, are never touched. See
+ADR:2026-10-19-native-concept-bindings-remain-operational-metadata. Guarded by
+`RdfConceptBindingWriteTest`.
+
+The scope also owns each table constraint's `om:ConstraintMember` nodes and the column nodes its
+`om:hasConstrainedColumn` names, so a constraint naming a column the table does not have leaves
+no triples behind once it changes (ADR:2026-11-13-column-uniqueness-means-the-column-alone-is-unique).
+Guarded by `RdfEntityWritePlannerTest` and `RdfOwnedResourcesTest`.

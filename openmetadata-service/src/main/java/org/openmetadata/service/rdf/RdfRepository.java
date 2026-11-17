@@ -71,6 +71,7 @@ import org.openmetadata.service.rdf.storage.RdfStorageInterface;
 import org.openmetadata.service.rdf.storage.RdfStorageMaintenanceException;
 import org.openmetadata.service.rdf.storage.RdfWriteOutcomeUnknownException;
 import org.openmetadata.service.rdf.storage.StorageFacts;
+import org.openmetadata.service.rdf.translator.ConceptBindingLookup;
 import org.openmetadata.service.rdf.translator.JsonLdTranslator;
 import org.openmetadata.service.rdf.translator.LiveTagLookup;
 import org.openmetadata.service.rdf.translator.ReferenceScope;
@@ -228,7 +229,12 @@ public class RdfRepository {
       this.storageService =
           servingChain(materializationStorageService, inferenceRuleRepository, assertedOnlyQueries);
       this.translator =
-          new JsonLdTranslator(JsonUtils.getObjectMapper(), config.getBaseUri().toString());
+          new JsonLdTranslator(
+              JsonUtils.getObjectMapper(),
+              config.getBaseUri().toString(),
+              LiveTagLookup.database(),
+              ConceptBindingLookup.database(),
+              ReferenceScope.LIVE);
       this.documentTranslator =
           new JsonLdTranslator(
               JsonUtils.getObjectMapper(),
@@ -592,6 +598,23 @@ public class RdfRepository {
 
   public void refreshOntologyGraph(final UUID ontologyId) {
     projectionLoaders.ontologyGraphs().get().refresh(ontologyId, storageService);
+  }
+
+  /** Hands the assets bound to a concept of the ontology to {@code pageAction}, page by page. */
+  public void forEachBoundAssetPage(
+      final UUID ontologyId, final Consumer<List<EntityReference>> pageAction) {
+    String after = "";
+    List<EntityReference> page;
+    do {
+      page =
+          projectionLoaders
+              .boundAssets()
+              .page(ontologyId, after, RdfProjectionLoaders.BoundAssets.PAGE_SIZE);
+      if (!page.isEmpty()) {
+        pageAction.accept(page);
+        after = page.getLast().getId().toString();
+      }
+    } while (page.size() == RdfProjectionLoaders.BoundAssets.PAGE_SIZE);
   }
 
   public void rebuildOntologyGraphs() {
@@ -1071,20 +1094,22 @@ public class RdfRepository {
   }
 
   /**
-   * Builds one update that removes an entity's incoming and outgoing triples, its owned resources
-   * and the lineage details of its edges.
+   * Builds one update that removes an entity's incoming and outgoing triples, its owned resources,
+   * the concept binding edges into its columns and the lineage details of its edges.
    */
   public static String buildEntityDeleteUpdate(String entityUri) {
     return String.format(
         "DELETE { GRAPH <%1$s> { ?subject ?p ?o } } WHERE { GRAPH <%1$s> { "
             + "VALUES ?entity { <%2$s> } "
             + "{ ?entity ?p ?o . BIND(?entity AS ?subject) } UNION "
-            + "{ ?subject ?p ?entity . BIND(?entity AS ?o) } UNION { %3$s } UNION { %4$s } } }",
+            + "{ ?subject ?p ?entity . BIND(?entity AS ?o) } UNION { %3$s } UNION { %4$s } "
+            + "UNION { %5$s } } }",
         KNOWLEDGE_GRAPH,
         entityUri,
         RdfOwnedResources.ownedTriplesPattern(),
         RdfLineage.incidentDetailsTriplesPattern(
-            entityUri.substring(entityUri.lastIndexOf('/') + 1)));
+            entityUri.substring(entityUri.lastIndexOf('/') + 1)),
+        RdfOwnedResources.incomingBindingTriplesPattern());
   }
 
   private static String buildIriValues(Collection<String> iris) {
