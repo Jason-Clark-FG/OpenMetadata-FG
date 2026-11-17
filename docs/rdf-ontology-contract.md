@@ -117,6 +117,29 @@ downstream of the source column take 330 ms in memory, and 11 pages of 250 rows 
 
 `om:hasChildColumn` is stored for nested table columns; traversing to their owning asset needs no inference.
 
+## Table keys
+
+Each table constraint is an `om:TableConstraint` whose `om:ConstraintMember`s give its columns in
+order. A foreign key pairs each member column with the referred column at the same position:
+
+```sparql
+PREFIX om: <https://open-metadata.org/ontology/>
+SELECT ?position ?column ?referred WHERE {
+  ?table om:fullyQualifiedName "svc.db.sales.order_lines" ;
+         om:hasConstraint ?key .
+  ?key om:constraintType "FOREIGN_KEY" ;
+       om:hasConstraintMember ?member .
+  ?member om:memberPosition ?position ;
+          om:memberColumn ?column ;
+          om:memberReferredColumn ?referred .
+} ORDER BY ?key ?position
+```
+
+`om:isUnique true` means the column alone is unique. A member of a composite key, including a key
+stated through column-level PRIMARY_KEY markers on several columns, carries `om:isPrimaryKey` but
+not `om:isUnique`; join on every member of the key. See
+ADR:2026-11-13-column-uniqueness-means-the-column-alone-is-unique.
+
 ## Domain membership
 
 An asset's `domains` are projected as `om:belongsToDomain`, the predicate already used

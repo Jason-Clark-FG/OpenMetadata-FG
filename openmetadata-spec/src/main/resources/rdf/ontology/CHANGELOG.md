@@ -15,6 +15,18 @@ The version recorded here is the value of `owl:versionInfo` on the `om:` ontolog
   active release. The asset owns both edges: its writes replace them and its delete removes them.
   See ADR:2026-10-19-native-concept-bindings-remain-operational-metadata.
 
+### Added — Ordered constraint members
+
+- `om:ConstraintMember`, `om:hasConstraintMember`, `om:memberPosition`, `om:memberColumn` and
+  `om:memberReferredColumn`: each table constraint lists its columns in order, and a foreign key
+  pairs each column with its referred column.
+
+### Changed — Column-level composite primary keys
+
+- PRIMARY_KEY markers on several columns project as one composite `om:TableConstraint` and no
+  longer mark each column `om:isUnique`. See
+  ADR:2026-11-13-column-uniqueness-means-the-column-alone-is-unique.
+
 ## 1.1.0 — 2026-04-28
 
 Knowledge-graph fidelity pass. All changes are additive or domain corrections; existing consumers

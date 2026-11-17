@@ -49,6 +49,7 @@ import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.entity.data.Topic;
 import org.openmetadata.schema.type.Column;
+import org.openmetadata.schema.type.ColumnConstraint;
 import org.openmetadata.schema.type.ColumnDataType;
 import org.openmetadata.schema.type.ColumnProfile;
 import org.openmetadata.schema.type.TableConstraint;
@@ -376,6 +377,39 @@ class RdfEntityWritePlannerTest {
     writeBoth(TABLE_URI, table);
     assertSameGraph();
     assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(table).add(shared)));
+  }
+
+  @Test
+  void aKeyThatLosesMembersOrIsDroppedLeavesOnlyWhatItStillStates() {
+    final TableConstraint key =
+        new TableConstraint()
+            .withConstraintType(ConstraintType.PRIMARY_KEY)
+            .withColumns(List.of("tenant_id", "line_no", "legacy_id"));
+    final Table table =
+        table(List.of(column("tenant_id"), column("line_no"))).withTableConstraints(List.of(key));
+    writeBoth(TABLE_URI, table);
+    assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(table)));
+
+    key.setColumns(List.of("line_no"));
+    writeBoth(TABLE_URI, table);
+    assertSameGraph();
+    assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(table)));
+
+    table.setTableConstraints(List.of());
+    table.setColumns(
+        List.of(
+            column("tenant_id").withConstraint(ColumnConstraint.PRIMARY_KEY),
+            column("line_no").withConstraint(ColumnConstraint.PRIMARY_KEY)));
+    writeBoth(TABLE_URI, table);
+    assertSameGraph();
+    assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(table)));
+
+    table.setColumns(
+        List.of(
+            column("tenant_id"), column("line_no").withConstraint(ColumnConstraint.PRIMARY_KEY)));
+    writeBoth(TABLE_URI, table);
+    assertSameGraph();
+    assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(table)));
   }
 
   @Test

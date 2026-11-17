@@ -187,6 +187,7 @@ public class RdfPropertyMapper {
   private final Cache<String, Map<String, Object>> mergedContextCache =
       Caffeine.newBuilder().maximumSize(MAX_MERGED_CONTEXT_ENTRIES).build();
   private final LiveReferenceFilter liveReferences;
+  private final RdfTableKeyMapper keyMapper;
 
   public RdfPropertyMapper(
       String baseUri, ObjectMapper objectMapper, Map<String, Object> contextCache) {
@@ -207,6 +208,7 @@ public class RdfPropertyMapper {
             this.baseUri,
             Objects.requireNonNull(tagLookup, "tagLookup"),
             Objects.requireNonNull(referenceScope, "referenceScope"));
+    this.keyMapper = new RdfTableKeyMapper(this.baseUri);
   }
 
   public static boolean isIgnoredEntityField(String fieldName) {
@@ -283,6 +285,7 @@ public class RdfPropertyMapper {
 
   private void emitStructuredProperties(
       EntityInterface<?> entity, JsonNode entityJson, Resource entityResource, Model model) {
+    keyMapper.emitColumnLevelKey(entityJson, entity.getFullyQualifiedName(), entityResource, model);
     RdfJsonNode.array(entityJson, "tableConstraints")
         .ifPresent(
             constraints ->
@@ -1334,123 +1337,10 @@ public class RdfPropertyMapper {
     }
   }
 
-  /**
-   * Emit table-level constraints (PRIMARY_KEY, UNIQUE, FOREIGN_KEY, ...) from
-   * {@code Table.tableConstraints[]} as named om:TableConstraint resources, and project
-   * back onto the constrained columns. For FOREIGN_KEY, also emit
-   * {@code <sourceColumn> om:references <referredColumn>} triples so SPARQL queries can
-   * traverse FK edges directly.
-   */
+  /** Declared table constraints; see {@link RdfTableKeyMapper}. */
   private void emitTableConstraints(
       JsonNode constraints, String tableFqn, Resource tableResource, Model model) {
-    if (tableFqn == null || tableFqn.isEmpty()) {
-      return;
-    }
-    Property hasConstraint = model.createProperty(OM_NS, "hasConstraint");
-    Property constraintType = model.createProperty(OM_NS, "constraintType");
-    Property hasConstrainedColumn = model.createProperty(OM_NS, "hasConstrainedColumn");
-    Property hasReferredColumn = model.createProperty(OM_NS, "hasReferredColumn");
-    Property references = model.createProperty(OM_NS, "references");
-    Property relationshipType = model.createProperty(OM_NS, "relationshipType");
-    Property isUnique = model.createProperty(OM_NS, "isUnique");
-    Property isPrimaryKey = model.createProperty(OM_NS, "isPrimaryKey");
-    Resource tableConstraintClass = model.createResource(OM_NS + "TableConstraint");
-
-    int index = 0;
-    for (JsonNode constraint : constraints) {
-      if (!constraint.isObject() || !constraint.has("constraintType")) {
-        index++;
-        continue;
-      }
-      String type = constraint.get("constraintType").asText();
-      Resource constraintResource = model.createResource(constraintUri(tableResource, type, index));
-      constraintResource.addProperty(RDF.type, tableConstraintClass);
-      constraintResource.addProperty(constraintType, type);
-      tableResource.addProperty(hasConstraint, constraintResource);
-      if (constraint.has("relationshipType") && !constraint.get("relationshipType").isNull()) {
-        constraintResource.addProperty(
-            relationshipType, constraint.get("relationshipType").asText());
-      }
-
-      List<Resource> sourceColumns = resolveColumns(constraint.get("columns"), tableFqn, model);
-      for (Resource sourceColumn : sourceColumns) {
-        constraintResource.addProperty(hasConstrainedColumn, sourceColumn);
-        if ("PRIMARY_KEY".equals(type)) {
-          sourceColumn.addProperty(isPrimaryKey, model.createTypedLiteral(true));
-          sourceColumn.addProperty(
-              model.createProperty(OM_NS, "isNullable"), model.createTypedLiteral(false));
-        }
-        if (sourceColumns.size() == 1 && ("PRIMARY_KEY".equals(type) || "UNIQUE".equals(type))) {
-          sourceColumn.addProperty(isUnique, model.createTypedLiteral(true));
-        }
-      }
-
-      if ("FOREIGN_KEY".equals(type)) {
-        List<Resource> referredColumns =
-            resolveReferredColumns(constraint.get("referredColumns"), model);
-        for (Resource referred : referredColumns) {
-          constraintResource.addProperty(hasReferredColumn, referred);
-        }
-        // Pair source columns with referred columns positionally so SPARQL can traverse
-        // <sourceCol> om:references <referredCol> directly without going through the
-        // constraint resource. The pairs are in declared array order.
-        int pairs = Math.min(sourceColumns.size(), referredColumns.size());
-        for (int i = 0; i < pairs; i++) {
-          sourceColumns.get(i).addProperty(references, referredColumns.get(i));
-        }
-      }
-      index++;
-    }
-  }
-
-  private String constraintUri(Resource tableResource, String type, int index) {
-    return tableResource.getURI() + "/constraint/" + type + "/" + index;
-  }
-
-  private List<Resource> resolveColumns(JsonNode columnNames, String tableFqn, Model model) {
-    List<Resource> resolved = new ArrayList<>();
-    if (columnNames == null || !columnNames.isArray()) {
-      return resolved;
-    }
-    for (JsonNode name : columnNames) {
-      if (!name.isTextual()) {
-        continue;
-      }
-      String columnFqn = FullyQualifiedName.add(tableFqn, name.asText());
-      Resource columnResource = ensureColumnResource(columnFqn, model);
-      if (columnResource != null) {
-        resolved.add(columnResource);
-      }
-    }
-    return resolved;
-  }
-
-  private List<Resource> resolveReferredColumns(JsonNode referred, Model model) {
-    List<Resource> resolved = new ArrayList<>();
-    if (referred == null || !referred.isArray()) {
-      return resolved;
-    }
-    for (JsonNode fqnNode : referred) {
-      if (!fqnNode.isTextual()) {
-        continue;
-      }
-      Resource columnResource = ensureColumnResource(fqnNode.asText(), model);
-      if (columnResource != null) {
-        resolved.add(columnResource);
-      }
-    }
-    return resolved;
-  }
-
-  private Resource ensureColumnResource(String columnFqn, Model model) {
-    String columnUri = RdfUtils.columnUri(baseUri, columnFqn);
-    if (columnUri == null) {
-      return null;
-    }
-    Resource columnResource = model.createResource(columnUri);
-    columnResource.addProperty(RDF.type, model.createResource(OM_NS + "Column"));
-    columnResource.addProperty(model.createProperty(OM_NS, "fullyQualifiedName"), columnFqn);
-    return columnResource;
+    keyMapper.emitDeclared(constraints, tableFqn, tableResource, model);
   }
 
   private void emitColumnChildren(JsonNode children, Resource parentColumn, Model model) {

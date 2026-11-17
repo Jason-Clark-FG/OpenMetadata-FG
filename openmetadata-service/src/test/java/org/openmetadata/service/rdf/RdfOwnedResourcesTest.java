@@ -102,10 +102,11 @@ class RdfOwnedResourcesTest {
             .withFullyQualifiedName("kafka.events")
             .withCleanupPolicies(List.of(CleanupPolicy.DELETE, CleanupPolicy.COMPACT));
 
-    // The extension, its two properties, four columns, one constraint and two measurements.
+    // The extension, its two properties, four columns, one constraint with its one member and two
+    // measurements.
     final Model projection = translator.toRdf(table);
     final String tableUri = BASE + "entity/table/" + tableId;
-    assertWalkMatchesStoreScope(tableUri, projection, 10);
+    assertWalkMatchesStoreScope(tableUri, projection, 11);
     assertFalse(
         storeScopeSubjects(tableUri, projection)
             .contains(
