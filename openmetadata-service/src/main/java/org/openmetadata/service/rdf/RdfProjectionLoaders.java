@@ -12,11 +12,13 @@
  */
 package org.openmetadata.service.rdf;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.openmetadata.schema.EntityInterface;
+import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.type.LineageDetails;
 import org.openmetadata.schema.type.Relationship;
@@ -34,12 +36,22 @@ record RdfProjectionLoaders(
     BiFunction<String, UUID, EntityInterface<?>> entityLoader,
     LineageDetailsLoader lineageDetailsLoader,
     Supplier<OntologyActiveGraph> ontologyGraphs,
-    RdfEntityLiveness liveness) {
+    RdfEntityLiveness liveness,
+    BoundAssets boundAssets) {
 
   @FunctionalInterface
   interface LineageDetailsLoader {
     /** Returns the stored lineage edge, or empty when the edge no longer exists. */
     Optional<StoredLineageEdge> load(UUID fromId, UUID toId);
+  }
+
+  /** The assets bound to the concepts of one ontology, in asset id order. */
+  @FunctionalInterface
+  interface BoundAssets {
+    int PAGE_SIZE = 500;
+
+    /** At most {@code limit} assets whose id sorts after {@code after}; "" starts the walk. */
+    List<EntityReference> page(UUID ontologyId, String after, int limit);
   }
 
   /** A lineage edge that still exists; {@code details} is null when none were stored for it. */
@@ -50,7 +62,22 @@ record RdfProjectionLoaders(
         RdfProjectionLoaders::loadEntity,
         RdfProjectionLoaders::loadLineageDetails,
         () -> new OntologyActiveGraph(Entity.getCollectionDAO()),
-        RdfEntityLiveness.database());
+        RdfEntityLiveness.database(),
+        RdfProjectionLoaders::loadBoundAssets);
+  }
+
+  private static List<EntityReference> loadBoundAssets(
+      final UUID ontologyId, final String after, final int limit) {
+    return Entity.getCollectionDAO()
+        .ontologyConceptBindingDAO()
+        .listBoundAssets(ontologyId.toString(), after, limit)
+        .stream()
+        .map(
+            asset ->
+                new EntityReference()
+                    .withType(asset.assetType())
+                    .withId(UUID.fromString(asset.assetId())))
+        .toList();
   }
 
   private static EntityInterface<?> loadEntity(final String entityType, final UUID entityId) {

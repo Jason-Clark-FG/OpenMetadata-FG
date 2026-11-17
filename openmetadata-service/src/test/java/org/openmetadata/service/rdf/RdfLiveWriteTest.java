@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +79,9 @@ class RdfLiveWriteTest {
   private LineageDetails currentLineageDetails;
   private boolean lineageEdgeExists = true;
   private final Set<UUID> softDeleted = new HashSet<>();
+  private final List<EntityReference> boundAssets = new ArrayList<>();
+  private final List<UUID> refreshedOntologyGraphs = new ArrayList<>();
+  private final OntologyActiveGraph ontologyGraphs = ontologyGraphs();
   private final RdfRepository repository = repository();
 
   @AfterEach
@@ -275,6 +279,26 @@ class RdfLiveWriteTest {
   }
 
   @Test
+  void anActiveReleaseChangeReprojectsEveryAssetBoundToTheOntologysConcepts() {
+    EntityInterface.CANONICAL_ENTITY_NAME_MAP.put("table", Entity.TABLE);
+    final UUID ontologyId = UUID.randomUUID();
+    final int assets = RdfProjectionLoaders.BoundAssets.PAGE_SIZE + 1;
+    for (int index = 0; index < assets; index++) {
+      boundAssets.add(new EntityReference().withType(Entity.TABLE).withId(new UUID(0, index + 1)));
+    }
+
+    replay(new RdfLiveWrite.OntologyGraph(ontologyId));
+
+    assertEquals(List.of(ontologyId), refreshedOntologyGraphs);
+    final Model graph = dataset.getNamedModel(GRAPH);
+    for (EntityReference asset : boundAssets) {
+      assertTrue(
+          graph.contains(graph.createResource(BASE + "entity/table/" + asset.getId()), null),
+          () -> "asset " + asset.getId() + " was not re-projected");
+    }
+  }
+
+  @Test
   void replayAfterHardDeleteRemovesTheOldEntity() {
     EntityInterface.CANONICAL_ENTITY_NAME_MAP.put("table", Entity.TABLE);
     currentEntity = new Table().withId(UUID.randomUUID()).withName("table");
@@ -328,19 +352,35 @@ class RdfLiveWriteTest {
         new JsonLdTranslator(JsonUtils.getObjectMapper(), BASE),
         () -> new RelationshipTypeResolver(types),
         new RdfProjectionLoaders(
-            (type, id) -> {
-              if (currentEntity == null) {
-                throw new EntityNotFoundException("Entity was hard deleted");
-              }
-              return currentEntity;
-            },
+            (type, id) -> load(id),
             (fromId, toId) ->
                 lineageEdgeExists
                     ? Optional.of(new RdfProjectionLoaders.StoredLineageEdge(currentLineageDetails))
                     : Optional.empty(),
-            () -> new OntologyActiveGraph(Entity.getCollectionDAO()),
+            () -> ontologyGraphs,
             (type, ids) ->
-                ids.stream().filter(id -> !softDeleted.contains(id)).collect(Collectors.toSet())));
+                ids.stream().filter(id -> !softDeleted.contains(id)).collect(Collectors.toSet()),
+            (ontologyId, after, limit) ->
+                boundAssets.stream()
+                    .filter(asset -> asset.getId().toString().compareTo(after) > 0)
+                    .limit(limit)
+                    .toList()));
+  }
+
+  private EntityInterface<?> load(final UUID id) {
+    final boolean bound = boundAssets.stream().anyMatch(asset -> asset.getId().equals(id));
+    if (!bound && currentEntity == null) {
+      throw new EntityNotFoundException("Entity was hard deleted");
+    }
+    return bound ? new Table().withId(id).withName("bound" + id) : currentEntity;
+  }
+
+  private OntologyActiveGraph ontologyGraphs() {
+    final OntologyActiveGraph graphs = mock(OntologyActiveGraph.class);
+    doAnswer(call -> refreshedOntologyGraphs.add(call.getArgument(0)))
+        .when(graphs)
+        .refresh(any(UUID.class), any(RdfStorageInterface.class));
+    return graphs;
   }
 
   private static EntityRelationship lineage(final UUID fromId, final UUID toId) {

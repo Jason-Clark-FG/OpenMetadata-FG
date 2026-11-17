@@ -35,10 +35,15 @@ import org.openmetadata.service.jdbi3.PipelineRepository;
 public sealed interface RdfLiveWrite {
   void apply(RdfRepository repository);
 
+  /**
+   * Replaces the ontology's active release graph, then re-projects the assets bound to its
+   * concepts: which of their bindings the graph states depends on that release.
+   */
   record OntologyGraph(UUID ontologyId) implements RdfLiveWrite {
     @Override
     public void apply(final RdfRepository repository) {
       repository.refreshOntologyGraph(ontologyId);
+      repository.refreshBoundAssets(ontologyId);
     }
   }
 

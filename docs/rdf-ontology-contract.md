@@ -134,6 +134,34 @@ semantic working revisions, release digests and RDF import/export. See
 ADR:2026-10-17-glossaries-do-not-own-ontology-models and
 ADR:2026-10-19-native-concept-bindings-remain-operational-metadata.
 
+### Concept bindings in the knowledge graph
+
+The serving knowledge graph also states the bindings of concepts of an active release:
+
+```turtle
+<https://example.org/onto/Customer> om:boundAsset <https://open-metadata.org/entity/table/{id}> .
+<https://example.org/onto/email> om:boundColumn
+    <https://open-metadata.org/entity/column/warehouse.db.sales.customers.cust_email> .
+```
+
+The subjects are the IRIs the active release graph gives the concept and the property, so one
+query joins the business model and the catalog:
+
+```sparql
+PREFIX om: <https://open-metadata.org/ontology/>
+SELECT ?asset ?column WHERE {
+  <https://example.org/onto/Customer> om:boundAsset ?asset .
+  <https://example.org/onto/email> om:boundColumn ?column .
+  ?asset om:hasColumn/om:hasChildColumn* ?column .
+}
+```
+
+A binding to a concept outside every active release, an assignment to an unreleased property and
+an assignment whose column path no longer resolves are left out. The asset owns these edges: its
+writes replace them and deleting it removes them. Unlike the bindings API, the graph does not leave
+out links to assets the reader cannot view. See
+ADR:2026-10-19-native-concept-bindings-remain-operational-metadata.
+
 Native library preview uses the verified pack catalog and selected modules, then the same native
 change-set preview/apply path as file import. Plain SKOS preferred labels and definitions project
 onto native display names and descriptions; canonical export uses `rdfs:label` and `rdfs:comment`.

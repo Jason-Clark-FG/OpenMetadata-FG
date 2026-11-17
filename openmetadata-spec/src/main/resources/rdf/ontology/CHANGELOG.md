@@ -6,6 +6,15 @@ live in `../contexts/`.
 
 The version recorded here is the value of `owl:versionInfo` on the `om:` ontology resource.
 
+## Unreleased
+
+### Added — Ontology Studio concept bindings
+
+- `om:boundAsset` (concept → asset) and `om:boundColumn` (concept property → `om:Column`) in the
+  knowledge graph, projected from `ontology_concept_binding` for concepts and properties of an
+  active release. The asset owns both edges: its writes replace them and its delete removes them.
+  See ADR:2026-10-19-native-concept-bindings-remain-operational-metadata.
+
 ## 1.1.0 — 2026-04-28
 
 Knowledge-graph fidelity pass. All changes are additive or domain corrections; existing consumers

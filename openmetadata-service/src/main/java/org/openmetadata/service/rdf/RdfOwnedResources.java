@@ -11,6 +11,7 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.vocabulary.RDF;
+import org.openmetadata.service.rdf.translator.RdfConceptBindingMapper;
 
 /** Owned subresources must be replaced along with the entity links that identify them. */
 public final class RdfOwnedResources {
@@ -26,6 +27,8 @@ public final class RdfOwnedResources {
   private static final Node HAS_CONSTRAINT = NodeFactory.createURI(OM_NS + "hasConstraint");
   private static final Node HAS_QUALITY_MEASUREMENT =
       NodeFactory.createURI("http://www.w3.org/ns/dqv#hasQualityMeasurement");
+  private static final String BOUND_ASSET = RdfConceptBindingMapper.BOUND_ASSET;
+  private static final String BOUND_COLUMN = RdfConceptBindingMapper.BOUND_COLUMN;
 
   private RdfOwnedResources() {}
 
@@ -78,6 +81,36 @@ public final class RdfOwnedResources {
           BIND(?entity AS ?subject)
         }
         """;
+  }
+
+  /**
+   * Matches the concept binding edges into {@code ?entity} and into its columns, binding each as
+   * {@code ?subject ?p ?o}. Their subjects are ontology terms the entity does not own, so only these
+   * edges belong to it, never the terms' other triples.
+   */
+  public static String incomingBindingTriplesPattern() {
+    return """
+        {
+          ?subject <%1$s> ?entity .
+          BIND(<%1$s> AS ?p)
+          BIND(?entity AS ?o)
+        }
+        UNION {
+          ?entity <https://open-metadata.org/ontology/hasColumn> ?boundTopColumn .
+          ?boundTopColumn (<https://open-metadata.org/ontology/hasChildColumn>)* ?o .
+          ?subject <%2$s> ?o .
+          BIND(<%2$s> AS ?p)
+        }
+        """
+        .formatted(RdfConceptBindingMapper.BOUND_ASSET, RdfConceptBindingMapper.BOUND_COLUMN);
+  }
+
+  /** Whether {@code triple} of the entity's projection is one of its incoming binding edges. */
+  public static boolean isIncomingBinding(
+      final Triple triple, final Node entity, final Set<Node> ownedSubjects) {
+    final String predicate = triple.getPredicate().getURI();
+    return (BOUND_ASSET.equals(predicate) && entity.equals(triple.getObject()))
+        || (BOUND_COLUMN.equals(predicate) && ownedSubjects.contains(triple.getObject()));
   }
 
   /** Names cell {@code index} of the list {@code ownerUri} holds under {@code predicateUri}. */

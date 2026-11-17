@@ -742,6 +742,20 @@ om:hasReplica a owl:ObjectProperty ;
     rdfs:domain om:GlossaryTerm ;
     rdfs:range om:DataAsset .
 
+om:boundAsset a rdf:Property, owl:AnnotationProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "bound asset" ;
+    rdfs:comment "Catalog asset that implements an Ontology Studio concept. The subject is the concept under the IRI its ontology's active release gives it, so the concept's definition is in that release's graph; the object is the asset's catalog node. Follow it to go from a business term to the tables, topics or dashboards that hold its data, then om:hasColumn for the columns. Only concepts of an active release carry it; a binding to a draft concept appears once a release holding the concept is activated. The bindings API leaves out assets a reader cannot view; this edge does not." ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:range om:DataAsset .
+
+om:boundColumn a rdf:Property, owl:AnnotationProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "bound column" ;
+    rdfs:comment "Column that holds the values of an Ontology Studio property, such as Customer.email bound to customers.cust_email. The subject is the property under the IRI its ontology's active release gives it; the object is the om:Column node om:hasColumn reaches. Use it to turn a question about a business attribute into the column to select or filter. The edge does not say which concept the assignment was made for; a property shared by several concepts can point at columns of several assets. A column path that no longer resolves is left out." ;
+    rdfs:domain rdf:Property ;
+    rdfs:range om:Column .
+
 om:hasOwner a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "has owner" ;
