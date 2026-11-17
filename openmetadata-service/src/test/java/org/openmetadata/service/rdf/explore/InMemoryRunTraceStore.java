@@ -36,4 +36,8 @@ final class InMemoryRunTraceStore implements RunTraceStore {
         .map(json -> JsonUtils.readValue(json, RunStep.class))
         .toList();
   }
+
+  List<String> storedJson(final UUID run) {
+    return List.copyOf(steps.getOrDefault(run, List.of()));
+  }
 }

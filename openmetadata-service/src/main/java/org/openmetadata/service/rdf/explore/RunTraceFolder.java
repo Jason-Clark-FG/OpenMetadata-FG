@@ -50,8 +50,18 @@ final class RunTraceFolder {
             step.at(),
             step.input(),
             step.nodes().stream().map(RunStep.Node::id).toList()));
-    step.nodes().forEach(node -> nodes.putIfAbsent(node.id(), traceNode(node, sequence)));
+    step.nodes().forEach(node -> addNode(node, sequence));
     step.edges().forEach(edge -> addEdge(edge, sequence));
+  }
+
+  private void addNode(final RunStep.Node node, final int sequence) {
+    nodes.putIfAbsent(node.id(), traceNode(node, sequence));
+    node.offers().stream()
+        .map(
+            offer ->
+                new RunStep.Edge(
+                    node.id(), offer.relationship(), offer.direction(), null, offer.count()))
+        .forEach(edge -> addEdge(edge, sequence));
   }
 
   private void addEdge(final RunStep.Edge edge, final int sequence) {

@@ -46,16 +46,25 @@ public final class KnowledgeGraphExplorer {
     this.clock = Objects.requireNonNull(clock);
   }
 
-  /** Cards for the search hits, in search order, under the IRIs the projection mints. */
-  public FindResult find(final RunContext run, final String question, final List<SearchHit> hits) {
-    final List<NodeCard> found = cards.read(hits.stream().map(nodeIris::of).toList());
+  /**
+   * Cards for the search hits, in search order, under the IRIs the projection mints. Hits of one
+   * entity (semantic search returns one per chunk) become one card. The leading cards that fit
+   * {@code maxChars} are returned; {@code moreMatched} counts the rest.
+   */
+  public FindResult find(
+      final RunContext run,
+      final String question,
+      final List<SearchHit> hits,
+      final long maxChars) {
+    final List<NodeCard> matched = cards.read(hits.stream().map(nodeIris::of).distinct().toList());
+    final List<NodeCard> found = matched.subList(0, PageBudget.cardsThatFit(matched, maxChars));
     record(
         run,
         Operation.FIND,
         new RunStep.Input(question, List.of(), List.of(), null),
         found,
-        RunSteps.offered(found));
-    return new FindResult(found);
+        List.of());
+    return new FindResult(found, matched.size() - found.size());
   }
 
   public ExpandPage expand(final RunContext run, final ExpandRequest request) {

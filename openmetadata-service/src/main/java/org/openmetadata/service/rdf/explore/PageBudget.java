@@ -19,7 +19,7 @@ import java.util.Set;
 import org.openmetadata.schema.utils.JsonUtils;
 
 /**
- * How many leading rows of an expansion page fit a serialized size. Each far node's card is
+ * How many leading rows of an expansion page, or cards of a find, fit a serialized size. Each far node's card is
  * counted once, and each row is charged as if it opened its own group, so the estimate is an upper
  * bound. The first row is always kept, so paging never stalls.
  */
@@ -44,6 +44,21 @@ final class PageBudget {
       }
       used += cost;
       counted.add(row.other());
+      kept++;
+    }
+    return kept;
+  }
+
+  /** How many leading cards fit {@code maxChars} serialized; the first card is always kept. */
+  static int cardsThatFit(final List<NodeCard> cards, final long maxChars) {
+    long used = ENVELOPE_CHARS;
+    int kept = 0;
+    for (final NodeCard card : cards) {
+      final long cost = JsonUtils.pojoToJson(card).length() + 1L;
+      if (kept > 0 && used + cost > maxChars) {
+        break;
+      }
+      used += cost;
       kept++;
     }
     return kept;

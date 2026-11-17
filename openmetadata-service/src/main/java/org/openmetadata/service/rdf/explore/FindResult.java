@@ -14,8 +14,11 @@ package org.openmetadata.service.rdf.explore;
 
 import java.util.List;
 
-/** Ranked starting nodes, as cards, in search order. */
-public record FindResult(List<NodeCard> nodes) {
+/**
+ * Ranked starting nodes, as cards, in search order. {@code moreMatched} counts the matched nodes
+ * left out because their cards would not fit the response.
+ */
+public record FindResult(List<NodeCard> nodes, int moreMatched) {
 
   public FindResult {
     nodes = List.copyOf(nodes);

@@ -16,6 +16,7 @@ package org.openmetadata.mcp.tools;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,6 +70,24 @@ class KnowledgeGraphCallTest {
                 "cursor",
                 "not-a-cursor"),
             List.of("'cursor'", "'nextCursor'")),
+        Arguments.of(
+            Map.of(
+                "operation",
+                "expand",
+                "nodes",
+                Collections.nCopies(KnowledgeGraphCall.MAX_NODES + 1, TABLE),
+                "relationships",
+                List.of("om:hasOwner")),
+            List.of("'nodes'", "at most " + KnowledgeGraphCall.MAX_NODES)),
+        Arguments.of(
+            Map.of(
+                "operation",
+                "expand",
+                "nodes",
+                List.of(TABLE),
+                "relationships",
+                Collections.nCopies(KnowledgeGraphCall.MAX_RELATIONSHIPS + 1, "om:hasOwner")),
+            List.of("'relationships'", "at most " + KnowledgeGraphCall.MAX_RELATIONSHIPS)),
         Arguments.of(Map.of("operation", "query"), List.of("'sparql'")),
         Arguments.of(Map.of("operation", "trace"), List.of("'run'", "trace")),
         Arguments.of(

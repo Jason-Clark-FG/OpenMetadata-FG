@@ -13,12 +13,12 @@
 package org.openmetadata.service.rdf.explore;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /**
- * What one call served, as stored: the nodes returned as cards and the edges it showed. An edge
- * without {@code other} is a relationship a card offered, with its {@code count}; an edge with
- * {@code other} is one an expansion returned.
+ * What one call served, as stored: the nodes returned as cards, each with the relationships its
+ * card offered, and the edges an expansion returned.
  */
 public record RunStep(
     Operation operation,
@@ -37,9 +37,24 @@ public record RunStep(
   public record Input(
       String question, List<String> nodes, List<String> relationships, String sparql) {}
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record Node(String id, String label, String entityType) {}
+  /** A node returned as a card, with the relationships its card offered. */
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  public record Node(String id, String label, String entityType, List<Offer> offers) {
+    public Node {
+      offers = offers == null ? List.of() : List.copyOf(offers);
+    }
+  }
 
+  /**
+   * One {@code reachable} entry, stored under short keys: a find step of ten wide cards holds
+   * about three hundred of them.
+   */
+  public record Offer(
+      @JsonProperty("r") String relationship,
+      @JsonProperty("d") Direction direction,
+      @JsonProperty("c") long count) {}
+
+  /** An edge an expansion returned; {@code count} is set only while folding offers. */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Edge(
       String node, String relationship, Direction direction, String other, Long count) {}

@@ -42,7 +42,9 @@ class SqlRunTraceStoreTest {
         NOW.toEpochMilli(),
         "analyst",
         new RunStep.Input(question, List.of(), List.of(), null),
-        List.of(new RunStep.Node("https://open-metadata.org/entity/table/1", "orders", "table")),
+        List.of(
+            new RunStep.Node(
+                "https://open-metadata.org/entity/table/1", "orders", "table", List.of())),
         List.of());
   }
 

@@ -1136,14 +1136,14 @@
             "items": {
               "type": "string"
             },
-            "description": "expand: the 'id' of one or more cards."
+            "description": "expand: the 'id' of one or more cards, at most 20."
           },
           "relationships": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "expand: relationship names from a card's 'reachable' list, e.g. ['om:hasOwner', 'om:upstream']."
+            "description": "expand: relationship names from a card's 'reachable' list, at most 10, e.g. ['om:hasOwner', 'om:upstream']."
           },
           "direction": {
             "type": "string",
@@ -1157,7 +1157,7 @@
           },
           "limit": {
             "type": "integer",
-            "description": "find: cards to return, default 5, max 10. expand: far nodes per page, default 10, max 50."
+            "description": "find: cards to return, default 5, max 10; fewer come back when they would not fit the response, and 'moreMatched' counts the rest. expand: far nodes per page, default 10, max 50."
           },
           "cursor": {
             "type": "string",

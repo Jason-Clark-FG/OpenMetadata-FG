@@ -23,26 +23,18 @@ final class RunSteps {
 
   static List<RunStep.Node> served(final List<NodeCard> cards) {
     return cards.stream()
-        .map(card -> new RunStep.Node(card.id(), card.label(), card.entityType()))
+        .map(card -> new RunStep.Node(card.id(), card.label(), card.entityType(), offersOf(card)))
         .toList();
-  }
-
-  static List<RunStep.Edge> offered(final List<NodeCard> cards) {
-    return cards.stream().flatMap(RunSteps::offeredBy).toList();
   }
 
   static List<RunStep.Edge> expanded(final ExpandPage page) {
-    return Stream.concat(
-            page.expansions().stream().flatMap(RunSteps::edgesOf), offered(page.nodes()).stream())
-        .toList();
+    return page.expansions().stream().flatMap(RunSteps::edgesOf).toList();
   }
 
-  private static Stream<RunStep.Edge> offeredBy(final NodeCard card) {
+  private static List<RunStep.Offer> offersOf(final NodeCard card) {
     return card.reachable().stream()
-        .map(
-            entry ->
-                new RunStep.Edge(
-                    card.id(), entry.relationship(), entry.direction(), null, entry.count()));
+        .map(entry -> new RunStep.Offer(entry.relationship(), entry.direction(), entry.count()))
+        .toList();
   }
 
   private static Stream<RunStep.Edge> edgesOf(final ExpansionGroup group) {

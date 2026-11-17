@@ -32,8 +32,10 @@ rows by.
   two nodes never overwrite each other.
 - A step is kept for 24 hours after it was recorded (`RunTraceStore.RETENTION`). Every append
   deletes expired rows, and reads ignore them, so the table holds at most a day of calls.
-- A step stores what the call served: the nodes returned as cards, the relationships their cards
-  offered (node, relationship, direction, count) and the edges an expansion returned. `trace`
+- A step stores what the call served: the nodes returned as cards, each with the relationships its
+  card offered (relationship, direction, count, under one-letter keys), and the edges an expansion
+  returned. A find step of ten cards with thirty `reachable` entries each stores 15,280 characters
+  of JSON; storing each offer as a full edge took 47,569 (`KnowledgeGraphExplorerTest`). `trace`
   folds the steps: a node is `explored`; an offered relationship stays `offered` until an
   expansion from that node follows it in that direction, then it is `explored`.
 - Writing the step is part of the call. A call whose step cannot be stored fails, so a trace is
@@ -44,6 +46,7 @@ rows by.
 
 The trace survives across server nodes without touching the triplestore or its writer. The cost is
 one insert and one indexed delete per call and a new table. A run longer than a day loses its
-oldest steps. The trace does not record who may read it: any caller with `ExecuteSparqlQuery` who
-holds the run handle can read it, which reveals nothing that caller could not query from the graph.
+oldest steps. **Known gap:** the trace has no owner check. Any caller with `ExecuteSparqlQuery` who holds the
+run handle can read it, including the SPARQL text of the run's `query` steps. Access rules for
+exploration are deferred; adding one means amending this record.
 Moving the trace to another store, or changing the retention, means a new record.

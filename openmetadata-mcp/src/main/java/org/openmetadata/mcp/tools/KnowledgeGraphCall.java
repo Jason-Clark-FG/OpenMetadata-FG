@@ -34,6 +34,8 @@ record KnowledgeGraphCall(UUID run, Request request) {
   static final int MAX_FIND_LIMIT = 10;
   static final int DEFAULT_EXPAND_LIMIT = 10;
   static final int MAX_EXPAND_LIMIT = 50;
+  static final int MAX_NODES = 20;
+  static final int MAX_RELATIONSHIPS = 10;
 
   private static final String OPERATION = "operation";
   private static final String RUN = "run";
@@ -140,7 +142,9 @@ record KnowledgeGraphCall(UUID run, Request request) {
   private static Expand expand(
       final Map<String, Object> values, final McpToolParameters parameters) {
     final List<String> nodes = nodes(McpParams.getStringList(values, NODES));
-    final List<String> relationships = McpParams.getStringList(values, RELATIONSHIPS);
+    final List<String> relationships =
+        requireAtMost(
+            McpParams.getStringList(values, RELATIONSHIPS), RELATIONSHIPS, MAX_RELATIONSHIPS);
     if (relationships.isEmpty()) {
       throw new IllegalArgumentException(
           "'relationships' is required for expand: pass names from a card's 'reachable' list, e.g. om:hasOwner");
@@ -158,7 +162,17 @@ record KnowledgeGraphCall(UUID run, Request request) {
       throw new IllegalArgumentException(
           "'nodes' is required for expand: pass the 'id' of one or more cards find or expand returned");
     }
-    return values.stream().map(KnowledgeGraphCall::node).toList();
+    return requireAtMost(values, NODES, MAX_NODES).stream().map(KnowledgeGraphCall::node).toList();
+  }
+
+  private static List<String> requireAtMost(
+      final List<String> values, final String name, final int max) {
+    if (values.size() > max) {
+      throw new IllegalArgumentException(
+          "'%s' takes at most %d entries per expand; got %d. Split them over several calls with the same 'run'."
+              .formatted(name, max, values.size()));
+    }
+    return values;
   }
 
   private static String node(final String value) {

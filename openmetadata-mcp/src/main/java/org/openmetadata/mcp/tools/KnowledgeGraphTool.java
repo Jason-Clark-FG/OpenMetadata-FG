@@ -31,6 +31,7 @@ import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
 import org.openmetadata.service.rdf.explore.ExpandPage;
 import org.openmetadata.service.rdf.explore.ExpandRequest;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
+import org.openmetadata.service.rdf.explore.FindResult;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
@@ -97,7 +98,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     Operation operation();
   }
 
-  public record FindResponse(UUID run, Operation operation, List<NodeCard> nodes)
+  /** {@code moreMatched} counts matched nodes left out because their cards would not fit. */
+  public record FindResponse(UUID run, Operation operation, List<NodeCard> nodes, int moreMatched)
       implements Response {}
 
   /** {@code nextCursor} is null on the last page. */
@@ -151,11 +153,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final KnowledgeGraphCall.Find find)
       throws IOException {
     requireReadyProjectionForNonAdmin(securityContext);
-    final List<NodeCard> nodes =
+    final FindResult found =
         explorer(securityContext, repository)
-            .find(run, find.question(), startingPoints.search(authorizer, securityContext, find))
-            .nodes();
-    return new FindResponse(run.run(), Operation.FIND, nodes);
+            .find(
+                run,
+                find.question(),
+                startingPoints.search(authorizer, securityContext, find),
+                ResponseBudget.defaultBudgetChars());
+    return new FindResponse(run.run(), Operation.FIND, found.nodes(), found.moreMatched());
   }
 
   private ExpandResponse expand(

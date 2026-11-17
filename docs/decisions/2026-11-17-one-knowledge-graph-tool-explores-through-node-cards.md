@@ -45,7 +45,15 @@ drawn.
   `cursor` is the opaque offset of the next page. Far nodes come back once each as cards. A page
   holds up to `limit` rows (default 10, max 50) and ends early, at least one row in, rather than
   serialize past the MCP response budget, so a large page is cut where the cursor resumes instead
-  of being replaced by the dispatcher's truncation envelope. `find` returns at most 10 cards.
+  of being replaced by the dispatcher's truncation envelope. One call takes at most 20 `nodes` and
+  10 `relationships`, so the query text stays bounded; more is a correction that names the bound.
+- **`find`** returns at most 10 cards. Hits that mint the same IRI (semantic search returns one
+  per chunk) become one card, in search order. The leading cards that fit the response budget are
+  returned and `moreMatched` counts the rest, so the entry point never comes back as an envelope.
+- **Interpolation.** Every IRI the server places in a query (node ids, relationships, far nodes)
+  must be an absolute http(s) IRI that `RdfIriValidator.validateEntityIri` accepts, because these
+  queries skip the agent query validator. A relationship that is not one is a correction; a far
+  node that is not one (a `urn:` concept, say) is listed in its group without a card.
 - **`query`** is the `sparql_query` tool's own implementation, unchanged.
 - **Access and bounds** are those of the sibling RDF tools: the `ExecuteSparqlQuery` check on the
   `rdf` resource, a `READY` projection for non-administrators, every graph read inside the shared

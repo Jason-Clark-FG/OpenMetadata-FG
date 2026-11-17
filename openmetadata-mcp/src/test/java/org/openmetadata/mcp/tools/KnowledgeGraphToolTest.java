@@ -112,6 +112,7 @@ class KnowledgeGraphToolTest {
         (KnowledgeGraphTool.FindResponse) call(Map.of("operation", "find", "question", "orders"));
 
     assertThat(response.run()).isNotNull();
+    assertThat(response.moreMatched()).isZero();
     assertThat(response.nodes())
         .extracting(NodeCard::id, NodeCard::label, NodeCard::inGraph)
         .containsExactly(tuple(ORDERS, "orders", true), tuple(CUSTOMERS, "customers", true));

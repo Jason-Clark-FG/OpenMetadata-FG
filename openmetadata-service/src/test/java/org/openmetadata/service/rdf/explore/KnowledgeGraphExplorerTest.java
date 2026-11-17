@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +31,7 @@ import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
+import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.translator.JsonLdTranslator;
 
@@ -42,6 +44,8 @@ class KnowledgeGraphExplorerTest {
   private static final String DAILY = NodeCardReaderTest.DAILY;
   private static final Clock CLOCK =
       Clock.fixed(Instant.parse("2026-11-17T10:00:00Z"), ZoneOffset.UTC);
+
+  private static final long UNBOUNDED = Long.MAX_VALUE;
 
   private final InMemoryRunTraceStore traces = new InMemoryRunTraceStore();
   private final RunContext run = new RunContext(UUID.randomUUID(), "analyst");
@@ -78,7 +82,8 @@ class KnowledgeGraphExplorerTest {
                 "orders",
                 List.of(
                     new SearchHit("table", table.getFullyQualifiedName(), id),
-                    new SearchHit(Entity.TABLE_COLUMN, "warehouse.shop.public.orders.id", null)));
+                    new SearchHit(Entity.TABLE_COLUMN, "warehouse.shop.public.orders.id", null)),
+                UNBOUNDED);
 
     assertThat(found.nodes())
         .extracting(NodeCard::fullyQualifiedName, NodeCard::inGraph)
@@ -93,7 +98,7 @@ class KnowledgeGraphExplorerTest {
     final KnowledgeGraphExplorer explorer =
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)));
+    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
     explorer.expand(
         run,
         new ExpandRequest(
@@ -135,7 +140,7 @@ class KnowledgeGraphExplorerTest {
     final KnowledgeGraphExplorer explorer =
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)));
+    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
 
     assertThat(explorer.trace(run.run()).edges())
         .filteredOn(edge -> edge.relationship().equals("om:hasTag"))
@@ -167,8 +172,8 @@ class KnowledgeGraphExplorerTest {
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
     final RunContext other = new RunContext(UUID.randomUUID(), "analyst");
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)));
-    explorer.find(other, "raw", List.of(hit(RAW)));
+    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
+    explorer.find(other, "raw", List.of(hit(RAW)), UNBOUNDED);
 
     assertThat(explorer.trace(run.run()).nodes()).extracting(TraceNode::id).containsExactly(ORDERS);
   }
@@ -181,5 +186,56 @@ class KnowledgeGraphExplorerTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining(unknown.toString())
         .hasMessageContaining("24 hours");
+  }
+
+  @Test
+  void findReturnsFewerCardsThanMatchedWhenTheyWouldNotFitTheBudgetAndSaysSo() {
+    final KnowledgeGraphExplorer explorer =
+        explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
+    final long oneCard =
+        JsonUtils.pojoToJson(
+                explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED).nodes().getFirst())
+            .length();
+
+    final FindResult found =
+        explorer.find(run, "orders", List.of(hit(ORDERS), hit(DAILY), hit(RAW)), oneCard + 10);
+
+    assertThat(found.nodes()).extracting(NodeCard::id).containsExactly(ORDERS);
+    assertThat(found.moreMatched()).isEqualTo(2);
+  }
+
+  @Test
+  void chunksOfOneEntityBecomeOneCardInSearchOrder() {
+    final KnowledgeGraphExplorer explorer =
+        explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
+
+    final FindResult found =
+        explorer.find(
+            run, "orders", List.of(hit(RAW), hit(ORDERS), hit(RAW), hit(ORDERS)), UNBOUNDED);
+
+    assertThat(found.nodes()).extracting(NodeCard::id).containsExactly(RAW, ORDERS);
+    assertThat(found.moreMatched()).isZero();
+  }
+
+  @Test
+  void aFindStepOfTenWideCardsIsStoredCompactly() {
+    final StringBuilder turtle = new StringBuilder();
+    final List<SearchHit> hits = new ArrayList<>();
+    for (int table = 0; table < 10; table++) {
+      final UUID id = UUID.randomUUID();
+      hits.add(new SearchHit("table", null, id));
+      for (int relationship = 0; relationship < 30; relationship++) {
+        turtle.append(
+            "<%sentity/table/%s> om:relationship%d e:target%d .%n"
+                .formatted(BASE, id, relationship, relationship));
+      }
+    }
+    final KnowledgeGraphExplorer explorer = explorer(InMemoryGraph.ofTurtle(turtle.toString()));
+
+    explorer.find(run, "wide", hits, UNBOUNDED);
+
+    final int stored = traces.storedJson(run.run()).getFirst().length();
+    assertThat(stored).as("stored find step JSON, chars").isLessThan(20_000);
+    assertThat(explorer.trace(run.run()).edges()).hasSize(300);
   }
 }
