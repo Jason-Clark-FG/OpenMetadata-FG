@@ -103,6 +103,10 @@
           "type": "boolean",
           "default": true
         },
+        "picked": {
+          "description": "True when the rule holds glossary terms, metrics or articles an administrator picked one by one. It is still an ordinary rule whose filter selects them by id. Editors read the flag to show the picks as a list instead of a filter.",
+          "type": "boolean"
+        },
         "matchedCount": {
           "description": "Read-only count of entities currently matched by this rule.",
           "type": "integer",

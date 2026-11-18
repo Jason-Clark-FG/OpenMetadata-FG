@@ -14,7 +14,7 @@ hand-edit; run `make generate-entity-index` (or `make generate-reference-docs`).
 - **REST resource** is joined from `extends EntityResource<Entity, …>`; `—` means no dedicated
   `EntityResource` was found (the entity may be exposed via a shared or non-`EntityResource` route).
 
-**91 entities** · 66 with a dedicated `EntityResource`.
+**92 entities** · 66 with a dedicated `EntityResource`.
 
 ## entity/(root)
 
@@ -69,6 +69,7 @@ hand-edit; run `make generate-entity-index` (or `make generate-reference-docs`).
 
 | Entity | Schema | Java | Python | TypeScript | REST resource |
 |---|---|---|---|---|---|
+| AgentHarness | `openmetadata-spec/src/main/resources/json/schema/entity/context/agentHarness.json` | `org.openmetadata.schema.entity.context.AgentHarness` | `metadata.generated.schema.entity.context.agentHarness` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/context/agentHarness.ts` | — |
 | ContextMemory | `openmetadata-spec/src/main/resources/json/schema/entity/context/contextMemory.json` | `org.openmetadata.schema.entity.context.ContextMemory` | `metadata.generated.schema.entity.context.contextMemory` | `openmetadata-ui/src/main/resources/ui/src/generated/entity/context/contextMemory.ts` | `org.openmetadata.service.resources.context.ContextMemoryResource` |
 
 ## entity/data

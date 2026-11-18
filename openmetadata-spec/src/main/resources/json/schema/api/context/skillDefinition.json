@@ -1,0 +1,24 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/skillDefinition.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillDefinition",
+  "description": "A built-in skill the server can offer to agents, as listed by `GET /v1/agentHarness/skills`. Skills are defined in server code. A harness only turns them on or off.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.SkillDefinition",
+  "properties": {
+    "name": {
+      "description": "Stable name a harness uses to turn the skill on or off.",
+      "type": "string"
+    },
+    "description": {
+      "description": "What the skill teaches an agent to do.",
+      "type": "string"
+    },
+    "defaultEnabled": {
+      "description": "Whether the company default is seeded with the skill turned on.",
+      "type": "boolean"
+    }
+  },
+  "required": ["name", "description", "defaultEnabled"],
+  "additionalProperties": false
+}

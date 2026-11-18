@@ -1,0 +1,59 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/agentHarnessPersonaSummary.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarnessPersonaSummary",
+  "description": "One persona in the agent harness list, as returned by `GET /v1/agentHarness/personas`. The context figures are read from the context cache and never compiled for the list.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AgentHarnessPersonaSummary",
+  "properties": {
+    "persona": {
+      "description": "The persona.",
+      "$ref": "../../type/entityReference.json"
+    },
+    "userCount": {
+      "description": "Distinct active users who have the persona directly, through a team, or as their default persona.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "harnessId": {
+      "description": "Id of the persona's harness. Absent when the persona has none and its members get the default.",
+      "$ref": "../../type/basic.json#/definitions/uuid"
+    },
+    "status": {
+      "description": "Where the persona's harness stands.",
+      "$ref": "agentHarnessState.json#/definitions/harnessStatus"
+    },
+    "enabled": {
+      "description": "The persona harness's `enabled` flag. Absent when the persona has no harness.",
+      "type": "boolean"
+    },
+    "enabledEvents": {
+      "description": "Hook events at which the persona's members receive context, with inheritance applied to the published harnesses.",
+      "type": "array",
+      "items": {
+        "$ref": "../../entity/context/agentHarness.json#/definitions/hookEvent"
+      },
+      "default": []
+    },
+    "characterBudget": {
+      "description": "Character budget in effect for the persona's compiled document.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "charactersUsed": {
+      "description": "Characters in the cached compiled document. Zero when nothing is cached.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "cacheState": {
+      "description": "State of the cached document. A persona with nothing cached reports `STALE`.",
+      "$ref": "../../type/personaContextDefinition.json#/definitions/cacheState"
+    },
+    "lastGeneratedAt": {
+      "description": "When the cached document was compiled. Absent when the context has never been generated.",
+      "$ref": "../../type/basic.json#/definitions/timestamp"
+    }
+  },
+  "required": ["persona", "userCount", "status", "enabledEvents", "characterBudget", "charactersUsed", "cacheState"],
+  "additionalProperties": false
+}

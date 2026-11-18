@@ -1,0 +1,47 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/agentHarnessState.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarnessState",
+  "description": "One agent harness as its editor needs it: the published harness, the draft when one exists, the draft revision to send back as `If-Match`, and the resolved view for display.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AgentHarnessState",
+  "definitions": {
+    "harnessStatus": {
+      "javaType": "org.openmetadata.schema.api.context.AgentHarnessStatus",
+      "description": "Where a harness stands. `Published` has no pending draft. `Draft` has a draft that waits to be published. `Inherited` means the persona has no harness and its members get the default. `NotConfigured` is a persona harness that has never been published and has no draft.",
+      "type": "string",
+      "enum": ["Published", "Draft", "Inherited", "NotConfigured"],
+      "javaEnums": [
+        { "name": "PUBLISHED" },
+        { "name": "DRAFT" },
+        { "name": "INHERITED" },
+        { "name": "NOT_CONFIGURED" }
+      ]
+    }
+  },
+  "properties": {
+    "published": {
+      "description": "The harness as published, with its own fields only. A persona harness that has never been published has no `publishedAt`.",
+      "$ref": "../../entity/context/agentHarness.json"
+    },
+    "draft": {
+      "description": "The unpublished edits, with the harness's own fields only. Absent when there is no draft.",
+      "$ref": "agentHarnessSpec.json"
+    },
+    "draftRevision": {
+      "description": "Revision of the draft, to send as `If-Match` on the next draft write. It grows on every draft write, discard and publish and never repeats for a harness.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "description": "Where the harness stands.",
+      "$ref": "#/definitions/harnessStatus"
+    },
+    "resolved": {
+      "description": "What the draft, or the published harness when there is no draft, amounts to once the published default is applied. For display only. Edits go to the draft.",
+      "$ref": "resolvedAgentHarness.json"
+    }
+  },
+  "required": ["published", "draftRevision", "status", "resolved"],
+  "additionalProperties": false
+}

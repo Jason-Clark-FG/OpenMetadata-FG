@@ -1,0 +1,36 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/guardrailDefinition.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GuardrailDefinition",
+  "description": "A guardrail the server can evaluate, as listed by `GET /v1/agentHarness/guardrails`. Guardrails are defined in server code. A harness only sets their level.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.GuardrailDefinition",
+  "properties": {
+    "id": {
+      "description": "Stable id a harness uses to set the guardrail's level.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Name shown to administrators.",
+      "type": "string"
+    },
+    "description": {
+      "description": "What the guardrail checks.",
+      "type": "string"
+    },
+    "defaultLevel": {
+      "description": "Level the company default is seeded with.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/guardrailLevel"
+    },
+    "event": {
+      "description": "Hook event at which the guardrail is evaluated.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/hookEvent"
+    },
+    "available": {
+      "description": "False when the server cannot evaluate the guardrail yet. A harness can still store a level for it, and the level has no effect until the guardrail is available.",
+      "type": "boolean"
+    }
+  },
+  "required": ["id", "name", "description", "defaultLevel", "event", "available"],
+  "additionalProperties": false
+}

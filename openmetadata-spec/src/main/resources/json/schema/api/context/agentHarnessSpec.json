@@ -1,0 +1,53 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/agentHarnessSpec.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarnessSpec",
+  "description": "The fields of an agent harness that an administrator edits. A draft holds one, `PUT /v1/agentHarness/{id}/draft` takes one whole, and publishing copies it into the harness. On a persona harness it holds only the persona's own settings, never the items inherited from the default.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AgentHarnessSpec",
+  "properties": {
+    "context": {
+      "description": "Knowledge rules, persona prompt, character budget and cache lifetime. The definition's own `enabled` flag must stay true, because the harness's `enabled` decides. Its read-only cache fields are ignored.",
+      "$ref": "../../type/personaContextDefinition.json"
+    },
+    "companyInstructions": {
+      "description": "Instructions every agent receives. Only on the default harness.",
+      "$ref": "../../type/basic.json#/definitions/markdown"
+    },
+    "perTurnTokenBudget": {
+      "description": "Most tokens delivered across the events of one turn. At least the sum of the enabled events' budgets.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 20000
+    },
+    "events": {
+      "description": "Delivery settings per hook event. The default lists every event. A persona harness lists only the events it adds or whose budget it lowers.",
+      "type": "array",
+      "items": {
+        "$ref": "../../entity/context/agentHarness.json#/definitions/eventDelivery"
+      },
+      "default": []
+    },
+    "skills": {
+      "description": "Skills offered to agents. A persona harness lists only the skills it adds.",
+      "type": "array",
+      "items": {
+        "$ref": "../../entity/context/agentHarness.json#/definitions/skillSetting"
+      },
+      "default": []
+    },
+    "guardrails": {
+      "description": "Guardrail levels. A persona harness lists only the guardrails it makes stricter.",
+      "type": "array",
+      "items": {
+        "$ref": "../../entity/context/agentHarness.json#/definitions/guardrailSetting"
+      },
+      "default": []
+    },
+    "memory": {
+      "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/memorySettings"
+    }
+  },
+  "additionalProperties": false
+}

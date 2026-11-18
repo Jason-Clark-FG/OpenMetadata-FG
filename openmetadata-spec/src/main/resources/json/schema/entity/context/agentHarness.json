@@ -1,0 +1,269 @@
+{
+  "$id": "https://open-metadata.org/schema/entity/context/agentHarness.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarness",
+  "$comment": "@om-entity-type",
+  "description": "The context an AI agent receives from OpenMetadata: which knowledge goes in, at which hook events, with which instructions, skills, guardrails and memory settings. The entity holds the published harness. Edits are held in a draft outside the entity until they are published, so each version is one publish or one enable or disable switch.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.entity.context.AgentHarness",
+  "javaInterfaces": ["org.openmetadata.schema.EntityInterface<org.openmetadata.schema.type.EntityStatus>"],
+  "definitions": {
+    "harnessKind": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessKind",
+      "description": "Default is the one company-wide harness that applies to every user. Persona is a harness for the members of one persona that extends the default.",
+      "type": "string",
+      "enum": ["Default", "Persona"],
+      "javaEnums": [
+        { "name": "DEFAULT" },
+        { "name": "PERSONA" }
+      ]
+    },
+    "hookEvent": {
+      "javaType": "org.openmetadata.schema.entity.context.HookEvent",
+      "description": "Agent host event at which context is delivered.",
+      "type": "string",
+      "enum": ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"],
+      "javaEnums": [
+        { "name": "SESSION_START" },
+        { "name": "USER_PROMPT_SUBMIT" },
+        { "name": "PRE_TOOL_USE" },
+        { "name": "POST_TOOL_USE" },
+        { "name": "STOP" }
+      ]
+    },
+    "guardrailLevel": {
+      "javaType": "org.openmetadata.schema.entity.context.GuardrailLevel",
+      "description": "What a guardrail does when it matches, from least to most strict. Off does nothing, Warn adds a warning to the context, Block denies the tool call.",
+      "type": "string",
+      "enum": ["Off", "Warn", "Block"],
+      "javaEnums": [
+        { "name": "OFF" },
+        { "name": "WARN" },
+        { "name": "BLOCK" }
+      ]
+    },
+    "eventDelivery": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessEvent",
+      "description": "Delivery setting of one hook event.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The hook event.",
+          "$ref": "#/definitions/hookEvent"
+        },
+        "enabled": {
+          "description": "Whether context is delivered at this event. On a persona harness, true adds the event for the persona. An event the default delivers stays delivered whatever the persona sets.",
+          "type": "boolean"
+        },
+        "tokenBudget": {
+          "description": "Most tokens delivered at this event. On a persona harness it cannot exceed the default's budget for the event.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["id", "enabled", "tokenBudget"],
+      "additionalProperties": false
+    },
+    "skillSetting": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessSkill",
+      "description": "Whether one server-registered skill is offered to agents.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of a skill listed by `GET /v1/agentHarness/skills`.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Whether the skill is offered. On a persona harness, true adds the skill for the persona. A skill the default offers stays offered whatever the persona sets.",
+          "type": "boolean"
+        }
+      },
+      "required": ["name", "enabled"],
+      "additionalProperties": false
+    },
+    "guardrailSetting": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessGuardrail",
+      "description": "Level of one server-registered guardrail.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Id of a guardrail listed by `GET /v1/agentHarness/guardrails`.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Level the guardrail runs at. On a persona harness it cannot be less strict than the default's level.",
+          "$ref": "#/definitions/guardrailLevel"
+        }
+      },
+      "required": ["id", "level"],
+      "additionalProperties": false
+    },
+    "memoryReview": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentMemoryReview",
+      "description": "Who approves a memory an agent captured. StewardReview follows the deployment's memory lifecycle. AuthorOnly keeps the memory private to its author.",
+      "type": "string",
+      "enum": ["StewardReview", "AuthorOnly"],
+      "javaEnums": [
+        { "name": "STEWARD_REVIEW" },
+        { "name": "AUTHOR_ONLY" }
+      ]
+    },
+    "memoryVisibility": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentMemoryVisibility",
+      "description": "Who receives a memory an agent captured: only its author, the members of the author's persona, or everyone.",
+      "type": "string",
+      "enum": ["Private", "Persona", "Organization"],
+      "javaEnums": [
+        { "name": "PRIVATE" },
+        { "name": "PERSONA" },
+        { "name": "ORGANIZATION" }
+      ]
+    },
+    "memorySettings": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessMemory",
+      "description": "How memories that agents capture are stored. A persona harness that sets these replaces the default's settings for its members.",
+      "type": "object",
+      "properties": {
+        "capture": {
+          "description": "Whether agents may propose memories during a session.",
+          "type": "boolean"
+        },
+        "linkAssets": {
+          "description": "Whether a captured memory is linked to the assets used in the turn.",
+          "type": "boolean"
+        },
+        "dedup": {
+          "description": "Whether a captured memory is merged with an existing near-duplicate.",
+          "type": "boolean"
+        },
+        "review": {
+          "description": "Who approves a captured memory.",
+          "$ref": "#/definitions/memoryReview"
+        },
+        "visibility": {
+          "description": "Who receives a captured memory. Must be Private when review is AuthorOnly.",
+          "$ref": "#/definitions/memoryVisibility"
+        }
+      },
+      "required": ["capture", "linkAssets", "dedup", "review", "visibility"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "description": "Unique identifier of the harness.",
+      "$ref": "../../type/basic.json#/definitions/uuid"
+    },
+    "name": {
+      "description": "Name of the harness. `CompanyDefault` for the default harness and the persona's id for a persona harness, so a persona rename or a persona named like the default cannot collide.",
+      "$ref": "../../type/basic.json#/definitions/entityName"
+    },
+    "fullyQualifiedName": {
+      "description": "Fully qualified name, the same as `name`.",
+      "$ref": "../../type/basic.json#/definitions/fullyQualifiedEntityName"
+    },
+    "displayName": {
+      "description": "Display name of the harness.",
+      "type": "string"
+    },
+    "description": {
+      "description": "Description of the harness.",
+      "$ref": "../../type/basic.json#/definitions/markdown"
+    },
+    "kind": {
+      "description": "Whether this is the company default or a persona harness.",
+      "$ref": "#/definitions/harnessKind"
+    },
+    "persona": {
+      "description": "Persona whose members this harness serves. Required on a persona harness and absent on the default. At most one harness refers to a persona.",
+      "$ref": "../../type/entityReference.json"
+    },
+    "enabled": {
+      "description": "Whether the harness is applied. A disabled persona harness leaves its members with the default alone. A disabled default delivers nothing to anyone. Changed with `PUT /v1/agentHarness/{id}/enabled`, never through a draft.",
+      "type": "boolean",
+      "default": true
+    },
+    "publishedAt": {
+      "description": "Time of the latest publish in Unix epoch time milliseconds. Absent on a persona harness that has never been published, which is not applied.",
+      "$ref": "../../type/basic.json#/definitions/timestamp",
+      "readOnly": true
+    },
+    "context": {
+      "description": "Knowledge rules, persona prompt, character budget and cache lifetime. The definition's own `enabled` flag must stay true, because the harness's `enabled` decides. Its read-only cache fields are not stored.",
+      "$ref": "../../type/personaContextDefinition.json"
+    },
+    "companyInstructions": {
+      "description": "Instructions every agent receives. Only on the default harness.",
+      "$ref": "../../type/basic.json#/definitions/markdown"
+    },
+    "perTurnTokenBudget": {
+      "description": "Most tokens delivered across the events of one turn. At least the sum of the enabled events' budgets.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 20000
+    },
+    "events": {
+      "description": "Delivery settings per hook event. The default lists every event. A persona harness lists only the events it adds or whose budget it lowers.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/eventDelivery"
+      },
+      "default": []
+    },
+    "skills": {
+      "description": "Skills offered to agents. A persona harness lists only the skills it adds.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/skillSetting"
+      },
+      "default": []
+    },
+    "guardrails": {
+      "description": "Guardrail levels. A persona harness lists only the guardrails it makes stricter.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/guardrailSetting"
+      },
+      "default": []
+    },
+    "memory": {
+      "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
+      "$ref": "#/definitions/memorySettings"
+    },
+    "version": {
+      "description": "Metadata version of the entity.",
+      "$ref": "../../type/entityHistory.json#/definitions/entityVersion"
+    },
+    "updatedAt": {
+      "description": "Last update time in Unix epoch time milliseconds.",
+      "$ref": "../../type/basic.json#/definitions/timestamp"
+    },
+    "updatedBy": {
+      "description": "User who made the update.",
+      "type": "string"
+    },
+    "impersonatedBy": {
+      "description": "Bot user that performed the action on behalf of the actual user.",
+      "$ref": "../../type/basic.json#/definitions/impersonatedBy"
+    },
+    "href": {
+      "description": "Link to this resource.",
+      "$ref": "../../type/basic.json#/definitions/href"
+    },
+    "changeDescription": {
+      "description": "Change that led to this version.",
+      "$ref": "../../type/entityHistory.json#/definitions/changeDescription"
+    },
+    "incrementalChangeDescription": {
+      "description": "Incremental change that led to this version.",
+      "$ref": "../../type/entityHistory.json#/definitions/changeDescription"
+    },
+    "deleted": {
+      "description": "When true indicates the entity has been soft deleted.",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": ["id", "name", "kind"],
+  "additionalProperties": false
+}

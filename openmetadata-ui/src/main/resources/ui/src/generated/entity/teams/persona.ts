@@ -270,6 +270,12 @@ export interface ContextRule {
      */
     name: string;
     /**
+     * True when the rule holds glossary terms, metrics or articles an administrator picked one
+     * by one. It is still an ordinary rule whose filter selects them by id. Editors read the
+     * flag to show the picks as a list instead of a filter.
+     */
+    picked?: boolean;
+    /**
      * Elasticsearch query DSL string emitted by the Explore query builder. Empty selects every
      * entity of the configured type.
      */

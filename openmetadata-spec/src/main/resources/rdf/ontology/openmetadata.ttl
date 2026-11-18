@@ -2367,6 +2367,10 @@ om:color a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "color" .
 
+om:companyInstructions a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "companyInstructions" .
+
 om:completedAt a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "completedAt" .
@@ -2410,6 +2414,10 @@ om:constraintType a rdf:Property ;
 om:contentType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "contentType" .
+
+om:context a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "context" .
 
 om:contextDefinition a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2645,6 +2653,10 @@ om:eventSubscriptions a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "eventSubscriptions" .
 
+om:events a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "events" .
+
 om:evidence a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "evidence" .
@@ -2765,6 +2777,10 @@ om:governanceMetadata a rdf:Property ;
 om:governanceStatus a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "governanceStatus" .
+
+om:guardrails a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "guardrails" .
 
 om:hasAirflowConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3269,6 +3285,10 @@ om:measures a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "measures" .
 
+om:memory a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "memory" .
+
 om:memoryCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "memoryCount" .
@@ -3430,6 +3450,10 @@ om:partOf a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "partOf" .
 
+om:perTurnTokenBudget a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "perTurnTokenBudget" .
+
 om:performanceMetrics a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "performanceMetrics" .
@@ -3441,6 +3465,10 @@ om:performanceStandards a rdf:Property ;
 om:permission a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "permission" .
+
+om:persona a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "persona" .
 
 om:personaPreferences a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3549,6 +3577,10 @@ om:protocolVersion a rdf:Property ;
 om:providerModelId a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "providerModelId" .
+
+om:publishedAt a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "publishedAt" .
 
 om:qualityExpectations a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3757,6 +3789,10 @@ om:shareConfig a rdf:Property ;
 om:size a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "size" .
+
+om:skills a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "skills" .
 
 om:sla a rdf:Property ;
     om:projectionStatus om:Stored ;

@@ -1,0 +1,127 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/compiledAgentContext.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompiledAgentContext",
+  "description": "The context compiled for the calling user at one hook event, returned by `POST /v1/agentHarness/compile`.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.CompiledAgentContext",
+  "definitions": {
+    "appliedHarness": {
+      "javaType": "org.openmetadata.schema.api.context.AppliedHarness",
+      "description": "A published harness the context was compiled from.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Id of the harness.",
+          "$ref": "../../type/basic.json#/definitions/uuid"
+        },
+        "name": {
+          "description": "Name of the harness.",
+          "$ref": "../../type/basic.json#/definitions/entityName"
+        },
+        "version": {
+          "description": "Published version the context was compiled from.",
+          "$ref": "../../type/entityHistory.json#/definitions/entityVersion"
+        }
+      },
+      "required": ["id", "name", "version"],
+      "additionalProperties": false
+    },
+    "appliedHarnesses": {
+      "javaType": "org.openmetadata.schema.api.context.AppliedHarnesses",
+      "description": "The harnesses that applied to the caller.",
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "The company default.",
+          "$ref": "#/definitions/appliedHarness"
+        },
+        "persona": {
+          "description": "The harness of the caller's persona. Absent when that persona has no enabled, published harness.",
+          "$ref": "#/definitions/appliedHarness"
+        }
+      },
+      "required": ["default"],
+      "additionalProperties": false
+    },
+    "segment": {
+      "javaType": "org.openmetadata.schema.api.context.CompiledSegment",
+      "description": "One part of the compiled text and its size.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "What the part holds, for example Instructions, Glossary, Metrics, Assets or Memories.",
+          "type": "string"
+        },
+        "tokens": {
+          "description": "Estimated tokens in the part.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["kind", "tokens"],
+      "additionalProperties": false
+    },
+    "decisionAction": {
+      "javaType": "org.openmetadata.schema.api.context.GuardrailAction",
+      "description": "What the agent host does with the tool call.",
+      "type": "string",
+      "enum": ["allow", "warn", "deny"],
+      "javaEnums": [
+        { "name": "ALLOW" },
+        { "name": "WARN" },
+        { "name": "DENY" }
+      ]
+    },
+    "decision": {
+      "javaType": "org.openmetadata.schema.api.context.GuardrailDecision",
+      "description": "Outcome of the guardrails evaluated for a tool call.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "The strictest action any matching guardrail asks for.",
+          "$ref": "#/definitions/decisionAction"
+        },
+        "reasons": {
+          "description": "One reason per guardrail that matched.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "required": ["action", "reasons"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "harness": {
+      "description": "The harnesses the context was compiled from.",
+      "$ref": "#/definitions/appliedHarnesses"
+    },
+    "text": {
+      "description": "The context to inject at the event.",
+      "type": "string"
+    },
+    "tokens": {
+      "description": "Estimated tokens in `text`. Equal to the sum of the segments.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "segments": {
+      "description": "The parts `text` is made of, in order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/segment"
+      },
+      "default": []
+    },
+    "decision": {
+      "description": "Guardrail decision for the tool call. Present only for PreToolUse.",
+      "$ref": "#/definitions/decision"
+    }
+  },
+  "required": ["harness", "text", "tokens", "segments"],
+  "additionalProperties": false
+}

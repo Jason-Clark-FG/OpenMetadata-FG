@@ -1,0 +1,48 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/compileAgentContext.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompileAgentContext",
+  "description": "Request to compile the context the calling user's agent receives at one hook event, sent to `POST /v1/agentHarness/compile`.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.CompileAgentContext",
+  "definitions": {
+    "compileEvent": {
+      "javaType": "org.openmetadata.schema.api.context.CompileEvent",
+      "description": "Hook event context can be compiled for.",
+      "type": "string",
+      "enum": ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse"],
+      "javaEnums": [
+        { "name": "SESSION_START" },
+        { "name": "USER_PROMPT_SUBMIT" },
+        { "name": "PRE_TOOL_USE" },
+        { "name": "POST_TOOL_USE" }
+      ]
+    }
+  },
+  "properties": {
+    "event": {
+      "description": "The hook event to compile for.",
+      "$ref": "#/definitions/compileEvent"
+    },
+    "prompt": {
+      "description": "The user's prompt, for UserPromptSubmit.",
+      "type": "string"
+    },
+    "toolName": {
+      "description": "Name of the tool the agent is about to call or has called, for PreToolUse and PostToolUse.",
+      "type": "string"
+    },
+    "toolInput": {
+      "description": "Input of the tool call as the agent host reports it, for PreToolUse.",
+      "type": "object",
+      "existingJavaType": "com.fasterxml.jackson.databind.JsonNode",
+      "additionalProperties": true
+    },
+    "toolOutput": {
+      "description": "Output of the tool call as the agent host reports it, for PostToolUse. Any JSON value.",
+      "existingJavaType": "com.fasterxml.jackson.databind.JsonNode"
+    }
+  },
+  "required": ["event"],
+  "additionalProperties": false
+}

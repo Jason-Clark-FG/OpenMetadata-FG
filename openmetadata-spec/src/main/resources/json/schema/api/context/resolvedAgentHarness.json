@@ -1,0 +1,166 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/resolvedAgentHarness.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResolvedAgentHarness",
+  "description": "An agent harness after inheritance is applied. The default's items come first and are marked inherited, then the persona's own, and every level and budget is the stricter of the two. The server computes it, and clients never merge harnesses themselves.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.ResolvedAgentHarness",
+  "definitions": {
+    "resolvedRule": {
+      "javaType": "org.openmetadata.schema.api.context.ResolvedContextRule",
+      "description": "A knowledge rule and where it comes from.",
+      "type": "object",
+      "properties": {
+        "rule": {
+          "description": "The rule as stored, under its own name.",
+          "$ref": "../../type/personaContextDefinition.json#/definitions/contextRule"
+        },
+        "inherited": {
+          "description": "True when the rule comes from the default and is read-only on this harness.",
+          "type": "boolean"
+        }
+      },
+      "required": ["rule", "inherited"],
+      "additionalProperties": false
+    },
+    "resolvedEvent": {
+      "javaType": "org.openmetadata.schema.api.context.ResolvedHarnessEvent",
+      "description": "Effective delivery setting of one hook event.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The hook event.",
+          "$ref": "../../entity/context/agentHarness.json#/definitions/hookEvent"
+        },
+        "enabled": {
+          "description": "Whether context is delivered at this event.",
+          "type": "boolean"
+        },
+        "tokenBudget": {
+          "description": "Most tokens delivered at this event, never above `maxTokenBudget`.",
+          "type": "integer"
+        },
+        "inherited": {
+          "description": "True when the default delivers at this event, so a persona harness cannot turn it off.",
+          "type": "boolean"
+        },
+        "maxTokenBudget": {
+          "description": "The default's budget for this event, the most a persona harness may set. Absent on the default harness.",
+          "type": "integer"
+        }
+      },
+      "required": ["id", "enabled", "tokenBudget", "inherited"],
+      "additionalProperties": false
+    },
+    "resolvedSkill": {
+      "javaType": "org.openmetadata.schema.api.context.ResolvedHarnessSkill",
+      "description": "Whether one registered skill is offered.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the skill.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Whether the skill is offered to agents.",
+          "type": "boolean"
+        },
+        "inherited": {
+          "description": "True when the default offers the skill, so a persona harness cannot turn it off.",
+          "type": "boolean"
+        }
+      },
+      "required": ["name", "enabled", "inherited"],
+      "additionalProperties": false
+    },
+    "resolvedGuardrail": {
+      "javaType": "org.openmetadata.schema.api.context.ResolvedHarnessGuardrail",
+      "description": "Effective level of one registered guardrail.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Id of the guardrail.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Level the guardrail runs at, never less strict than `minLevel`.",
+          "$ref": "../../entity/context/agentHarness.json#/definitions/guardrailLevel"
+        },
+        "minLevel": {
+          "description": "The default's level, the least strict a persona harness may set. Absent on the default harness.",
+          "$ref": "../../entity/context/agentHarness.json#/definitions/guardrailLevel"
+        }
+      },
+      "required": ["id", "level"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "kind": {
+      "description": "Whether this is the company default or a persona harness.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/harnessKind"
+    },
+    "companyInstructions": {
+      "description": "The default's company instructions. Read-only on a persona harness.",
+      "$ref": "../../type/basic.json#/definitions/markdown"
+    },
+    "prompt": {
+      "description": "The harness's own prompt.",
+      "type": "string"
+    },
+    "rules": {
+      "description": "Knowledge rules in the order they are compiled: the default's, then the persona's own.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/resolvedRule"
+      },
+      "default": []
+    },
+    "characterBudget": {
+      "description": "Character budget of the compiled document. A persona harness's budget is capped at the default's.",
+      "type": "integer"
+    },
+    "cacheTtlMinutes": {
+      "description": "Minutes a compiled document stays fresh.",
+      "type": "integer"
+    },
+    "perTurnTokenBudget": {
+      "description": "Most tokens delivered across the events of one turn. A persona harness's budget is capped at the default's.",
+      "type": "integer"
+    },
+    "events": {
+      "description": "Every hook event, in delivery order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/resolvedEvent"
+      },
+      "default": []
+    },
+    "skills": {
+      "description": "Every registered skill.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/resolvedSkill"
+      },
+      "default": []
+    },
+    "guardrails": {
+      "description": "Every registered guardrail.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/resolvedGuardrail"
+      },
+      "default": []
+    },
+    "memory": {
+      "description": "Agent memory settings in effect.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/memorySettings"
+    },
+    "memoryInherited": {
+      "description": "True when a persona harness sets no memory settings and the default's apply.",
+      "type": "boolean"
+    }
+  },
+  "required": ["kind", "rules", "characterBudget", "cacheTtlMinutes", "perTurnTokenBudget", "events", "skills", "guardrails", "memory", "memoryInherited"],
+  "additionalProperties": false
+}
