@@ -1,0 +1,88 @@
+# One-line descriptions of the RDF, RDFS, OWL, SKOS and Dublin Core terms that can appear on a
+# knowledge_graph card, mostly from ontology release graphs, for terms openmetadata.ttl does not
+# declare. openmetadata.ttl wins wherever it describes a term.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+
+rdfs:domain rdfs:label "domain" ;
+    rdfs:comment "The class a property describes: following it from a property leads to the kind of node that carries the property." .
+rdfs:range rdfs:label "range" ;
+    rdfs:comment "The class or datatype of a property's values: following it from a property leads to what the property points at." .
+rdfs:subClassOf rdfs:label "subclass of" ;
+    rdfs:comment "A broader class: every member of this class is also a member of the class it points at." .
+rdfs:subPropertyOf rdfs:label "subproperty of" ;
+    rdfs:comment "A broader property: whenever this property holds, the property it points at holds too." .
+rdfs:comment rdfs:label "comment" ;
+    rdfs:comment "A human-readable explanation of the term." .
+rdfs:isDefinedBy rdfs:label "is defined by" ;
+    rdfs:comment "The ontology or document that defines the term." .
+rdfs:seeAlso rdfs:label "see also" ;
+    rdfs:comment "A related resource with more information about the term." .
+owl:inverseOf rdfs:label "inverse of" ;
+    rdfs:comment "The property that states the same link in the opposite direction." .
+owl:equivalentClass rdfs:label "equivalent class" ;
+    rdfs:comment "A class with exactly the same members as this one, often from another ontology." .
+owl:equivalentProperty rdfs:label "equivalent property" ;
+    rdfs:comment "A property that holds between exactly the same nodes as this one, often from another ontology." .
+owl:sameAs rdfs:label "same as" ;
+    rdfs:comment "Another IRI for the same thing." .
+owl:disjointWith rdfs:label "disjoint with" ;
+    rdfs:comment "A class that shares no members with this one." .
+owl:imports rdfs:label "imports" ;
+    rdfs:comment "Another ontology whose terms this ontology uses." .
+owl:versionIRI rdfs:label "version IRI" ;
+    rdfs:comment "The IRI of the exact release of this ontology." .
+owl:versionInfo rdfs:label "version info" ;
+    rdfs:comment "The version of this ontology as text." .
+owl:deprecated rdfs:label "deprecated" ;
+    rdfs:comment "True when the term should no longer be used; a replacement, if any, is dct:isReplacedBy." .
+owl:onProperty rdfs:label "on property" ;
+    rdfs:comment "The property a restriction constrains." .
+owl:someValuesFrom rdfs:label "some values from" ;
+    rdfs:comment "A restriction requiring at least one value of the property to belong to the class it points at." .
+owl:allValuesFrom rdfs:label "all values from" ;
+    rdfs:comment "A restriction requiring every value of the property to belong to the class it points at." .
+owl:hasValue rdfs:label "has value" ;
+    rdfs:comment "A restriction requiring the property to have this exact value." .
+owl:annotatedSource rdfs:label "annotated source" ;
+    rdfs:comment "The subject of the statement an annotation describes." .
+owl:annotatedProperty rdfs:label "annotated property" ;
+    rdfs:comment "The property of the statement an annotation describes." .
+owl:annotatedTarget rdfs:label "annotated target" ;
+    rdfs:comment "The object of the statement an annotation describes." .
+skos:definition rdfs:label "definition" ;
+    rdfs:comment "A complete explanation of what the concept means." .
+skos:note rdfs:label "note" ;
+    rdfs:comment "A general note about the concept." .
+skos:scopeNote rdfs:label "scope note" ;
+    rdfs:comment "What the concept covers and what it does not." .
+skos:example rdfs:label "example" ;
+    rdfs:comment "An example of the concept in use." .
+skos:hiddenLabel rdfs:label "hidden label" ;
+    rdfs:comment "A name the concept is searched by but not shown, such as a misspelling." .
+skos:notation rdfs:label "notation" ;
+    rdfs:comment "A code that identifies the concept within its scheme." .
+skos:related rdfs:label "related" ;
+    rdfs:comment "An associated concept that is neither broader nor narrower." .
+skos:broaderTransitive rdfs:label "broader (transitive)" ;
+    rdfs:comment "A broader concept at any number of steps up the hierarchy." .
+skos:narrowerTransitive rdfs:label "narrower (transitive)" ;
+    rdfs:comment "A narrower concept at any number of steps down the hierarchy." .
+skos:closeMatch rdfs:label "close match" ;
+    rdfs:comment "A concept in another scheme close enough in meaning to use in its place in some cases." .
+skos:broadMatch rdfs:label "broad match" ;
+    rdfs:comment "A broader concept in another scheme." .
+skos:narrowMatch rdfs:label "narrow match" ;
+    rdfs:comment "A narrower concept in another scheme." .
+skos:relatedMatch rdfs:label "related match" ;
+    rdfs:comment "An associated concept in another scheme." .
+skos:topConceptOf rdfs:label "top concept of" ;
+    rdfs:comment "The concept scheme this concept heads." .
+skos:hasTopConcept rdfs:label "has top concept" ;
+    rdfs:comment "A concept at the top of this scheme." .
+dct:source rdfs:label "source" ;
+    rdfs:comment "The resource the definition was taken from." .
+dct:isReplacedBy rdfs:label "is replaced by" ;
+    rdfs:comment "The term to use instead of this deprecated one." .

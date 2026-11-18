@@ -15,6 +15,9 @@ package org.openmetadata.service.rdf.explore;
 
 import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Comparator;
@@ -28,6 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.RDFNode;
@@ -70,6 +74,27 @@ public final class OntologyVocabulary {
     unprojected = readUnprojected(ontology);
   }
 
+  private static final class StandardTerms {
+    private static final String RESOURCE = "rdf/explore/standard-terms.ttl";
+    private static final Map<String, RelationshipAbout> ABOUTS = load();
+
+    private static Map<String, RelationshipAbout> load() {
+      final Model model = ModelFactory.createDefaultModel();
+      try (InputStream input =
+          OntologyVocabulary.class.getClassLoader().getResourceAsStream(RESOURCE)) {
+        if (input == null) {
+          throw new IllegalStateException("Missing classpath resource " + RESOURCE);
+        }
+        model.read(input, null, "TTL");
+        return Map.copyOf(readAbouts(model));
+      } catch (IOException failure) {
+        throw new UncheckedIOException("Cannot read " + RESOURCE, failure);
+      } finally {
+        model.close();
+      }
+    }
+  }
+
   private static final class Holder {
     private static final OntologyVocabulary INSTANCE = loadCanonical();
 
@@ -87,8 +112,14 @@ public final class OntologyVocabulary {
     return Holder.INSTANCE;
   }
 
+  /**
+   * What the ontology says about a term; for a standard RDF, RDFS, OWL, SKOS or Dublin Core term it
+   * does not declare, a one-line description; otherwise the term's local name.
+   */
   public RelationshipAbout about(final String predicateIri) {
-    return abouts.getOrDefault(predicateIri, new RelationshipAbout(localName(predicateIri), null));
+    return Optional.ofNullable(abouts.get(predicateIri))
+        .or(() -> Optional.ofNullable(StandardTerms.ABOUTS.get(predicateIri)))
+        .orElseGet(() -> new RelationshipAbout(localName(predicateIri), null));
   }
 
   /** What a relationship is, by the name a card gives it: a prefixed name or an absolute IRI. */

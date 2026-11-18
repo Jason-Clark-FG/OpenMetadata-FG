@@ -115,6 +115,30 @@ class OntologyVocabularyTest {
   }
 
   @Test
+  void aStandardTermTheOntologyDoesNotDeclareGetsAOneLineDescription() {
+    for (final String term :
+        List.of(
+            "http://www.w3.org/2000/01/rdf-schema#domain",
+            "http://www.w3.org/2002/07/owl#inverseOf",
+            "http://www.w3.org/2004/02/skos/core#related",
+            "http://purl.org/dc/terms/isReplacedBy")) {
+      final RelationshipAbout about = fixture().about(term);
+      assertThat(about.comment()).as(term).isNotBlank().doesNotContain("\n");
+    }
+    assertThat(fixture().about("http://www.w3.org/2000/01/rdf-schema#domain").label())
+        .isEqualTo("domain");
+  }
+
+  @Test
+  void theOntologysOwnDescriptionOfAStandardTermWinsOverTheFallback() {
+    assertThat(
+            OntologyVocabulary.canonical()
+                .about("http://www.w3.org/2000/01/rdf-schema#label")
+                .comment())
+        .startsWith("The entity's name");
+  }
+
+  @Test
   void anUndeclaredPredicateIsLabelledByItsLocalName() {
     final RelationshipAbout about = fixture().about(OM + "customRelation");
 
