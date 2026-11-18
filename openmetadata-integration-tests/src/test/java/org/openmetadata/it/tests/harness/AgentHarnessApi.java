@@ -35,6 +35,9 @@ import org.openmetadata.schema.utils.JsonUtils;
 
 /** HTTP calls to the agent harness API, with the If-Match header the draft endpoints take. */
 final class AgentHarnessApi {
+  /** JUnit resource lock for tests that publish to, or assert on, the shared company default. */
+  static final String DEFAULT_HARNESS_LOCK = "agentHarness.companyDefault";
+
   static final String HARNESS = "agentHarness";
   private static final HttpClient HTTP_CLIENT =
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();

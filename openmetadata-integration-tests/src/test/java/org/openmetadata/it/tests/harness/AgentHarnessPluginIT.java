@@ -36,6 +36,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.openmetadata.it.bootstrap.TestSuiteBootstrap;
 import org.openmetadata.it.tests.mcp.McpTestBase;
 import org.openmetadata.it.tests.mcp.McpTestUtils;
@@ -91,6 +92,7 @@ class AgentHarnessPluginIT extends McpTestBase {
   }
 
   @Test
+  @ResourceLock(value = AgentHarnessApi.DEFAULT_HARNESS_LOCK)
   void publishingCompanyInstructionsDoesNotChangeThePlugin() throws Exception {
     final byte[] before = download(ADMIN_TOKEN).body();
     final String instructions = "Plugin bytes must not carry " + uniqueName("secret_rule");

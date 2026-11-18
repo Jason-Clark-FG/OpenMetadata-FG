@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.openmetadata.it.tests.mcp.McpTestBase;
 import org.openmetadata.it.tests.mcp.McpTestUtils;
 import org.openmetadata.schema.api.context.AgentHarnessManagedSettings;
@@ -190,6 +192,7 @@ class AgentHarnessCompileIT extends McpTestBase {
   }
 
   @Test
+  @ResourceLock(value = AgentHarnessApi.DEFAULT_HARNESS_LOCK)
   void aPersonaCannotLoosenTheDefaultsToolAccess() {
     final String warned = uniqueName("warned").toLowerCase();
     addDefaultServer(warned, ToolAccessLevel.WARN);
@@ -284,6 +287,7 @@ class AgentHarnessCompileIT extends McpTestBase {
   }
 
   @Test
+  @ResourceLock(value = AgentHarnessApi.DEFAULT_HARNESS_LOCK, mode = ResourceAccessMode.READ)
   void aCallerWithoutAPersonaReceivesTheDefaultAlone() throws Exception {
     final User user = AgentHarnessApi.createUser(uniqueName("no_persona"));
 

@@ -31,6 +31,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
@@ -55,6 +57,7 @@ import org.openmetadata.service.jdbi3.AgentHarnessRepository;
 class AgentHarnessResourceIT {
 
   @Test
+  @ResourceLock(value = AgentHarnessApi.DEFAULT_HARNESS_LOCK, mode = ResourceAccessMode.READ)
   void theDefaultIsSeededOnceWithNoRulesAndTheSpecBudgets() {
     AgentHarnessState state = admin("GET", "/default", null, null);
     AgentHarness published = state.getPublished();
