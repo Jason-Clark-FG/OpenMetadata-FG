@@ -13,7 +13,7 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 - Source is the annotations, **not** `openapi.yml` (a config stub with no endpoints; the
   full spec is assembled at runtime by Dropwizard).
 
-**2012 endpoints** across 75 resource packages · 2002 carry a summary.
+**2024 endpoints** across 75 resource packages · 2011 carry a summary.
 
 ## (root)
 
@@ -372,6 +372,27 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 
 | Method | Path | Purpose |
 |---|---|---|
+| `DELETE` | `/v1/agentHarness` | Discard a harness's draft |
+| `GET` | `/v1/agentHarness` | Get one published version |
+| `GET` | `/v1/agentHarness` | List a harness's publishes |
+| `POST` | `/v1/agentHarness` | Preview the entities a context rule selects |
+| `POST` | `/v1/agentHarness` | Preview what the calling administrator's agent would receive |
+| `POST` | `/v1/agentHarness` | Publish a harness's draft |
+| `PUT` | `/v1/agentHarness` | Replace a harness's draft |
+| `PUT` | `/v1/agentHarness` | Turn a harness on or off |
+| `POST` | `/v1/agentHarness/compile` | Compile the context the caller's agent receives at a hook event |
+| `GET` | `/v1/agentHarness/default` | Get the company default agent harness with its draft |
+| `GET` | `/v1/agentHarness/guardrails` | List registered guardrails |
+| `GET` | `/v1/agentHarness/history` |  |
+| `GET` | `/v1/agentHarness/managedSettings` | Agent host settings that enforce the default harness's MCP access |
+| `GET` | `/v1/agentHarness/name/{fqn}/context` |  |
+| `GET` | `/v1/agentHarness/persona/{personaFqn}` | Get a persona's agent harness with its draft |
+| `POST` | `/v1/agentHarness/persona/{personaFqn}` | Create a persona's agent harness |
+| `GET` | `/v1/agentHarness/personas` | List personas with their agent harness |
+| `GET` | `/v1/agentHarness/plugin` | Download the OpenMetadata plugin for an AI agent host |
+| `GET` | `/v1/agentHarness/skills` | List registered skills |
+| `GET` | `/v1/agentHarness/surfaces` | AI surfaces, the channels each supports, and whether each has connected |
+| `GET` | `/v1/agentHarness/{id}/context` |  |
 | `GET` | `/v1/contextCenter/memories` | List context memories |
 | `POST` | `/v1/contextCenter/memories` | Create a memory |
 | `PUT` | `/v1/contextCenter/memories` | Create or update a memory |
@@ -1676,6 +1697,7 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 | `GET` | `/v1/search/nlq/query` | Search entities using Natural Language Query (NLQ) |
 | `POST` | `/v1/search/preview` | Preview Search Results |
 | `GET` | `/v1/search/query` | Search entities |
+| `POST` | `/v1/search/query` | Search entities using a request body |
 | `GET` | `/v1/search/reindex/failures` | Get reindex failures |
 | `POST` | `/v1/search/reindexEntities` | Only Reindex the selected entities in Elasticsearch. |
 | `GET` | `/v1/search/sourceUrl` | Search entities |
@@ -2212,26 +2234,16 @@ hand-edit; run `make generate-api-reference` (or `make generate-reference-docs`)
 | `GET` | `/v1/personas` | List personas |
 | `POST` | `/v1/personas` | Create a Persona |
 | `PUT` | `/v1/personas` | Update Persona |
-| `GET` | `/v1/personas/aiContext/status` | List the compiled AI context state of personas |
 | `DELETE` | `/v1/personas/async/{id}` | Asynchronously delete a Persona by id |
-| `GET` | `/v1/personas/me/context` | Get the materialized AI context for the caller's active persona |
 | `PATCH` | `/v1/personas/name/{fqn}` | Update a Persona using name. |
-| `GET` | `/v1/personas/name/{fqn}/context` | Get the materialized AI context for a persona by name |
+| `GET` | `/v1/personas/name/{fqn}/context` | Get the context the caller's agent receives as a member of a persona, by name |
 | `DELETE` | `/v1/personas/name/{name}` | Delete a Persona by name |
 | `GET` | `/v1/personas/name/{name}` | Get a Persona by name |
 | `GET` | `/v1/personas/search` | Search personas |
 | `DELETE` | `/v1/personas/{id}` | Delete a Persona by id |
 | `GET` | `/v1/personas/{id}` | Get a persona by id |
 | `PATCH` | `/v1/personas/{id}` | Update a Persona |
-| `GET` | `/v1/personas/{id}/aiContext` | Get a persona AI context configuration |
-| `PUT` | `/v1/personas/{id}/aiContext` | Update persona AI context settings |
-| `GET` | `/v1/personas/{id}/aiContext/document` | Get the compiled persona AI context document |
-| `POST` | `/v1/personas/{id}/aiContext/document:refresh` | Force recompilation of a persona AI context document |
-| `POST` | `/v1/personas/{id}/aiContext/rules` | Create a persona AI context rule |
-| `POST` | `/v1/personas/{id}/aiContext/rules/preview` | Preview the entities matched by a persona AI context rule |
-| `DELETE` | `/v1/personas/{id}/aiContext/rules/{ruleId:[0-9a-fA-F\\-]{36}}` | Delete a persona AI context rule |
-| `PUT` | `/v1/personas/{id}/aiContext/rules/{ruleId:[0-9a-fA-F\\-]{36}}` | Update a persona AI context rule |
-| `GET` | `/v1/personas/{id}/context` | Get the materialized AI context for a persona by id |
+| `GET` | `/v1/personas/{id}/context` | Get the context the caller's agent receives as a member of a persona, by id |
 | `GET` | `/v1/personas/{id}/versions` | List Persona versions |
 | `GET` | `/v1/personas/{id}/versions/{version}` | Get a version of the Persona |
 | `GET` | `/v1/roles` | List roles |
