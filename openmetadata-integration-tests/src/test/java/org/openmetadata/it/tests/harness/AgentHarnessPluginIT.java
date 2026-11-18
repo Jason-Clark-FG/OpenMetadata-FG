@@ -71,11 +71,18 @@ class AgentHarnessPluginIT extends McpTestBase {
     assertThat(files.keySet())
         .containsExactly(
             ".claude-plugin/plugin.json",
+            ".codex-plugin/plugin.json",
             ".mcp.json",
             "hooks/hooks.json",
             "skills/openmetadata/SKILL.md");
     assertThat(files.get(".mcp.json")).contains("/mcp\"");
     assertThat(files.get("hooks/hooks.json")).contains("plugin:openmetadata:openmetadata");
+    final var codex = JsonUtils.readTree(files.get(".codex-plugin/plugin.json"));
+    assertThat(codex.path("mcpServers").asText()).isEqualTo("./.mcp.json");
+    final var handler =
+        codex.path("hooks").path("hooks").path("PreToolUse").path(0).path("hooks").path(0);
+    assertThat(handler.path("server").asText()).isEqualTo("openmetadata");
+    assertThat(handler.path("tool").asText()).isEqualTo("harness_hook");
   }
 
   @Test

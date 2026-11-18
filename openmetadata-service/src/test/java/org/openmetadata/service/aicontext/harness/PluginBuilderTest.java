@@ -29,12 +29,13 @@ class PluginBuilderTest {
   private static final String URL = "https://om.example.com/mcp";
 
   @Test
-  void zipHoldsExactlyTheManifestConnectorSkillAndHooks() throws IOException {
+  void zipHoldsExactlyTheManifestsConnectorSkillAndHooks() throws IOException {
     final Map<String, String> files = unzip(PluginBuilder.build(URL, "2.1.0"));
 
     assertThat(files.keySet())
         .containsExactly(
             ".claude-plugin/plugin.json",
+            ".codex-plugin/plugin.json",
             ".mcp.json",
             "hooks/hooks.json",
             "skills/openmetadata/SKILL.md");
@@ -98,6 +99,28 @@ class PluginBuilderTest {
                 .path("prompt")
                 .asText())
         .isEqualTo("${prompt}");
+  }
+
+  @Test
+  void codexManifestPointsAtTheSharedFilesAndCarriesItsOwnHooks() throws IOException {
+    final JsonNode manifest =
+        json(unzip(PluginBuilder.build(URL, "2.1.0")), ".codex-plugin/plugin.json");
+
+    assertThat(manifest.path("name").asText()).isEqualTo("openmetadata");
+    assertThat(manifest.path("version").asText()).isEqualTo("2.1.0");
+    assertThat(manifest.path("skills").asText()).isEqualTo("./skills/");
+    assertThat(manifest.path("mcpServers").asText()).isEqualTo("./.mcp.json");
+    final JsonNode hooks = manifest.path("hooks").path("hooks");
+    assertThat(hooks.fieldNames())
+        .toIterable()
+        .containsExactlyInAnyOrder("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop");
+    hooks.forEach(
+        groups -> {
+          final JsonNode handler = groups.path(0).path("hooks").path(0);
+          assertThat(handler.path("type").asText()).isEqualTo("mcp_tool");
+          assertThat(handler.path("server").asText()).isEqualTo("openmetadata");
+          assertThat(handler.path("tool").asText()).isEqualTo("harness_hook");
+        });
   }
 
   @Test

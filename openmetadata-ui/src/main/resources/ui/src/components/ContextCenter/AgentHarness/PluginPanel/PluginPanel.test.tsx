@@ -49,6 +49,7 @@ describe('PluginPanel', () => {
       [
         'openmetadata.zip',
         '  .claude-plugin/plugin.json',
+        '  .codex-plugin/plugin.json',
         '  .mcp.json',
         '  hooks/hooks.json',
         '  skills/openmetadata/SKILL.md',

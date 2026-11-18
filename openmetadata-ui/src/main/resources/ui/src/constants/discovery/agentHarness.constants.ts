@@ -93,6 +93,7 @@ export const PLUGIN_TARGETS: { target: PluginTarget; labelKey: string }[] = [
 export const PLUGIN_ZIP_NAME = 'openmetadata.zip';
 export const PLUGIN_ZIP_ENTRIES = [
   '.claude-plugin/plugin.json',
+  '.codex-plugin/plugin.json',
   '.mcp.json',
   'hooks/hooks.json',
   'skills/openmetadata/SKILL.md',

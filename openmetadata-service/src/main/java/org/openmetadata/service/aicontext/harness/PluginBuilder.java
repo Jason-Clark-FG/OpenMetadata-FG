@@ -27,7 +27,9 @@ import java.util.zip.ZipOutputStream;
 import org.openmetadata.schema.utils.JsonUtils;
 
 /**
- * The Claude plugin that connects an agent host to OpenMetadata. It carries no harness content, so
+ * The plugin that connects an agent host, Claude Code or Codex, to OpenMetadata. One zip installs
+ * in both: each host reads its own manifest and ignores the other's. It carries no harness
+ * content, so
  * one package serves every employee and publishing never requires a re-upload: the skill, the MCP
  * connector and the hooks only point the host at the server, which compiles the harness per call.
  * The zip is a pure function of the server URL and version, with sorted entries and fixed
@@ -42,6 +44,7 @@ public final class PluginBuilder {
 
   static final String HOOK_TOOL = "harness_hook";
   static final String MANIFEST_PATH = ".claude-plugin/plugin.json";
+  static final String CODEX_MANIFEST_PATH = ".codex-plugin/plugin.json";
   static final String MCP_PATH = ".mcp.json";
   static final String SKILL_PATH = "skills/openmetadata/SKILL.md";
   static final String HOOKS_PATH = "hooks/hooks.json";
@@ -61,13 +64,31 @@ public final class PluginBuilder {
   public static byte[] build(final String serverUrl, final String version) {
     final Map<String, String> files = new TreeMap<>();
     files.put(MANIFEST_PATH, manifest(version));
+    files.put(CODEX_MANIFEST_PATH, codexManifest(version));
     files.put(MCP_PATH, mcpConfig(serverUrl));
     files.put(SKILL_PATH, skill());
-    files.put(HOOKS_PATH, hooks());
+    files.put(HOOKS_PATH, json(hooks(HOOK_SERVER)));
     return zip(files);
   }
 
   private static String manifest(final String version) {
+    return json(baseManifest(version));
+  }
+
+  /**
+   * Codex names a plugin's MCP server by its key, where Claude Code prefixes it with the plugin,
+   * so the shared {@code hooks/hooks.json} cannot serve both. The manifest's inline hooks replace
+   * Codex's default hooks file, and Claude Code never reads this manifest.
+   */
+  private static String codexManifest(final String version) {
+    final ObjectNode manifest = baseManifest(version);
+    manifest.put("skills", "./skills/");
+    manifest.put("mcpServers", "./" + MCP_PATH);
+    manifest.set("hooks", hooks(SERVER_KEY));
+    return json(manifest);
+  }
+
+  private static ObjectNode baseManifest(final String version) {
     final ObjectNode manifest = JsonUtils.getObjectMapper().createObjectNode();
     manifest.put("name", PLUGIN_NAME);
     manifest.put("displayName", "OpenMetadata");
@@ -76,7 +97,7 @@ public final class PluginBuilder {
         "description",
         "Gives your AI agent your company's data context from OpenMetadata: what terms, metrics "
             + "and tables mean, which to trust, and the rules for using them.");
-    return json(manifest);
+    return manifest;
   }
 
   private static String mcpConfig(final String serverUrl) {
@@ -88,14 +109,14 @@ public final class PluginBuilder {
     return json(root);
   }
 
-  private static String hooks() {
+  private static ObjectNode hooks(final String server) {
     final ObjectNode root = JsonUtils.getObjectMapper().createObjectNode();
     final ObjectNode events = root.putObject("hooks");
-    HOOK_EVENTS.forEach(event -> events.putArray(event).add(hookGroup(event)));
-    return json(root);
+    HOOK_EVENTS.forEach(event -> events.putArray(event).add(hookGroup(event, server)));
+    return root;
   }
 
-  private static ObjectNode hookGroup(final String event) {
+  private static ObjectNode hookGroup(final String event, final String server) {
     final ObjectNode input = JsonUtils.getObjectMapper().createObjectNode();
     input.put("hook_event_name", "${hook_event_name}");
     input.put("session_id", "${session_id}");
@@ -111,7 +132,7 @@ public final class PluginBuilder {
     }
     final ObjectNode handler = JsonUtils.getObjectMapper().createObjectNode();
     handler.put("type", "mcp_tool");
-    handler.put("server", HOOK_SERVER);
+    handler.put("server", server);
     handler.put("tool", HOOK_TOOL);
     handler.set("input", input);
     final ObjectNode group = JsonUtils.getObjectMapper().createObjectNode();

@@ -28,6 +28,7 @@ import { waitForResponseWithStatus } from '../../utils/waitHelpers';
 
 const PLUGIN_ENTRIES = [
   '.claude-plugin/plugin.json',
+  '.codex-plugin/plugin.json',
   '.mcp.json',
   'hooks/hooks.json',
   'skills/openmetadata/SKILL.md',
