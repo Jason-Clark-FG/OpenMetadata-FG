@@ -332,8 +332,16 @@ exist.
 - **No rows.** An empty answer carries `noRows`: the properties and classes the query names that
   the ontology does not declare (in its own `om:` namespace), each with the closest declared term
   (a name containing the term's first, then at most two edits), and the declared or foreign terms
-  that no triple in the graph uses, from one extra read. Its `means` says plainly that no rows is
-  not evidence that nothing exists. The served nodes a step records are those of the rows sent.
+  that no triple in the graph uses, from one extra read. With such terms its `means` says the empty
+  answer is not proof that nothing exists and asks for them to be corrected. Without them it says
+  only what is true: nothing matched the whole pattern, which is not proof of absence because a
+  filter, a literal value or a direction may be wrong, and an absence is confirmed on the node's
+  card. A card guarantees that: its `reachable` lists every stored edge of the node in both
+  directions (the read is never cut; a read over the store's bound fails, and a response that
+  cannot hold a card drops the whole card), so a relationship missing from it and not under
+  `notCovered` has no stored edge; `facts`, `values` and `bookkeeping` together name every stored
+  value. Inferred edges are not on a card. The served nodes a step records are those of the rows
+  sent.
 - **Prefixes.** A query that does not parse and uses prefixes cards name terms with (the
   ontology's own `om:`, `dct:`, `prov:`, `skos:` and the rest) without declaring them gets their
   declarations, listed in `prefixesAdded`, only when the result parses. The completed text is what

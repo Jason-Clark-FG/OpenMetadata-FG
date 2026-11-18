@@ -289,7 +289,7 @@ class KnowledgeGraphToolTest {
     assertThat(answer.rows().total()).isZero();
     assertThat(answer.noRows().undeclared())
         .containsExactly(new NoRows.Term("om:owner", "om:hasOwner"));
-    assertThat(answer.noRows().means()).contains("not evidence");
+    assertThat(answer.noRows().means()).contains("not proof");
   }
 
   @Test

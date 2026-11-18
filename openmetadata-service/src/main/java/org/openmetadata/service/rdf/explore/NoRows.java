@@ -19,18 +19,20 @@ import java.util.List;
  * What the tool can tell about a query that returned no rows: the properties and classes it names
  * that the ontology does not declare, each with the closest declared term when one is close, and
  * those no triple in the graph uses. Either makes the empty answer a mistake in the query, not
- * evidence that nothing exists.
+ * proof that nothing exists.
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record NoRows(String means, List<Term> undeclared, List<String> unused) {
 
   static final String UNMATCHABLE =
-      "No rows, and this is not evidence that nothing exists: the query names terms the graph cannot"
-          + " match. Correct them and run it again.";
+      "No rows, and this is not proof that nothing exists: the query names terms the graph cannot"
+          + " match, listed here. Correct them and run it again.";
   static final String UNMATCHED =
-      "No rows. Every property and class the query names is declared and used in the graph, so no"
-          + " node matched the whole pattern. That is not evidence that nothing exists: check the"
-          + " filters, literal values and directions, or find and expand the node instead.";
+      "No rows: nothing in the graph matched the whole pattern. That is not proof of absence, since"
+          + " a filter, a literal value or a direction may be wrong. To confirm an absence, read the"
+          + " node's card: a relationship missing from its 'reachable' and not under 'notCovered'"
+          + " has no stored edge in either direction, and a property missing from its 'facts',"
+          + " 'values' and 'bookkeeping' has no stored value.";
 
   public NoRows {
     undeclared = List.copyOf(undeclared);

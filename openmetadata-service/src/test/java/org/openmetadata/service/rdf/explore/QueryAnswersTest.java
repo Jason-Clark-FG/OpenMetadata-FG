@@ -65,7 +65,7 @@ class QueryAnswersTest {
 
     assertThat(noRows.undeclared()).containsExactly(new NoRows.Term("om:owner", "om:hasOwner"));
     assertThat(noRows.unused()).isEmpty();
-    assertThat(noRows.means()).contains("not evidence");
+    assertThat(noRows.means()).contains("not proof", "Correct them");
   }
 
   @Test
@@ -89,6 +89,9 @@ class QueryAnswersTest {
 
     assertThat(noRows.undeclared()).isEmpty();
     assertThat(noRows.unused()).isEmpty();
-    assertThat(noRows.means()).contains("declared and used", "not evidence");
+    assertThat(noRows.means())
+        .contains("nothing in the graph matched the whole pattern", "not proof of absence")
+        .contains("filter, a literal value or a direction", "'reachable'", "'notCovered'")
+        .doesNotContain("declared and used", "evidence");
   }
 }
