@@ -113,7 +113,8 @@ public final class KnowledgeGraphExplorer {
             direction(request.directions()),
             request.limit(),
             request.offset()),
-        RunSteps.served(page.nodes()),
+        Stream.concat(RunSteps.served(page.nodes()).stream(), RunSteps.listed(page).stream())
+            .toList(),
         RunSteps.expanded(page));
     return page;
   }

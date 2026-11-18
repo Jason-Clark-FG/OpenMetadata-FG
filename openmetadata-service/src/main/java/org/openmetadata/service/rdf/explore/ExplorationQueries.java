@@ -185,13 +185,95 @@ final class ExplorationQueries {
   }
 
   private static String expansionBranch(final ExpandRequest request, final Direction direction) {
+    return branch(request.nodes(), request.relationships(), direction);
+  }
+
+  private static String branch(
+      final Collection<String> nodes,
+      final Collection<String> relationships,
+      final Direction direction) {
     final String pattern =
         direction == Direction.OUTGOING
             ? "?node ?predicate ?other . FILTER(isIRI(?other))"
             : "?other ?predicate ?node .";
     return "{ VALUES ?node { %s } VALUES ?predicate { %s } %s BIND(\"%s\" AS ?direction) }"
-        .formatted(
-            iris(request.nodes()), iris(request.relationships()), pattern, direction.value());
+        .formatted(iris(nodes), iris(relationships), pattern, direction.value());
+  }
+
+  /** One row per node, relationship and direction asked: how many distinct far nodes it has. */
+  static String expansionTotals(final ExpandRequest request) {
+    final String branches =
+        request.directions().stream()
+            .sorted()
+            .map(direction -> expansionBranch(request, direction))
+            .collect(Collectors.joining("\n  UNION\n  "));
+    return PREFIXES
+        + """
+        SELECT ?node ?predicate ?direction (COUNT(DISTINCT ?other) AS ?count) WHERE {
+          %s
+        } GROUP BY ?node ?predicate ?direction
+        """
+            .formatted(branches);
+  }
+
+  /** The first {@code cap} far nodes of each node, relationship and direction, in id order. */
+  static String listedFarNodes(final ExpandRequest request, final int cap) {
+    final String groups =
+        request.nodes().stream()
+            .flatMap(
+                node ->
+                    request.relationships().stream()
+                        .flatMap(
+                            relationship ->
+                                request.directions().stream()
+                                    .sorted()
+                                    .map(
+                                        direction ->
+                                            "{ SELECT ?node ?predicate ?direction ?other WHERE { %s }"
+                                                    .formatted(
+                                                        branch(
+                                                            List.of(node),
+                                                            List.of(relationship),
+                                                            direction))
+                                                + " ORDER BY ?other LIMIT %d }".formatted(cap))))
+            .collect(Collectors.joining("\n  UNION\n  "));
+    return PREFIXES
+        + """
+        SELECT ?node ?predicate ?direction ?other WHERE {
+          %s
+        }
+        """
+            .formatted(groups);
+  }
+
+  static final String FIELD = "field";
+
+  /**
+   * The short form of far nodes: one row per label, display name, qualified name, type, and value
+   * of a status property the ontology marks for the node's class ({@code ?status} bound).
+   */
+  static String farNodes(
+      final Collection<String> nodes, final Map<String, List<String>> statusProperties) {
+    final String statuses =
+        statusProperties.isEmpty()
+            ? ""
+            : """
+              UNION { VALUES (?class ?status) { %s }
+                      ?other a ?class ; ?status ?value . BIND("status" AS ?field) }
+              """
+                .formatted(statusPairs(statusProperties));
+    return PREFIXES
+        + """
+        SELECT ?other ?field ?value ?status WHERE {
+          VALUES ?other { %s }
+          { ?other rdfs:label ?value . BIND("label" AS ?field) }
+          UNION { ?other skos:prefLabel ?value . BIND("display" AS ?field) }
+          UNION { ?other om:fullyQualifiedName ?value . BIND("fqn" AS ?field) }
+          UNION { ?other a ?value . BIND("type" AS ?field) }
+          %s
+        }
+        """
+            .formatted(iris(nodes), statuses);
   }
 
   static String iris(final Collection<String> iris) {

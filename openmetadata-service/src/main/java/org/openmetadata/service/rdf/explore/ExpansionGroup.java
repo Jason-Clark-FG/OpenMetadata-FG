@@ -12,13 +12,26 @@
  */
 package org.openmetadata.service.rdf.explore;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
-/** The far nodes one relationship reaches from one node; {@code nodes} are ids of returned cards. */
+/**
+ * The far nodes one relationship reaches from one node in one direction: {@code total} of them,
+ * {@code listed} in short form (all of them unless the response could not hold them), and {@code
+ * nodes}, the ids of those whose full card this page returns. {@code rest} says in words what is
+ * left out and the call that reads it; it is absent when the group is complete.
+ */
 public record ExpansionGroup(
-    String node, String relationship, Direction direction, List<String> nodes) {
+    String node,
+    String relationship,
+    Direction direction,
+    long total,
+    List<FarNode> listed,
+    List<String> nodes,
+    @JsonInclude(JsonInclude.Include.NON_NULL) String rest) {
 
   public ExpansionGroup {
+    listed = List.copyOf(listed);
     nodes = List.copyOf(nodes);
   }
 }

@@ -100,7 +100,7 @@ public final class NodeCardReader {
   }
 
   /** A catalog entity's type from its IRI; an ontology term's kind from its declared types. */
-  private String entityType(final String node, final Set<String> typeIris) {
+  String entityType(final String node, final Set<String> typeIris) {
     return Optional.ofNullable(nodeIris.entityType(node))
         .or(() -> OntologyTermKind.declaredBy(typeIris).map(OntologyTermKind::entityType))
         .orElse(null);

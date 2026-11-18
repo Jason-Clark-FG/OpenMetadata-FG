@@ -14,6 +14,8 @@
 package org.openmetadata.service.rdf.explore;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Turns what a call served into the step the run records. */
@@ -49,8 +51,20 @@ final class RunSteps {
         .toList();
   }
 
+  /** The far nodes an expansion listed in short form without a card on this page. */
+  static List<RunStep.Node> listed(final ExpandPage page) {
+    final Set<String> carded = page.nodes().stream().map(NodeCard::id).collect(Collectors.toSet());
+    return page.expansions().stream()
+        .flatMap(group -> group.listed().stream())
+        .filter(far -> !carded.contains(far.id()))
+        .map(far -> new RunStep.Node(far.id(), far.name(), far.type(), null, List.of()))
+        .distinct()
+        .toList();
+  }
+
   private static Stream<RunStep.Edge> edgesOf(final ExpansionGroup group) {
-    return group.nodes().stream()
+    return Stream.concat(group.listed().stream().map(FarNode::id), group.nodes().stream())
+        .distinct()
         .map(
             other ->
                 new RunStep.Edge(

@@ -247,8 +247,12 @@ class KnowledgeGraphToolTest {
             CUSTOMERS + E + "tag-pii");
     assertThat(second.nextCursor()).isNull();
     assertThat(first.expansions())
+        .filteredOn(group -> !group.nodes().isEmpty())
         .extracting(ExpansionGroup::direction)
         .containsOnly(Direction.OUTGOING);
+    assertThat(first.expansions())
+        .filteredOn(group -> group.direction() == Direction.INCOMING)
+        .allSatisfy(group -> assertThat(group.total()).isZero());
   }
 
   @Test

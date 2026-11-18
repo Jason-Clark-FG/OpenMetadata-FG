@@ -18,7 +18,10 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.utils.JsonUtils;
 
@@ -84,7 +87,14 @@ class GraphExpansionTest {
             tuple(
                 ORDERS, "om:hasTag", Direction.OUTGOING, List.of(E + "tag-finance", E + "tag-pii")),
             tuple(CUSTOMERS, "om:hasOwner", Direction.OUTGOING, List.of(E + "team-crm")),
-            tuple(CUSTOMERS, "om:hasTag", Direction.OUTGOING, List.of(E + "tag-pii")));
+            tuple(CUSTOMERS, "om:hasTag", Direction.OUTGOING, List.of(E + "tag-pii")),
+            tuple(ORDERS, "om:hasOwner", Direction.INCOMING, List.of()),
+            tuple(ORDERS, "om:hasTag", Direction.INCOMING, List.of()),
+            tuple(CUSTOMERS, "om:hasOwner", Direction.INCOMING, List.of()),
+            tuple(CUSTOMERS, "om:hasTag", Direction.INCOMING, List.of()));
+    assertThat(page.expansions())
+        .filteredOn(group -> group.nodes().isEmpty())
+        .allSatisfy(group -> assertThat(group.total()).isZero());
     assertThat(page.nextOffset()).isNull();
   }
 
@@ -181,7 +191,7 @@ class GraphExpansionTest {
   void aSingleRowLargerThanTheBudgetStillMakesProgress() {
     final ExpandPage page = expansion().expand(request(10, 0, 1));
 
-    assertThat(page.expansions()).hasSize(1);
+    assertThat(rows(page)).isEqualTo(1);
     assertThat(page.nextOffset()).isEqualTo(1);
   }
 
@@ -202,5 +212,117 @@ class GraphExpansionTest {
     assertThat(page.expansions().getFirst().nodes())
         .containsExactly(E + "team-growth", "urn:concept:customer");
     assertThat(page.nodes()).extracting(NodeCard::id).containsExactly(E + "team-growth");
+  }
+
+  private static final String TESTS =
+      IntStream.range(0, 11)
+              .mapToObj(
+                  index ->
+                      """
+                  <%1$stestCase/t%2$02d> a om:TestCase ; rdfs:label "orders_test_%2$02d" ;
+                      om:testsEntity <%3$s> ; om:latestResultStatus "%4$s" %5$s;
+                      dct:description "%6$s" .
+                  """
+                          .formatted(
+                              E,
+                              index,
+                              ORDERS,
+                              index < 4 ? "Failed" : "Success",
+                              index < 3
+                                  ? "; om:hasOpenIncident <%sincident/i%02d> ".formatted(E, index)
+                                  : "",
+                              "A long explanation of what this test checks. ".repeat(40).trim()))
+              .collect(Collectors.joining())
+          + "<%s> a om:Table ; rdfs:label \"orders\" ; om:upstream <%s> .\n<%s> om:upstream <%s> .\n"
+              .formatted(ORDERS, CUSTOMERS, REPORT, ORDERS);
+
+  private static GraphExpansion testedOrders() {
+    final InMemoryGraph graph = InMemoryGraph.ofTurtle(TESTS);
+    return new GraphExpansion(
+        graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical());
+  }
+
+  private static ExpandRequest testsOfOrders(
+      final List<String> relationships, final long maxChars) {
+    return new ExpandRequest(
+        List.of(ORDERS),
+        relationships,
+        Set.of(Direction.INCOMING, Direction.OUTGOING),
+        20,
+        0,
+        maxChars);
+  }
+
+  @Test
+  void everyFarNodeIsListedWithItsStatusAndTheGroupSaysHowManyHaveCards() {
+    final ExpandPage page =
+        testedOrders().expand(testsOfOrders(List.of(OM + "testsEntity"), 8_000));
+
+    final ExpansionGroup tests =
+        page.expansions().stream()
+            .filter(group -> group.direction() == Direction.INCOMING)
+            .findFirst()
+            .orElseThrow();
+    assertThat(tests.total()).isEqualTo(11);
+    assertThat(tests.listed()).hasSize(11);
+    assertThat(tests.listed().getFirst())
+        .isEqualTo(
+            new FarNode(
+                E + "testCase/t00",
+                "orders_test_00",
+                "testCase",
+                Map.of("om:latestResultStatus", "Failed", "om:hasOpenIncident", true)));
+    assertThat(tests.listed())
+        .filteredOn(far -> "Failed".equals(far.status().get("om:latestResultStatus")))
+        .hasSize(4);
+    assertThat(tests.nodes()).hasSizeBetween(1, 10);
+    assertThat(tests.rest()).contains("Cards for " + tests.nodes().size() + " of 11", "nextCursor");
+    assertThat(page.properties()).containsKeys("om:latestResultStatus", "om:hasOpenIncident");
+  }
+
+  @Test
+  void severalRelationshipsAskedTogetherEachGetTheirWholeListBeforeAnyCard() {
+    final ExpandPage page =
+        testedOrders().expand(testsOfOrders(List.of(OM + "testsEntity", UPSTREAM), 8_000));
+
+    assertThat(page.expansions())
+        .filteredOn(group -> group.total() > 0)
+        .extracting(
+            ExpansionGroup::relationship, ExpansionGroup::direction, group -> group.listed().size())
+        .containsExactlyInAnyOrder(
+            tuple("om:testsEntity", Direction.INCOMING, 11),
+            tuple("om:upstream", Direction.INCOMING, 1),
+            tuple("om:upstream", Direction.OUTGOING, 1));
+  }
+
+  @Test
+  void aListLongerThanTheResponseCanHoldSaysHowManyAreListedAndTheQueryForTheRest() {
+    final String columns =
+        IntStream.range(0, 300)
+            .mapToObj(
+                index ->
+                    "<%1$s> om:hasColumn <%2$scolumn/c%3$03d> .\n<%2$scolumn/c%3$03d> rdfs:label \"column_%3$03d\" .\n"
+                        .formatted(ORDERS, E, index))
+            .collect(Collectors.joining());
+    final InMemoryGraph graph = InMemoryGraph.ofTurtle(columns);
+    final ExpandPage page =
+        new GraphExpansion(graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical())
+            .expand(
+                new ExpandRequest(
+                    List.of(ORDERS),
+                    List.of(OM + "hasColumn"),
+                    Set.of(Direction.OUTGOING),
+                    20,
+                    0,
+                    8_000));
+
+    final ExpansionGroup group = page.expansions().getFirst();
+    assertThat(group.total()).isEqualTo(300);
+    assertThat(group.listed()).hasSizeBetween(1, 299);
+    assertThat(group.rest())
+        .contains(group.listed().size() + " of 300 are listed")
+        .contains("<" + ORDERS + "> <" + OM + "hasColumn> ?id")
+        .contains("OFFSET " + group.listed().size());
+    assertThat((long) JsonUtils.pojoToJson(page).length()).isLessThanOrEqualTo(8_000 + 4_000);
   }
 }
