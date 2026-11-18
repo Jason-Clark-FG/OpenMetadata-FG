@@ -12,9 +12,12 @@
  */
 package org.openmetadata.service.rdf.explore;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.jena.query.QuerySolution;
 
@@ -29,6 +32,10 @@ final class CardValues {
   static final String LONGEST = "longest";
   static final String DATATYPE = "datatype";
   private static final String CUT_MARK = "…";
+  private static final Set<String> NUMBER_TYPES =
+      Set.of(ValueType.INTEGER.value(), ValueType.DECIMAL.value());
+  private static final Pattern DECIMAL_LEXICAL =
+      Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?");
 
   private CardValues() {}
 
@@ -52,11 +59,12 @@ final class CardValues {
     final int count = row.getLiteral(COUNT).getInt();
     final int longest = row.getLiteral(LONGEST).getInt();
     final boolean several = count > 1;
+    final String type = type(row);
     return new CardValue(
         vocabulary.compact(SparqlRows.iri(row, PREDICATE)),
-        type(row),
-        shown(row.getLiteral(FIRST).getLexicalForm(), longest),
-        several ? shown(row.getLiteral(LAST).getLexicalForm(), longest) : null,
+        type,
+        shown(plain(row.getLiteral(FIRST).getLexicalForm(), type), longest),
+        several ? shown(plain(row.getLiteral(LAST).getLexicalForm(), type), longest) : null,
         several ? count : null,
         longest > CardValue.VALUE_LIMIT ? longest : null);
   }
@@ -65,6 +73,13 @@ final class CardValues {
     return row.contains(DATATYPE)
         ? ValueType.of(row.getResource(DATATYPE).getURI()).map(ValueType::value).orElse(null)
         : null;
+  }
+
+  /** A number in plain decimal form, so 100.0e0 reads 100; NaN and INF stay as written. */
+  private static String plain(final String text, final String type) {
+    final boolean number = type != null && NUMBER_TYPES.contains(type);
+    final boolean decimal = number && DECIMAL_LEXICAL.matcher(text).matches();
+    return decimal ? new BigDecimal(text).stripTrailingZeros().toPlainString() : text;
   }
 
   /** The query cuts every value at the limit; one that reached it was longer when any was. */

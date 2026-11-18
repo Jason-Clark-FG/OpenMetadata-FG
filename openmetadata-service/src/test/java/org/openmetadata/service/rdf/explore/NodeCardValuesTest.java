@@ -75,8 +75,8 @@ class NodeCardValuesTest {
     assertThat(values.values())
         .extracting(CardValue::property, CardValue::type, CardValue::value)
         .contains(
-            tuple("om:profileRowCount", "decimal", "100.0"),
-            tuple("om:profileColumnCount", "decimal", "2.0"),
+            tuple("om:profileRowCount", "decimal", "100"),
+            tuple("om:profileColumnCount", "decimal", "2"),
             tuple("om:profiledAt", "dateTime", "2025-11-13T02:13:20Z"),
             tuple("om:isDeleted", "boolean", "false"));
     assertThat(values).doesNotContainKeys("rdfs:label", "om:fullyQualifiedName");
@@ -119,6 +119,27 @@ class NodeCardValuesTest {
     assertThat(incident.values())
         .extracting(CardValue::property, CardValue::value)
         .contains(tuple("om:incidentState", "Assigned"), tuple("om:incidentSeverity", "Severity2"));
+  }
+
+  @Test
+  void aNumberIsShownInPlainDecimalFormWhateverItsLexicalForm() {
+    final NodeCard card =
+        card(
+            turtle(
+                ("<%s> om:profileRowCount \"1.0E2\"^^xsd:double ;"
+                        + " om:profileNullProportion \"4.0e-2\"^^xsd:double ;"
+                        + " om:profileMean \"NaN\"^^xsd:double ;"
+                        + " om:topDimensions \"05\"^^xsd:int .")
+                    .formatted(TABLE_URI)),
+            TABLE_URI);
+
+    assertThat(values(card).values())
+        .extracting(CardValue::property, CardValue::value)
+        .contains(
+            tuple("om:profileRowCount", "100"),
+            tuple("om:profileNullProportion", "0.04"),
+            tuple("om:profileMean", "NaN"),
+            tuple("om:topDimensions", "5"));
   }
 
   @Test
