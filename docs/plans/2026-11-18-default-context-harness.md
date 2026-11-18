@@ -33,7 +33,10 @@ Goals:
    Desktop, and ChatGPT; coding harnesses such as Claude Code and Codex; SDK agents), so an
    enterprise governs agent context in one place. Surface-specific code stays in thin adapters.
 5. **One agent-agnostic client** that IT pushes to every employee's machine once, and that wires
-   itself into every agent installed there, desktop or CLI, without per-agent installs (§8.6).
+   itself into every agent installed there, desktop or CLI, without per-agent installs (§9.6).
+6. An **answer harness** for business questions: approved concepts → data → profile → trust →
+   query run as the user → an answer with citations, DQ issues, and open incidents, with the user's
+   corrections saved as memories linked to the assets used (§7).
 
 Non-goals:
 
@@ -59,6 +62,10 @@ Non-goals:
 | Asset AI Context (identity, knowledge, lineage, type-specific structure, with a context budget) | `type/aiContext.json`, `GetEntityTool` | Asset source |
 | Concept routing: question → glossary terms, metrics, articles → candidate assets; bounded concept resolution | `AIContextFinder` (`FindContextTool`), `ConceptContextBuilder` | Prompt-time retrieval |
 | User and company context | `GetUserContextTool`, `CompanyContextTool` | Session-start sources |
+| Query Runner: runs SQL on a service (Snowflake, Databricks, …) as the user, with transpilation and a guardrail row limit; per-user runner configuration with an admin-chosen `authType` (Collate) | `entity/automations/queryRunnerRequest.json`, `response/queryRunnerResponse.json`, `ingestion/src/metadata/automations/` | Stage 7 of the answer harness |
+| Table and column profiles, sample data, test cases and results, incidents (`testCaseResolutionStatus`: `New`, `Ack`, `Assigned`, `Resolved`) | `tests/*`, table profile APIs | Stages 4 and 5 |
+| Ontology over RDF: concept context, ontology description, SPARQL | `GetConceptContextTool`, `OntologyDescribeTool`, `SparqlQueryTool` | Stage 2 |
+| Metric expression → columns | `aicontext/MetricColumnResolver` | Stage 3 |
 | Budget tracking, prompt-safe text, token counting | `aicontext/BudgetTracker`, `aicontext/PromptText`, `context/entity/TokenCounter` | Packing in the turn compiler |
 | T0 user-preference block with `tokenBudget` (500) and `maxItems` | `aiPlatformConfiguration.contextMemoryConfiguration` | Default for the preference section |
 | MCP OAuth and SSO consent | ADR:2026-10-19-mcp-oauth-discovery-stays-inside-the-base-path, ADR:2026-10-23-mcp-sso-asks-consent-after-the-idp-round-trip | Sign-in for the client package |
@@ -111,18 +118,21 @@ flowchart LR
   W --> R --> CC
 ```
 
-Five parts:
+Six parts:
 
 1. **Persona AI Context as the harness** (§5): the existing per-persona rules and prompt, extended
    with delivery settings, guardrails, memory capture rules, and skills.
 2. **Turn compiler** (§6): `POST /v1/context/compile`, which selects from the cached compiled
    persona context (plus memories and concept routing) and returns a ranked bundle within a token
    budget for one event. It does not build a second document.
-3. **Agent memory API** (§7): capture, feedback, and a file-style interface for SDK agents.
-4. **Distribution** (§8): `om-context`, one signed binary that wires itself into every agent
-   installed on a machine (§8.1, §8.5); persona-driven MCP `instructions` and resources; and the
-   enterprise rollout that makes it the default for every employee (§8.6).
-5. **Admin and Context Center UI** (§9): the persona context editor extended with delivery,
+3. **Agent memory API** (§8): capture, feedback, and a file-style interface for SDK agents.
+4. **Distribution** (§9): `om-context`, one signed binary that wires itself into every agent
+   installed on a machine (§9.1, §9.5); persona-driven MCP `instructions` and resources; and the
+   enterprise rollout that makes it the default for every employee (§9.6).
+5. **Answer harness** (§7): a stateful session (`start_answer`, `run_query`, `finish_answer`) that
+   takes a business question through approved concepts, data, profile, trust checks, execution,
+   and a cited answer, and turns steering into memories.
+6. **Admin and Context Center UI** (§10): the persona context editor extended with delivery,
    guardrails, and memory settings, the organization default context, a turn preview, and agent
    captures and outcomes in Context Center.
 
@@ -138,7 +148,7 @@ All of them, but **each at the event where it is cheap and precise**. The decidi
   prompt time.**
 - **Assets** are many and large. Injecting assets without a concrete target wastes the budget.
   Inject an asset's AI Context only when (a) the request routes to it through a term or metric,
-  (b) the prompt or an open file names it, or (c) the repository is bound to it (§8.3). **Default:
+  (b) the prompt or an open file names it, or (c) the repository is bound to it (§9.3). **Default:
   on, routed and bounded (top 3, summary projection).**
 - **Lineage, data quality, and tags** matter when the agent is about to read or change a specific
   table. **Default: at PreToolUse on SQL and dbt commands, for the tables touched.**
@@ -171,7 +181,7 @@ prompt, before a tool runs, or only as a search scope.
 | Tag guardrails (PII, deprecated, tier) | | | ✓ warn or deny | n/a |
 
 Default total budgets: SessionStart 2,000 tokens, UserPromptSubmit 1,500, PreToolUse 800. These are
-starting points to tune with the evals in §11.
+starting points to tune with the evals in §12.
 
 ### 5.3 Persona AI Context is the harness
 
@@ -249,7 +259,7 @@ memoryCapture:                              # new
   allowedTypes: [Learning, Preference, Faq]
   defaultVisibility: Shared
   shareWith: { team: Finance, role: Viewer }
-  requireReview: true                       # agent captures start unapproved (§7.2)
+  requireReview: true                       # agent captures start unapproved (§8.2)
   maxPerSession: 5
 ```
 
@@ -275,7 +285,7 @@ The client never bundles persona content. It asks the server:
   the next session.
 - The plugin's hooks are fixed and generic (they call `compile` and `capture`). Everything an admin
   changes lives in the persona, so the plugin is installed once, through managed configuration
-  (§8.5), and is never edited per team.
+  (§9.5), and is never edited per team.
 - On chat surfaces, the MCP server builds `instructions` and the `get_context` tool description
   from the caller's persona at connection time. Org skills are regenerated when an
   `exportAsSkill` rule's matches change, and the admin page shows which skills need re-uploading
@@ -319,7 +329,7 @@ Response:
 ```
 
 `text` is ready to inject. `sections` gives provenance so the client can report outcomes per item
-(§7.3) and the admin preview can explain the bundle. For `preToolUse`, `guardrails` may contain a
+(§8.3) and the admin preview can explain the bundle. For `preToolUse`, `guardrails` may contain a
 `deny` decision that the hook turns into a block.
 
 ### 6.2 Pipeline
@@ -356,7 +366,7 @@ Response:
    ids already sent (Caffeine, `maximumSize` 10,000 sessions, expire after 12 h idle), and a repeat
    item is sent as a one-line reference instead of its body.
 8. **Render** into delimited text. The persona `prompt` goes in the instructions part; everything else is reference data. Memory and article bodies are user-written, so they are wrapped
-   as quoted data with their source, never as instructions (§10).
+   as quoted data with their source, never as instructions (§11).
 
 ### 6.3 Latency and failure
 
@@ -367,20 +377,192 @@ Response:
 - The compile endpoint reads search and the entity cache only; no LLM call is on the request path.
   LLM work (machine representations, extraction) stays asynchronous, as it is today.
 
-## 7. Agent memory: how agents store what they learn
+## 7. Answer harness: from a business question to a cited answer
 
-### 7.1 Where agent memories live
+Injected context helps an agent that writes code. A business user asks a different kind of
+question: "what was customer churn rate last quarter?", "how many tickets were closed in Texas in
+the last 24 hours?". For these, the harness is not a bundle of text but a **procedure** that the
+agent follows, with OpenMetadata deciding what counts as the right definition, the right data, and
+a trustworthy result:
+
+```mermaid
+flowchart LR
+  Q[Question] --> U[1 Understand]
+  U --> C[2 Resolve concepts]
+  C --> R[3 Route to data]
+  R --> P[4 Inspect shape]
+  P --> T[5 Check trust]
+  T --> S[6 Plan query]
+  S --> X[7 Execute]
+  X --> A[8 Answer and cite]
+  A --> L[9 Learn from steering]
+  C -. ambiguous .-> ASK[Ask the user]
+  ASK --> C
+```
+
+### 7.1 The stages
+
+| # | Stage | What happens | OpenMetadata parts used |
+|---|---|---|---|
+| 1 | **Understand** | Split the question into measures ("churn rate", "tickets closed"), dimensions and filters ("Texas"), time window ("last quarter", "last 24 hours"), and grain. Time phrases resolve through the organization's calendar (fiscal year start, time zone) from the harness configuration | Harness `calendar` |
+| 2 | **Resolve concepts** | Bind each phrase to **approved** knowledge: glossary terms (and their synonyms and related terms), ontology relations (term → metric → column), metrics (expression, grain, allowed dimensions), articles and runbooks ("how churn is computed"), and approved memories (earlier corrections). When a phrase binds to more than one concept with similar confidence ("logo churn" or "revenue churn"), ask the user instead of guessing | `AIContextFinder`, `ConceptContextBuilder`, `get_concept_context` and `ontology_describe` (RDF), glossary term status, metrics, Context Center memories |
+| 3 | **Route to data** | From the bound concepts to tables and columns: a metric to the columns its expression uses, a term to the columns tagged with it, an ontology relation to the asset it maps to. Prefer certified, higher-tier, and downstream (gold-layer) assets by lineage; keep only assets the user can see and the persona allows. Pick a primary table and the joins its documentation declares | `MetricColumnResolver`, lineage, tiers and certification, persona `searchScope`, table `joins` |
+| 4 | **Inspect shape** | Read the profile of the chosen columns: row count, null and distinct ratios, min and max, value distribution (is Texas stored as `TX`, `Texas`, or a region id?), and freshness. Sample values only where the persona allows and the user has the sample-data permission | Table and column profiles, sample data |
+| 5 | **Check trust** | Find failing data quality tests on the chosen tables and columns, open incidents (`testCaseResolutionStatus` in `New`, `Ack`, or `Assigned`), freshness against the expected schedule, and deprecated or PII-tagged columns. Per harness configuration, warn, ask, or stop | Test cases and results, incidents, tags, guardrails (§5.3) |
+| 6 | **Plan query** | The agent writes the SQL, starting from the metric expression and the profile. The server validates it before execution: only tables from the plan (or a warning), PII columns per guardrail, a time filter where the question has one, the row limit, and dialect transpilation | SQL table extraction (lineage parser), guardrails, Query Runner transpile |
+| 7 | **Execute** | Run the query on the service where the data lives (Snowflake, Databricks, BigQuery, …) **as the user**, with the user's own warehouse credentials, never a shared admin account. Timeout and row cap from the harness | Query Runner automation workflow (`queryRunnerRequest`, per-user runner configuration with admin-chosen `authType`) |
+| 8 | **Answer and cite** | The agent states the answer. The server returns a citation block it assembles itself, so citations cannot be invented: definitions used (with approval status and version), tables and columns, filters and time window, the SQL, data freshness, DQ issues, open incidents, and a link to the full trace | Answer trace (§7.4) |
+| 9 | **Learn from steering** | When the user corrects or steers ("exclude trial accounts", "I mean fiscal quarters", "Texas is `region_code = 'TX'`"), turn it into a memory linked to the assets and concepts in the plan (§7.5) | Context Center memories, review flow |
+
+### 7.2 Who does what: the host model reasons, the server owns the facts
+
+The host model (Claude, GPT, Codex) is the reasoner. OpenMetadata does not run a second LLM on this
+path. The server owns every step that has a deterministic answer, so the result does not depend on
+the model remembering to call eight tools in order:
+
+| Server (deterministic, governed) | Host model (language and judgement) |
+|---|---|
+| Concept binding candidates and scores, routing, profile lookup, trust checks | Interpreting the question, choosing between close candidates, asking the user |
+| SQL validation against the plan, execution as the user | Writing the SQL |
+| Citation block and trace | Writing the answer in prose |
+| Turning a detected correction into a memory proposal | Recognizing that the user steered |
+
+This is exposed as a small **stateful answer session** instead of many independent tools:
+
+| MCP tool | Does |
+|---|---|
+| `start_answer(question, refines?)` | Runs stages 1–5 under the caller's harness and returns a **brief**: the bound concepts with their definitions and approval status, open ambiguities, the chosen table(s) with columns, joins, and profile hints, trust warnings, and an `answerId`. `refines` links a follow-up to the answer it corrects |
+| `run_query(answerId, sql)` | Stage 6 and 7. Returns rows, the executed SQL, duration, and annotations (for example "column `state` has 3% nulls, excluded by your filter") |
+| `finish_answer(answerId, answer)` | Stage 8. Returns the citation block and the trace link, rendered as an MCP Apps view where the host supports it |
+| `remember` | Stage 9, explicit form (§8.2) |
+
+One call returns the whole context for the question, so on chat surfaces the model makes a single
+decision (call `start_answer`) instead of choosing among 20 tools. On coding harnesses, the
+UserPromptSubmit hook calls `start_answer` itself when the prompt is a data question, and injects
+the brief: no model decision at all. On ChatGPT, the company-knowledge `search`/`fetch` tools return
+briefs (read-only); execution stays in the regular app.
+
+### 7.3 Admin tuning
+
+The answer harness is a block in the persona context, inheriting from the organization default as
+in §5.3:
+
+```yaml
+answerHarness:
+  enabled: true
+  calendar: { fiscalYearStart: "02-01", timeZone: "America/Chicago", weekStart: Monday }
+  concepts:
+    sources: [glossary, ontology, metrics, articles, memories]
+    requireApproved: true            # only Approved terms, certified metrics, Approved memories
+    ambiguity: ask                   # ask | bestGuess (then state the assumption)
+  routing:
+    prefer: [certified, tier1, downstream]
+    allowUncertified: warn           # allow | warn | deny
+    maxCandidates: 3
+  profile: { enabled: true, sampleValues: false }
+  trust:
+    failingTests: warn               # ignore | warn | ask | stop
+    openIncidents: warn
+    staleAfter: 24h
+  query:
+    execute: true                    # false: return the SQL only
+    services: [snowflake_prod, databricks_analytics]
+    rowLimit: 1000
+    timeoutSeconds: 60
+    tablesOutsidePlan: warn          # allow | warn | deny
+  answer:
+    citations: required
+    showSql: false                   # business personas; engineering personas set true
+    trace: inline                    # inline | link
+  learning:
+    captureCorrections: true
+    notifyOwners: true               # a correction to a certified metric opens a review task for its owner
+  testQuestions:                     # golden questions for the preview (§10)
+    - { question: "customer churn rate last quarter", expectMetric: finance.customer_churn_rate }
+```
+
+Business personas and engineering personas differ mostly in `showSql`, `trace`, `ambiguity`, and
+`query.execute`. The `testQuestions` list is how an admin tunes with evidence: the preview runs
+them and shows which concept, table, and SQL each resolves to, before and after a change.
+
+### 7.4 Transparency: the answer trace
+
+Every answer session writes an **answer trace**: the question, each stage's inputs and decisions
+(candidates and why one won), warnings, the SQL, execution metadata, the user's follow-ups, and the
+memories proposed. It stores no result rows. It is a time-series record with a retention setting,
+readable by the user who asked and by admins, and linked from the citation block.
+
+What the user sees in Claude or ChatGPT, with an MCP Apps view where supported and Markdown
+elsewhere:
+
+```text
+Customer churn rate, Q3 FY2026: 4.8%
+
+How I got this
+ 1  "churn rate" → metric Customer Churn Rate (certified, owner: Finance Analytics, v3)
+ 2  "last quarter" → fiscal Q3 FY2026, 2026-08-01 … 2026-10-31 (fiscal year starts Feb 1)
+ 3  Data → snowflake_prod.finance.fct_subscriptions (Tier 1, certified), refreshed 2 h ago
+ 4  ⚠ 1 failing test: customer_id null ratio 0.4% (threshold 0.1%)
+ 5  ⚠ Open incident #4821 "late subscription events from billing" (Assigned, Severity 2)
+ 6  Query ran on Snowflake as you, 1.2 s · View SQL · Full trace in OpenMetadata
+```
+
+When no approved definition exists, the answer says so ("no certified metric for churn; computed
+from `fct_subscriptions` using the article *Churn methodology*, not approved") instead of
+presenting an unverified number as certain.
+
+### 7.5 Steering and corrections become memories linked to assets
+
+A correction is detected in three ways: the model calls `remember`; a follow-up arrives as
+`start_answer(…, refines: answerId)` and the server compares the two plans (changed metric, filter,
+time window, or table); or, on coding harnesses, the Stop hook sends the session to `capture`.
+
+The resulting memory:
+
+- **Type**: `Learning` for a fact about the data ("trial accounts are excluded from churn"),
+  `Preference` for a personal default ("I mean fiscal quarters").
+- **Links**: `primaryEntity` is the concept that was corrected (the metric or glossary term);
+  `relatedEntities` are the tables and columns the plan used; provenance points to the answer trace
+  through `sourceAgent` (§8.1).
+- **Visibility and review**: per the persona's `memoryCapture` rules. It starts unapproved and
+  private to its author; review makes it shared.
+- **Owner loop**: a correction that contradicts a certified metric or an approved term does not
+  silently override it. It is recorded as a dispute on that concept and opens a review task for
+  its owner, using the existing memory conflict review (`MemoryConflictReviewTasks`).
+
+Once approved, stage 2 uses the memory for everyone the persona covers, so the next person who asks
+about churn gets the corrected definition. The user sees this in the chat: "Saved: *Churn excludes
+trial accounts*, linked to Customer Churn Rate and `fct_subscriptions`. Pending review by Finance
+Analytics."
+
+### 7.6 Constraints
+
+- **Latency**: Query Runner runs as an automation workflow on the ingestion runner and reports over
+  a websocket. `run_query` needs a synchronous wait with a timeout and MCP progress notifications.
+- **Credentials**: execution needs per-user warehouse credentials or OAuth to the warehouse. Where a
+  user has none, the harness returns the SQL and says why it did not run.
+- **Data in prompts**: result rows go to the host model's provider. `query.execute` and `rowLimit`
+  are the admin's controls; persona guardrails can deny PII columns from results entirely.
+- **Prompt injection through data**: row values and descriptions are returned as data, never as
+  instructions.
+- **OSS and Collate**: the per-user Query Runner configuration lives in Collate. The open design
+  question is whether execution is Collate-only, with OSS returning the validated SQL.
+
+## 8. Agent memory: how agents store what they learn
+
+### 8.1 Where agent memories live
 
 Agent memories are ordinary `contextMemory` entities. No new store. Changes to the schema:
 
 - New `sourceType` value `AgentCapture`.
-- New optional object `sourceAgent`: `{ harness, harnessVersion, model, sessionId, workspaceBinding }`.
+- New optional object `sourceAgent`: `{ harness, harnessVersion, model, sessionId, workspaceBinding, answerId }`.
+  `answerId` links a memory to the answer trace it came from (§7.4).
   It records which agent wrote the memory, the way `sourceConversation` records chat provenance.
 - New optional `memoryScope` value `Workspace`: a memory that applies to one repository binding
   (for example "this dbt project builds incremental models with `unique_key`"). It is ranked into
   bundles only for that binding.
 
-### 7.2 Write paths
+### 8.2 Write paths
 
 | Path | Who calls it | Behaviour |
 |---|---|---|
@@ -397,7 +579,7 @@ Review: captures go to Context Center's existing review flow. An admin can set
 `memoryCapture.requireReview: false` for `Private` memories only; anything shared beyond the author
 always needs review, matching ADR:2026-10-09-data-consumers-create-context-memories.
 
-### 7.3 Feedback
+### 8.3 Feedback
 
 `POST /v1/context/feedback` with `{bundleId, items: [{id, signal}]}`, where `signal` is `applied`,
 `helpful`, `unhelpful`, or `corrected`. The client sends `applied` for each item the agent saw.
@@ -405,14 +587,14 @@ Explicit signals come from a user correction or an agent report. The server aggr
 writes counters through the existing recount path (`MemoryOutcomeWriter`), which stays admin- and
 bot-only. Clients never write counters directly.
 
-### 7.4 Making OpenMetadata the agent's memory on each surface
+### 8.4 Making OpenMetadata the agent's memory on each surface
 
 Agents have their own memory features. The aim is that what an agent learns about data ends up in
 OpenMetadata, where it is governed, shared after review, and available to every other surface.
 
 | Surface | Native memory | How writes reach OpenMetadata | How reads come back |
 |---|---|---|---|
-| Claude Code | Local memory files (CLAUDE.md, auto-memory directory) | Stop hook → `capture` (§7.2). Optionally, a PostToolUse hook on writes to the memory directory mirrors new data-related entries to `capture`. | SessionStart bundle (preferences, workspace memories) |
+| Claude Code | Local memory files (CLAUDE.md, auto-memory directory) | Stop hook → `capture` (§8.2). Optionally, a PostToolUse hook on writes to the memory directory mirrors new data-related entries to `capture`. | SessionStart bundle (preferences, workspace memories) |
 | Codex | AGENTS.md and its own memory settings | Stop hook → `capture`; `remember` tool | SessionStart bundle; the AGENTS.md section from `om-context sync` |
 | claude.ai, Claude Desktop, ChatGPT | The vendor's chat memory, which we cannot redirect | `remember` tool. The persona instructions and org skill tell the model to use `remember` for facts about data, metrics, and definitions. | `get_context` returns preferences and matched memories |
 | SDK agents | Whatever the developer wires | `memoryfs` as the backend of a file-style memory tool, or `capture` | `compile`, or `memoryfs` reads |
@@ -422,20 +604,20 @@ it. The persona's `memoryCapture` rules narrow what goes to OpenMetadata to orga
 definitions, query fixes, table conventions, runbooks. That is the knowledge other people's agents
 benefit from, and the knowledge that needs review before it is shared.
 
-## 8. Distribution: how harnesses use it
+## 9. Distribution: how harnesses use it
 
-### 8.0 Surfaces: one interface, three kinds of client
+### 9.0 Surfaces: one interface, three kinds of client
 
 Enterprise users reach agents through chat apps (claude.ai, Claude Desktop, ChatGPT), through
 coding harnesses (Claude Code, Codex CLI and IDE, Cursor), and through agents built on the SDKs.
 Enterprises want one governed interface across all of them. The server contract is the same for
-every surface: the persona's context (§5), the compiler (§6), and the memory API (§7). Only the transport
+every surface: the persona's context (§5), the compiler (§6), and the memory API (§8). Only the transport
 differs, and each surface gets the most deterministic channel it offers.
 
 | Surface | Channels the host controls | How OpenMetadata reaches it | How memories are written |
 |---|---|---|---|
 | Chat apps (claude.ai, Claude Desktop, ChatGPT; Codex cloud tasks) | Org-provisioned remote MCP connectors, MCP server `instructions`, MCP resources and prompts, org-provisioned skills, project instructions | The **remote MCP server** that admins enable as an org connector. Its `instructions` and an org skill tell the model to call `get_context` first; `get_context` is the compiler exposed as one tool. Resources (`om://context/session`, `om://entity/<fqn>`) can be attached by the user. | `remember` tool, prompted by the skill and the server instructions |
-| Coding harnesses (Claude Code, Codex CLI and IDE, Cursor, Gemini CLI) | Managed settings, hooks, AGENTS.md, skills, files on disk, MCP | `om-context` (§8.1), which installs hooks that call the compiler on every turn, with no model decision; files and AGENTS.md (§8.2) for harnesses without hooks; the same remote MCP server for drill-down | Stop hook → `capture`, plus `remember` |
+| Coding harnesses (Claude Code, Codex CLI and IDE, Cursor, Gemini CLI) | Managed settings, hooks, AGENTS.md, skills, files on disk, MCP | `om-context` (§9.1), which installs hooks that call the compiler on every turn, with no model decision; files and AGENTS.md (§9.2) for harnesses without hooks; the same remote MCP server for drill-down | Stop hook → `capture`, plus `remember` |
 | SDK agents (Claude Agent SDK, Messages API, OpenAI Agents SDK, internal agents) | The system prompt and tool loop the developer owns | `POST /v1/context/compile` called by the app before each model call | `capture`, `feedback`, and `memoryfs` as the backend of a file-style memory tool |
 
 Chat apps have no hooks, so delivery there is tool-mediated, and that is the weakest link. Three
@@ -444,9 +626,9 @@ measures narrow the gap:
 1. **One context entry point.** `get_context(question, entities?)` returns a compiled bundle, so
    the model makes one decision instead of choosing among about 20 tools. The existing tools stay
    for drill-down.
-2. **Server `instructions` generated from the caller's persona context** (§8.4): hosts put them in the system prompt,
+2. **Server `instructions` generated from the caller's persona context** (§9.4): hosts put them in the system prompt,
    so the first instruction the model sees tells it to call `get_context` on any data question.
-3. **An org-provisioned skill** that admins upload once (generated by OpenMetadata, §8.5). It
+3. **An org-provisioned skill** that admins upload once (generated by OpenMetadata, §9.5). It
    carries the persona frame and the "call `get_context` first, `remember` corrections" procedure.
    It loads on matching tasks, independently of tool choice.
 
@@ -454,7 +636,7 @@ The remote MCP server is the transport common to every surface: chat apps, codin
 SDK agents all support remote MCP. The plugin and files add determinism where the surface allows it,
 and do not replace the MCP server.
 
-### 8.1 The `om-context` client
+### 9.1 The `om-context` client
 
 One signed binary per OS and architecture, `om-context`, written in Go so it needs no Python, Node,
 or JVM on the machine. It contains no persona content and no per-agent code paths beyond small
@@ -463,10 +645,10 @@ adapters; everything an admin changes comes from the server (§5.4). Subcommands
 | Command | Purpose |
 |---|---|
 | `om-context login` | Browser OAuth through the server's existing MCP OAuth and SSO flow (device-code flow on headless machines), or a personal access token. Tokens go in the OS keychain (macOS Keychain, Windows Credential Manager, libsecret), never in config files or repos |
-| `om-context install [--agents all\|<list>] [--system]` | Detects installed agents and writes each one's configuration (§8.6). `--system` writes the machine-wide, managed locations that users cannot override |
+| `om-context install [--agents all\|<list>] [--system]` | Detects installed agents and writes each one's configuration (§9.6). `--system` writes the machine-wide, managed locations that users cannot override |
 | `om-context hook <event> --agent <name>` | Entry point every agent's hooks call. Reads the agent's hook JSON on stdin, calls `compile` or `capture`, and writes the agent's expected output (additional context, or a block decision). Fails open on timeout |
 | `om-context mcp` | A local stdio MCP server that proxies to the remote `/mcp` endpoint with the keychain token, for agents that only launch local (stdio) MCP servers |
-| `om-context sync` | Writes the `.openmetadata/` files, the AGENTS.md section, and the persona's skills (§8.2) |
+| `om-context sync` | Writes the `.openmetadata/` files, the AGENTS.md section, and the persona's skills (§9.2) |
 | `om-context doctor` | Shows, per detected agent, what is installed, which channels are active, the signed-in user, the resolved persona, and the server version |
 | `om-context uninstall` | Removes exactly what `install` wrote (it records a manifest of its edits) |
 
@@ -477,7 +659,7 @@ it was built with and fetches newer ones from the server (`GET /v1/context/agent
 for a new agent, or a vendor's changed config path, therefore ships with an OpenMetadata server
 upgrade or a manifest update, not with a new binary on every laptop.
 
-### 8.1a Distribution channels for the binary
+### 9.1a Distribution channels for the binary
 
 | Channel | Audience | Notes |
 |---|---|---|
@@ -492,7 +674,7 @@ Every artifact is signed, published with checksums, an SBOM, and a provenance at
 `om-context` checks the server's advertised version at login; in managed mode, updates come from
 the MDM channel only and self-update is off.
 
-### 8.2 Files for harnesses without hooks
+### 9.2 Files for harnesses without hooks
 
 `om-context sync` writes:
 
@@ -503,7 +685,7 @@ the MDM channel only and self-update is off.
   `.openmetadata/context/`. AGENTS.md is read by Codex, Cursor, Copilot, Gemini CLI, and, through a
   `CLAUDE.md` link, Claude Code.
 
-### 8.3 Repository bindings
+### 9.3 Repository bindings
 
 The compiler needs to know which assets a repository touches. In order of precedence:
 
@@ -513,7 +695,7 @@ The compiler needs to know which assets a repository touches. In order of preced
 3. A server-side `workspaceBinding` record (admin-managed) that lists repo URLs per binding, so a
    binding works without a committed file.
 
-### 8.4 MCP changes
+### 9.4 MCP changes
 
 - Server `instructions` are generated from the caller's persona context: what OpenMetadata is, the persona frame, and
   when to call which tool. Hosts place them in the system prompt, so harnesses that only install the
@@ -522,11 +704,11 @@ The compiler needs to know which assets a repository touches. In order of preced
   asset's AI Context), so a user can @-mention them.
 - MCP prompts: `/om-context <question>` returns a compiled bundle on demand.
 - The `get_context` tool: the compiler with `event: promptSubmit`, for surfaces without hooks
-  (§8.0). Its description says to call it first on any question about data, metrics, or
+  (§9.0). Its description says to call it first on any question about data, metrics, or
   definitions.
-- The `remember` tool (§7.2).
+- The `remember` tool (§8.2).
 
-### 8.5 Agent coverage
+### 9.5 Agent coverage
 
 What `om-context install` wires for each kind of agent. The specific paths and admin controls
 come from the adapter manifests and must be checked against each vendor's current documentation
@@ -545,7 +727,7 @@ supports; (2) one hook command whose adapter translates input and output; (3) pl
 agent can read. An agent that supports only (1) still gets the persona instructions and
 `get_context`; each additional channel makes delivery more deterministic.
 
-### 8.6 Rolling it out as the default for every employee
+### 9.6 Rolling it out as the default for every employee
 
 The aim: on day one, an employee opens any agent and it already has their persona's context and
 writes memories to OpenMetadata, with no action from them beyond SSO.
@@ -569,14 +751,14 @@ writes memories to OpenMetadata, with no action from them beyond SSO.
    project settings (which reference the plugin) to data repositories. Dev containers use the
    devcontainer feature; CI and cloud coding agents use the GitHub Action or container image with a
    bot token.
-6. **Verify coverage.** The Agents page (§9) lists who connected from which agent and client
+6. **Verify coverage.** The Agents page (§10) lists who connected from which agent and client
    version, and the share of employees with at least one connected agent in the last 7 days.
 
 The admin UI's Distribution page generates every artifact this needs: the MDM package parameters,
 the connector URL and OAuth settings, the org skill, and per-agent snippets for agents that are not
 on managed machines.
 
-## 9. Admin and Context Center UI
+## 10. Admin and Context Center UI
 
 **Context Center → AI Context** (the existing persona context pages, extended; ui-core components):
 
@@ -589,9 +771,14 @@ on managed machines.
   and see the bundle an agent would receive, with the score, token count, and the reason for each
   section and omission. It sits next to the existing rule preview, which shows what a rule
   matches; the turn preview shows what an agent actually gets.
+- **Answer harness** tab (§7.3) with a **test questions** runner: each golden question shows the
+  concepts, table, SQL, trust warnings, and citation block it resolves to, compared with the
+  previous run, so an admin sees what a change does before saving it.
+- **Answer traces**: a user sees their own traces from the citation link; admins see all traces,
+  filterable by persona, concept, and table, with the corrections each produced.
 - **Organization default context**: the same editor (rules, prompt, delivery, guardrails, memory)
   for `defaultContext`, with "Restore built-in default", and a list of which personas override it.
-- **Settings → AI → Agent distribution**: the artifacts of §8.6 and the download links of §8.1a.
+- **Settings → AI → Agent distribution**: the artifacts of §9.6 and the download links of §9.1a.
 
 **Context Center** additions:
 
@@ -612,7 +799,7 @@ How Context Center content is used, end to end:
 | Persona AI Context (prompt and rules) | Prompt at SessionStart; rule entities per their delivery setting | No (admin-authored) |
 | Workspace memories (new) | Only for their repo binding | Capture of repo conventions |
 
-## 10. Security
+## 11. Security
 
 - **Authentication**: OAuth or PAT per user. A bundle is compiled as the calling user, so it never
   contains anything the user cannot view in the UI.
@@ -628,24 +815,18 @@ How Context Center content is used, end to end:
 - **Hook trust**: the plugin runs only `om-context`, signed, which makes HTTPS calls to the
   configured server. It does not read files outside the workspace except its own config.
 
-## 11. Measuring whether it helps
+## 12. Measuring whether it helps
 
 - Telemetry per event: latency, tokens, item counts, fail-open rate.
-- Outcome rates per source and memory (§7.3).
+- Outcome rates per source and memory (§8.3).
 - An offline eval set: data tasks (write the ARR query, add a DQ test, fix a broken dbt model) run
   with delivery on and off and with alternative persona delivery settings, scored on correctness against the
   certified definition. The default budgets in §5.2 change only on eval evidence.
 
-## 12. Open decisions
+## 13. Open decisions
 
 1. Client language: Go static binary (no runtime required) or a Node package (reuses the TS SDK).
    Recommendation: Go, with npx and uvx shims.
-6. The persona budget is in characters (`characterBudget`, and `tokensEst` = characters / 4 in
-   ADR:2026-10-14-persona-ai-context-status-reads-the-cache-and-pages-like-the-persona-list) while
-   delivery budgets are in tokens. Recommendation: delivery uses `TokenCounter`; the persona
-   document keeps characters.
-7. Whether a user with several personas gets only the active one, or a merge. Recommendation: the
-   active one, with the persona name in every bundle so the user can see which applied.
 2. Whether `Workspace` is a new `memoryScope` value or an `EntityScoped` memory attached to a new
    `workspaceBinding` entity. A new entity costs more, but gives bindings an owner and RBAC.
 3. Whether PreToolUse `deny` guardrails ship enabled by default, or as `warn` only until admins
@@ -654,8 +835,22 @@ How Context Center content is used, end to end:
    configured.
 5. OSS and Collate boundary: the turn compiler, persona extensions, capture, and client in OSS; Collate's chat path
    moves onto the same compiler so the two cannot drift.
+6. The persona budget is in characters (`characterBudget`, and `tokensEst` = characters / 4 in
+   ADR:2026-10-14-persona-ai-context-status-reads-the-cache-and-pages-like-the-persona-list) while
+   delivery budgets are in tokens. Recommendation: delivery uses `TokenCounter`; the persona
+   document keeps characters.
+7. Whether a user with several personas gets only the active one, or a merge. Recommendation: the
+   active one, with the persona name in every bundle so the user can see which applied.
+8. Answer execution in OSS: whether `run_query` executes in OSS (which has the Query Runner
+   workflow but not the per-user runner configuration) or only in Collate, with OSS returning the
+   validated SQL.
+9. Answer trace retention and contents: default retention (recommendation: 90 days), and whether
+   admins may opt in to storing result summaries. Recommendation: never store rows.
+10. Correction detection by plan comparison (§7.5) may propose memories for ordinary follow-ups
+   ("now by month"). Recommendation: propose only when a concept, filter definition, or table
+   changes, never for a changed grouping or time window alone.
 
-## 13. Delivery plan
+## 14. Delivery plan
 
 Each phase ends in a state that can be shipped and tested.
 
@@ -665,4 +860,6 @@ Each phase ends in a state that can be shipped and tested.
 | P1 | `AgentCapture` source type and `sourceAgent`; persona `memoryCapture`; `capture`, `feedback`, and the `remember` tool; Stop hook; Context Center Agents tab | Capture ITs (dedup, review start state, visibility); outcome recount IT |
 | P2 | `preToolUse` with SQL table extraction, lineage, DQ, and persona guardrails; repo bindings and `om-context sync` files and AGENTS.md section | Guardrail ITs (warn, deny, RBAC); binding detection tests on a dbt fixture |
 | P3 | Persona context editor additions (deliver at, delivery, guardrails, memory, export as skill) with the turn preview; Agent distribution page; signed `.pkg`/`.msi`, Homebrew, winget, shims; adapter manifests for Cursor, VS Code, Gemini CLI; `memoryfs`; `Workspace` scope | Playwright for the editor and turn preview; install/uninstall tests per adapter on macOS, Windows, Linux; memoryfs contract tests |
-| P4 | Eval harness and default-budget tuning; Collate chat on the compiler | Eval report comparing policies |
+| P4 | Answer harness, part 1: `start_answer` (stages 1–5), `finish_answer` with server-built citations, answer traces, `answerHarness` config with calendar and trust policy, MCP Apps citation view | ITs: concept binding prefers approved terms and certified metrics; trust step reports failing tests and open incidents; citations list only plan items; a scripted run of the two example questions on sample data |
+| P5 | Answer harness, part 2: `run_query` through Query Runner as the user (synchronous wait, progress), SQL-to-plan validation, correction detection with `refines`, owner review tasks for disputes, test-questions runner in the UI | ITs: a query outside the plan is warned or denied per config; a correction produces a linked, unapproved memory and an owner task; Playwright for the test-questions runner |
+| P6 | Eval harness and default-budget tuning; Collate chat on the compiler | Eval report comparing policies |
