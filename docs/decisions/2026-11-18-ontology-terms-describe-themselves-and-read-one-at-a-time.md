@@ -34,15 +34,15 @@ the MCP response budget, so `ontology_describe` without a `resource` returned a 
   their own entry gives the range and classes. Blank-node objects are followed so lists stay whole. It is
   served from the same static file as the full ontology and needs no permission; `term` and
   `resource` are not combined. An undeclared term is an argument error.
-- `owl:versionInfo` is not bumped for comments and axiom corrections; the changelog records them
-  under an unreleased entry.
+- `owl:versionInfo` moves once per release, with one changelog entry for everything in it. A
+  release that adds terms and corrects domains is a minor bump, as 1.1.0 was; the knowledge-graph
+  release that carries these descriptions is 2.1.0.
 
 ## Consequences
 Adding a stored predicate or a projected type without a comment fails the build, and so does a
 domain or literal range the projection contradicts. Class ranges are only checked against literal
 values: the fixtures point every reference at one shared id, so object types cannot be verified. Recorded
 classes for relationship edges are not verified by the fixtures for the same reason.
-Terms written on branches still in flight are exempted by name in the test and must be removed from
-that list when those branches merge. A class entry grows with every property whose domain covers
+No term is exempt. A class entry grows with every property whose domain covers
 it; `om:Table` is about two thirds of the default budget, and the budget test fails before a class
 outgrows it.

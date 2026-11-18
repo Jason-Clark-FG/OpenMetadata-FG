@@ -30,42 +30,6 @@ import org.junit.jupiter.api.Test;
  */
 class RdfOntologyDescriptionContractTest {
   private static final String OM = "https://open-metadata.org/ontology/";
-  private static final String DQV = "http://www.w3.org/ns/dqv#";
-  private static final String PROV = "http://www.w3.org/ns/prov#";
-
-  // Temporary: terms whose comments, domains and ranges are written on branches still in flight
-  // (keys and constraints, Ontology Studio bindings, data quality). Remove an entry once the
-  // branch that owns it has merged.
-  private static final Set<String> DESCRIBED_BY_OPEN_BRANCHES =
-      Set.of(
-          OM + "constraintType",
-          OM + "relationshipType",
-          OM + "hasConstraint",
-          OM + "hasConstrainedColumn",
-          OM + "hasReferredColumn",
-          OM + "references",
-          OM + "isPrimaryKey",
-          OM + "isUnique",
-          OM + "memberOf",
-          OM + "memberCount",
-          OM + "boundAsset",
-          OM + "boundColumn",
-          OM + "testedBy",
-          OM + "testSuite",
-          OM + "testSuites",
-          OM + "tableProfilerConfig",
-          OM + "databaseProfilerConfig",
-          OM + "databaseSchemaProfilerConfig",
-          OM + "latestResult",
-          OM + "odcsQualityRules",
-          OM + "qualityExpectations",
-          OM + "rowCount",
-          OM + "columnCount",
-          DQV + "hasQualityMeasurement",
-          DQV + "isMeasurementOf",
-          DQV + "value",
-          DQV + "computedOn",
-          PROV + "generatedAtTime");
 
   private static final Property DOMAIN_INCLUDES =
       ResourceFactory.createProperty("https://schema.org/domainIncludes");
@@ -179,7 +143,6 @@ class RdfOntologyDescriptionContractTest {
       final boolean shared =
           stored.contains(predicate.getURI())
               && !RDF.type.equals(predicate)
-              && !DESCRIBED_BY_OPEN_BRANCHES.contains(predicate.getURI())
               && !declared.contains(predicate, RDFS.domain);
       if (shared && !owners.isEmpty() && !recordedFor(declared, predicate, owners)) {
         violations.add(predicate.getURI() + " used on " + owners);
@@ -229,7 +192,6 @@ class RdfOntologyDescriptionContractTest {
 
   private static Set<String> uncommented(final Set<String> terms, final Model declared) {
     final Set<String> missing = new TreeSet<>(terms);
-    missing.removeAll(DESCRIBED_BY_OPEN_BRANCHES);
     missing.removeIf(uri -> hasComment(declared, declared.createResource(uri)));
     return missing;
   }
@@ -240,9 +202,6 @@ class RdfOntologyDescriptionContractTest {
   }
 
   private static List<Resource> declared(final Property predicate, final Property axis) {
-    if (DESCRIBED_BY_OPEN_BRANCHES.contains(predicate.getURI())) {
-      return List.of();
-    }
     return ontology
         .listObjectsOfProperty(ontology.createResource(predicate.getURI()), axis)
         .filterKeep(RDFNode::isURIResource)

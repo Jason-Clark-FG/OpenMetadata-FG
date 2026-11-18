@@ -354,9 +354,8 @@ from the ontology itself.
 `RdfOntologyDescriptionContractTest` fails when a stored predicate or a projected class has no
 comment, when a projected subject falls outside a declared domain or, for a shared predicate,
 outside its recorded `schema:domainIncludes` classes, and when a value contradicts a declared range:
-a literal under a class range, or a datatype other than a declared `xsd:` range.
-Terms whose descriptions belong to branches still in flight are listed there as temporary
-exemptions.
+a literal under a class range, or a datatype other than a declared `xsd:` range. No term is
+exempt.
 
 When adding a projection, update the ontology and extend the structured fixture
 if needed. New schema fields are sampled automatically. Unregistered writer

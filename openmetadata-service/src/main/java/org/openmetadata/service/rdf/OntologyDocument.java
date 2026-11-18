@@ -80,8 +80,8 @@ public final class OntologyDocument {
   }
 
   /**
-   * One class with the properties whose domain covers it, or one property, from the bundled
-   * ontology. {@code term} is a prefixed name such as {@code om:Table} or an absolute IRI.
+   * One class with the properties whose domain covers it and, by label and comment, the shared
+   * properties recorded for it; or one property; from the bundled ontology. {@code term} is a prefixed name such as {@code om:Table} or an absolute IRI.
    */
   public static Optional<TermEntry> describeTerm(String term, String requestedFormat) {
     RdfSerializationFormat format = RdfSerializationFormat.parse(requestedFormat);

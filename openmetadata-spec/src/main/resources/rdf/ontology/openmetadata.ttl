@@ -302,11 +302,10 @@ om:Tag a owl:Class ;
 om:relatedTo a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "related to" ;
-    rdfs:comment "General associative relationship between terms that are conceptually connected" ;
+    rdfs:comment "Related entities. Between glossary terms it is the symmetric relatedTo relation, an association between connected concepts; between other entities, such as a table, metric, test case, knowledge page or context memory and what it relates to, it comes from RELATED_TO relationships." ;
     rdfs:subPropertyOf skos:related ;
     a owl:SymmetricProperty ;
-    rdfs:domain om:GlossaryTerm ;
-    rdfs:range om:GlossaryTerm .
+    schema:domainIncludes om:ContextMemory, om:GlossaryTerm, om:Metric, om:Page, om:Table, om:TestCase .
 
 om:synonym a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -445,6 +444,7 @@ om:TestSuite a owl:Class ;
 
 om:TestCase a owl:Class ;
     rdfs:label "Test Case" ;
+    rdfs:comment "A data quality test on a table or column: what it checks (om:testsEntity, om:testsColumn), its parameters (om:hasParameterValue), its latest result (om:hasTestResult, om:latestResultStatus) and any open incident. Read the latest status before trusting the data the test covers." ;
     rdfs:subClassOf om:Entity .
 
 om:TestCaseResult a owl:Class ;
@@ -543,14 +543,14 @@ om:profiledAt a owl:DatatypeProperty ;
 om:profileRowCount a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "profiled row count" ;
-    rdfs:comment "Rows the profiler counted in the table. Unlike om:rowCount, which a connector may report, this is the measured count. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
+    rdfs:comment "Rows the profiler counted in the table. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
     rdfs:domain om:Table ;
     rdfs:range xsd:double .
 
 om:profileColumnCount a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "profiled column count" ;
-    rdfs:comment "Columns the profiler saw in the table. Compare om:columnCount, the declared column count. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
+    rdfs:comment "Columns the profiler saw in the table; om:hasColumn edges list the declared columns. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
     rdfs:domain om:Table ;
     rdfs:range xsd:double .
 
@@ -641,7 +641,7 @@ om:latestResultStatus a owl:DatatypeProperty ;
 om:latestResultAt a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "latest result at" ;
-    rdfs:comment "When the test case's latest run happened." ;
+    rdfs:comment "When the test case's latest run happened. Compare it with the current time to tell whether om:latestResultStatus still describes the data." ;
     rdfs:domain om:TestCase ;
     rdfs:range xsd:dateTime .
 
@@ -998,7 +998,7 @@ om:mentionedIn a owl:ObjectProperty ;
 om:testedBy a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "tested by" ;
-    rdfs:comment "A test case that checks this asset, written only for a stored testedBy relationship. Test cases link their table with the inverse, om:testsEntity; query that one." ;
+    rdfs:comment "Relationship type from an asset to a test case that checks it. No OpenMetadata repository writes TESTED_BY relationships, so the edge is normally absent: a test case points at its table with om:testsEntity, so find a table's tests with ^om:testsEntity." ;
     rdfs:domain om:DataAsset ;
     rdfs:range om:TestCase .
 
@@ -1066,8 +1066,7 @@ om:appliedTo a owl:ObjectProperty ;
 
 om:relatedTo a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
-    rdfs:label "related to" ;
-    rdfs:comment "General relationship between entities" .
+    rdfs:label "related to" .
 
 om:reviews a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
@@ -1273,8 +1272,9 @@ om:hasOwner a owl:ObjectProperty ;
 om:memberOf a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "member of" ;
-    rdfs:domain om:User ;
-    rdfs:range om:Team .
+    rdfs:comment "A team the user belongs to; on a role or policy, a team that has the role or uses the policy directly (the teams field)." ;
+    rdfs:range om:Team ;
+    schema:domainIncludes om:Policy, om:Role, om:User .
 
 om:creates a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -1868,16 +1868,14 @@ om:modified a owl:DatatypeProperty ;
 om:rowCount a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "row count" ;
-    rdfs:comment "Number of rows in the table" ;
-    rdfs:domain om:Table ;
-    rdfs:range xsd:integer .
+    rdfs:comment "Number of rows in a worksheet, as its drive connector reports it. Tables carry the profiled count as om:profileRowCount instead." ;
+    rdfs:domain om:Worksheet .
 
 om:columnCount a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "column count" ;
-    rdfs:comment "Number of columns in the table" ;
-    rdfs:domain om:Table ;
-    rdfs:range xsd:integer .
+    rdfs:comment "Number of columns in a worksheet, as its drive connector reports it. Tables carry the profiled count as om:profileColumnCount instead." ;
+    rdfs:domain om:Worksheet .
 
 om:columnDataType a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
@@ -2568,8 +2566,8 @@ om:ExtensionProperty a owl:Class ;
         om:RelationshipType, om:Report, om:Role, om:SearchIndex,
         om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
         om:StoredProcedure, om:Table, om:Tag, om:Task,
-        om:Team, om:TestConnectionDefinition, om:Topic, om:Type,
-        om:User, om:Workflow, om:Worksheet .
+        om:Team, om:TestCase, om:TestConnectionDefinition, om:Topic,
+        om:Type, om:User, om:Workflow, om:Worksheet .
 
 <http://purl.org/dc/terms/publisher> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2624,8 +2622,8 @@ om:ExtensionProperty a owl:Class ;
         om:RelationshipType, om:Report, om:Role, om:SearchIndex,
         om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
         om:StoredProcedure, om:Table, om:Tag, om:Team,
-        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
-        om:Workflow, om:Worksheet .
+        om:TestConnectionDefinition, om:TestResultValue, om:Topic, om:Type,
+        om:User, om:Workflow, om:Worksheet .
 
 <http://www.w3.org/2000/01/rdf-schema#seeAlso> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2728,8 +2726,8 @@ om:ExtensionProperty a owl:Class ;
         om:Report, om:Role, om:SearchIndex, om:SearchService,
         om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
         om:Table, om:Tag, om:Task, om:Team,
-        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
-        om:Workflow, om:Worksheet .
+        om:TestCase, om:TestConnectionDefinition, om:Topic, om:Type,
+        om:User, om:Workflow, om:Worksheet .
 
 <http://www.w3.org/ns/dqv#computedOn> a rdf:Property ;
     om:projectionStatus om:InferenceOnly ;
@@ -2748,7 +2746,9 @@ om:ExtensionProperty a owl:Class ;
 
 <http://www.w3.org/ns/dqv#value> a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "value" .
+    rdfs:label "value" ;
+    rdfs:comment "On a test result value (om:TestResultValue), the value the latest run observed, as the test framework reported it, as a string; rdfs:label on the same node names the measure." ;
+    schema:domainIncludes om:TestResultValue .
 
 <http://www.w3.org/ns/prov#endedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2764,7 +2764,9 @@ om:ExtensionProperty a owl:Class ;
 
 <http://www.w3.org/ns/prov#generatedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "generatedAtTime" .
+    rdfs:label "generatedAtTime" ;
+    rdfs:comment "When a quality fact was recorded: on om:TestCaseResult, the time of the test case's latest run; on om:TestCaseIncident, when the open incident reached its current state." ;
+    schema:domainIncludes om:TestCaseIncident, om:TestCaseResult .
 
 <http://www.w3.org/ns/prov#hadPlan> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2794,8 +2796,8 @@ om:ExtensionProperty a owl:Class ;
         om:Report, om:Role, om:SearchIndex, om:SearchService,
         om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
         om:Table, om:Tag, om:Task, om:Team,
-        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
-        om:Workflow, om:Worksheet .
+        om:TestCase, om:TestConnectionDefinition, om:Topic, om:Type,
+        om:User, om:Workflow, om:Worksheet .
 
 <http://www.w3.org/ns/prov#startedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3356,7 +3358,10 @@ om:connectionConfig a rdf:Property ;
 
 om:constraintType a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "constraintType" .
+    rdfs:label "constraintType" ;
+    rdfs:comment "Kind of table constraint: PRIMARY_KEY, UNIQUE, FOREIGN_KEY, SORT_KEY, DIST_KEY or CLUSTER_KEY." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range xsd:string .
 
 om:contentType a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3509,11 +3514,17 @@ om:dataSources a rdf:Property ;
 
 om:databaseProfilerConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "databaseProfilerConfig" .
+    rdfs:label "databaseProfilerConfig" ;
+    rdfs:comment "Profiler settings of the database, as JSON text: sample data row count, randomized sampling and the profile sample size." ;
+    rdfs:domain om:Database ;
+    rdfs:range xsd:string .
 
 om:databaseSchemaProfilerConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "databaseSchemaProfilerConfig" .
+    rdfs:label "databaseSchemaProfilerConfig" ;
+    rdfs:comment "Profiler settings of the database schema, as JSON text: sample data row count, randomized sampling and the profile sample size." ;
+    rdfs:domain om:DatabaseSchema ;
+    rdfs:range xsd:string .
 
 om:databaseSchemas a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4079,11 +4090,17 @@ om:hasColumnLineage a rdf:Property ;
 
 om:hasConstrainedColumn a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "hasConstrainedColumn" .
+    rdfs:label "hasConstrainedColumn" ;
+    rdfs:comment "A column the constraint covers, without its position; om:hasConstraintMember gives the order and, for a foreign key, the pairing with the referred columns." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range om:Column .
 
 om:hasConstraint a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "hasConstraint" .
+    rdfs:label "hasConstraint" ;
+    rdfs:comment "A constraint declared on the table (om:TableConstraint): a primary, unique or foreign key, or a sort, distribution or cluster key. Several column-level PRIMARY_KEY markers become one composite primary key. Read its members in order through om:hasConstraintMember." ;
+    rdfs:domain om:Table ;
+    rdfs:range om:TableConstraint .
 
 om:hasCustomProperty a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4362,7 +4379,10 @@ om:hasReference a rdf:Property ;
 
 om:hasReferredColumn a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "hasReferredColumn" .
+    rdfs:label "hasReferredColumn" ;
+    rdfs:comment "For a foreign key, a column of the referenced table, without its position; pair it with the constrained columns through om:hasConstraintMember." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range om:Column .
 
 om:hasRelatedMetric a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4762,7 +4782,9 @@ om:isShared a rdf:Property ;
 om:isUnique a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isUnique" ;
-    rdfs:comment "True when the column alone is unique, from a column-level UNIQUE constraint, a single-column PRIMARY_KEY or UNIQUE table constraint, or a column-level PRIMARY_KEY that no other column of the table shares. Composite keys use om:hasConstrainedColumn and om:hasConstraintMember and do not imply individual uniqueness; PRIMARY_KEY markers on several columns state one composite key." .
+    rdfs:comment "True when the column alone is unique, from a column-level UNIQUE constraint, a single-column PRIMARY_KEY or UNIQUE table constraint, or a column-level PRIMARY_KEY that no other column of the table shares. Composite keys use om:hasConstrainedColumn and om:hasConstraintMember and do not imply individual uniqueness; PRIMARY_KEY markers on several columns state one composite key." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:boolean .
 
 om:joins a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4831,7 +4853,10 @@ om:lastUsedAt a rdf:Property ;
 
 om:latestResult a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "latestResult" .
+    rdfs:label "latestResult" ;
+    rdfs:comment "Latest validation of the data contract, as JSON text: its timestamp, status and message." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range xsd:string .
 
 om:layer a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5091,7 +5116,10 @@ om:odcsPreservedFields a rdf:Property ;
 
 om:odcsQualityRules a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "odcsQualityRules" .
+    rdfs:label "odcsQualityRules" ;
+    rdfs:comment "Quality rules imported from an ODCS contract, kept as JSON text so the contract can be exported to ODCS again." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range xsd:string .
 
 om:ontology a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5397,7 +5425,10 @@ om:providerModelId a rdf:Property ;
 
 om:qualityExpectations a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "qualityExpectations" .
+    rdfs:label "qualityExpectations" ;
+    rdfs:comment "Test cases the data contract expects to pass, as the JSON of their references rather than graph edges." ;
+    rdfs:domain om:DataContract ;
+    rdfs:range xsd:string .
 
 om:qualityMetrics a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5482,7 +5513,10 @@ om:reference a rdf:Property ;
 
 om:references a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "references" .
+    rdfs:label "references" ;
+    rdfs:comment "From a foreign key column to the column it references, paired by position. A single-column foreign key joins directly on it; a composite key must join on every pair its om:hasConstraintMember nodes give." ;
+    rdfs:domain om:Column ;
+    rdfs:range om:Column .
 
 om:region a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5507,7 +5541,10 @@ om:relatedEntities a rdf:Property ;
 
 om:relationshipType a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "relationshipType" .
+    rdfs:label "relationshipType" ;
+    rdfs:comment "For a foreign key, the cardinality the constraint declares between the two tables: ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE or MANY_TO_MANY. It tells whether a join on the key can multiply rows." ;
+    rdfs:domain om:TableConstraint ;
+    rdfs:range xsd:string .
 
 om:remediationActions a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5993,7 +6030,10 @@ om:systemPrompt a rdf:Property ;
 
 om:tableProfilerConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "tableProfilerConfig" .
+    rdfs:label "tableProfilerConfig" ;
+    rdfs:comment "Profiler settings of the table, as JSON text: sampling, partitioning, a custom profile query, and the columns included in or excluded from profiling. An excluded column carries no om:profile* facts." ;
+    rdfs:domain om:Table ;
+    rdfs:range xsd:string .
 
 om:tables a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -6097,11 +6137,17 @@ om:testConnectionResult a rdf:Property ;
 
 om:testSuite a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "testSuite" .
+    rdfs:label "testSuite" ;
+    rdfs:comment "The test suite of a table or data contract, as the reference's JSON text rather than a graph edge. A table's test cases are reachable with ^om:testsEntity." ;
+    rdfs:range xsd:string ;
+    schema:domainIncludes om:DataContract, om:Table .
 
 om:testSuites a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "testSuites" .
+    rdfs:label "testSuites" ;
+    rdfs:comment "Test suites that validate the AI application, as the JSON of their references rather than graph edges." ;
+    rdfs:domain om:AIApplication ;
+    rdfs:range xsd:string .
 
 om:timezone a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -6380,7 +6426,9 @@ om:encodingVersion a rdf:Property ;
 
 om:memberCount a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "memberCount" .
+    rdfs:label "memberCount" ;
+    rdfs:comment "Number of definitions sealed into the ontology release." ;
+    rdfs:domain om:OntologyRelease .
 
 om:ontologyIri a rdf:Property ;
     om:projectionStatus om:Stored ;

@@ -87,6 +87,14 @@ The ontology describes what the projection writes, for a model reading it withou
   `om:User` is removed and the range is `om:User`.
 - `om:hasTag` range is `skos:Concept`: glossary terms applied as labels are its objects too.
 - `om:hasPolicy` range is `om:Policy` (was `odrl:Policy`).
+- `om:rowCount` and `om:columnCount` describe worksheets: domain `om:Worksheet` (was `om:Table`),
+  `xsd:integer` range removed. Tables carry the profiled counts as `om:profileRowCount` and
+  `om:profileColumnCount`.
+- `om:memberOf` domain `om:User` removed: roles and policies also carry it, for the teams they
+  serve. `om:relatedTo` domain and range `om:GlossaryTerm` removed: RELATED_TO links tables,
+  metrics, test cases, pages and memories too.
+- Domains and ranges declared for `om:isUnique`, `om:hasConstraint`, `om:constraintType`,
+  `om:relationshipType`, `om:hasConstrainedColumn`, `om:hasReferredColumn` and `om:references`.
 - Class ranges removed where the projection writes a literal: `om:format`, `om:service`,
   `om:checksum`, `om:provenance`, `om:source`, `om:lineageCreatedBy`, `om:consumesFrom`,
   `om:providesTo`, and `xsd:dateTime` on `om:endDate`.
