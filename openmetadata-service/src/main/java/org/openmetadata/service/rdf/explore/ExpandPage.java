@@ -25,11 +25,13 @@ public record ExpandPage(
     List<ExpansionGroup> expansions,
     List<NodeCard> nodes,
     Map<String, RelationshipAbout> properties,
+    List<NotCoveredGroup> notCovered,
     Integer nextOffset) {
 
   public ExpandPage {
     expansions = List.copyOf(expansions);
     nodes = List.copyOf(nodes);
     properties = Map.copyOf(properties);
+    notCovered = List.copyOf(notCovered);
   }
 }

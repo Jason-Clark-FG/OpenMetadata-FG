@@ -33,6 +33,7 @@ import java.util.stream.IntStream;
 import org.apache.jena.rdf.model.Model;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.EntityInterface;
+import org.openmetadata.schema.entity.data.GlossaryTerm;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
@@ -391,6 +392,60 @@ class KnowledgeGraphExplorerTest {
     assertThat(traces.storedJson(run.run()).getFirst())
         .doesNotContain("profileRowCount")
         .doesNotContain("2025-11-13T02:13:20Z");
+  }
+
+  @Test
+  void aResponseSaysOnceForEachKindOfNodeWhatTheGraphDoesNotCarry() {
+    final KnowledgeGraphExplorer explorer =
+        explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
+
+    final FindResult found =
+        explorer.find(run, catalog("orders", UNBOUNDED), List.of(hit(ORDERS), hit(RAW)));
+
+    assertThat(found.notCovered())
+        .singleElement()
+        .satisfies(
+            group -> {
+              assertThat(group.types()).containsExactly("om:Table");
+              assertThat(group.properties())
+                  .isEqualTo(OntologyVocabulary.canonical().notCoveredFor(List.of(OM + "Table")));
+            });
+    found
+        .nodes()
+        .forEach(card -> assertThat(JsonUtils.pojoToJson(card)).doesNotContain("notCovered"));
+  }
+
+  @Test
+  void aCardNamesItsBookkeepingInsteadOfSpellingItOutAndTheResponseSaysWhatEachNameIs() {
+    EntityInterface.CANONICAL_ENTITY_NAME_MAP.put("glossaryterm", "glossaryTerm");
+    final UUID id = UUID.randomUUID();
+    final GlossaryTerm term =
+        new GlossaryTerm()
+            .withId(id)
+            .withName("Revenue")
+            .withFullyQualifiedName("Business.Revenue")
+            .withVersion(0.3)
+            .withUpdatedAt(1_763_000_000_000L)
+            .withUpdatedBy("admin")
+            .withSynonyms(List.of("income"))
+            .withMutuallyExclusive(false)
+            .withDeleted(false);
+    final Model projected = new JsonLdTranslator(new ObjectMapper(), BASE).toRdf(term);
+
+    final FindResult found =
+        explorer(InMemoryGraph.of(projected))
+            .find(
+                run,
+                catalog("revenue", UNBOUNDED),
+                List.of(new SearchHit("glossaryTerm", term.getFullyQualifiedName(), id)));
+    final NodeCard card = found.nodes().getFirst();
+
+    assertThat(card.bookkeeping()).contains("dcat:version", "dct:hasVersion", "om:isDeleted");
+    assertThat(card.values())
+        .extracting(CardValue::property)
+        .doesNotContain("dcat:version", "dct:hasVersion", "om:isDeleted")
+        .contains("skos:altLabel", "om:isMutuallyExclusive");
+    assertThat(found.properties()).containsKeys(card.bookkeeping().toArray(String[]::new));
   }
 
   @Test

@@ -107,6 +107,7 @@ public final class GraphExpansion {
           groups.entrySet().stream().map(entry -> entry.getKey().group(entry.getValue())).toList(),
           cards,
           properties,
+          NotCoveredGroups.of(cards),
           nextOffset);
     }
   }

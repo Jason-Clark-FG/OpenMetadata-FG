@@ -77,9 +77,10 @@ class NodeCardValuesTest {
         .contains(
             tuple("om:profileRowCount", "decimal", "100"),
             tuple("om:profileColumnCount", "decimal", "2"),
-            tuple("om:profiledAt", "dateTime", "2025-11-13T02:13:20Z"),
-            tuple("om:isDeleted", "boolean", "false"));
-    assertThat(values).doesNotContainKeys("rdfs:label", "om:fullyQualifiedName");
+            tuple("om:profiledAt", "dateTime", "2025-11-13T02:13:20Z"));
+    assertThat(values).doesNotContainKeys("rdfs:label", "om:fullyQualifiedName", "om:isDeleted");
+    assertThat(card(profiledOrders(), TABLE_URI).bookkeeping())
+        .contains("om:isDeleted", "dct:hasVersion");
   }
 
   @Test

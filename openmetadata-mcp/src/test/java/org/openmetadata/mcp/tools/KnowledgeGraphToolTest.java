@@ -31,11 +31,18 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.vocabulary.OWL2;
+import org.apache.jena.vocabulary.RDF;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.openmetadata.mcp.util.ResponseBudget;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.utils.JsonUtils;
+import org.openmetadata.service.rdf.OntologyDocument;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
 import org.openmetadata.service.rdf.SparqlQueryLimits;
@@ -396,6 +403,109 @@ class KnowledgeGraphToolTest {
     assertThat(JsonUtils.pojoToJson(response)).contains("\"semanticSearchSkipped\"");
     assertThat(JsonUtils.pojoToJson(call(Map.of("operation", "find", "question", "orders"))))
         .doesNotContain("semanticSearchSkipped");
+  }
+
+  /** Ten tables with 30 described relationships each, as a real catalog's tables are. */
+  private static String wideTables(final List<UUID> ids) {
+    final Model ontology = OntologyDocument.loadCanonicalModel();
+    final List<String> predicates =
+        ontology.listSubjectsWithProperty(RDF.type, OWL2.ObjectProperty).toList().stream()
+            .filter(Resource::isURIResource)
+            .map(Resource::getURI)
+            .filter(iri -> iri.startsWith("https://open-metadata.org/ontology/"))
+            .filter(
+                iri ->
+                    ontology
+                        .createResource(iri)
+                        .hasProperty(
+                            ontology.createProperty(
+                                "https://open-metadata.org/ontology/projectionStatus"),
+                            ontology.createResource("https://open-metadata.org/ontology/Stored")))
+            .sorted()
+            .limit(30)
+            .toList();
+    ontology.close();
+    final StringBuilder turtle = new StringBuilder();
+    for (final UUID id : ids) {
+      turtle.append("<%stable/%s> a om:Table ; rdfs:label \"table %s\" .%n".formatted(E, id, id));
+      for (int index = 0; index < predicates.size(); index++) {
+        turtle.append(
+            "<%stable/%s> <%s> e:target-%s-%d .%n"
+                .formatted(E, id, predicates.get(index), id, index));
+      }
+    }
+    return turtle.toString();
+  }
+
+  private KnowledgeGraphTool wideCatalog(final List<UUID> ids) {
+    final RdfRepository wide = JenaBackedRepository.ofTurtle(wideTables(ids));
+    return new KnowledgeGraphTool(
+        () -> wide,
+        () -> RdfProjectionState.READY,
+        (authorizer, caller, find) ->
+            CatalogHits.of(ids.stream().map(id -> new SearchHit("table", null, id)).toList()),
+        () -> traces,
+        Clock.systemUTC());
+  }
+
+  @Test
+  void aDefaultFindFitsTheSmallestClientLimitWhateverLimitTheCallerAsks() throws IOException {
+    callersAreAdministrators(false);
+    final List<UUID> ids = IntStream.range(0, 10).mapToObj(index -> UUID.randomUUID()).toList();
+
+    final KnowledgeGraphTool.FindResponse found =
+        (KnowledgeGraphTool.FindResponse)
+            wideCatalog(ids)
+                .execute(
+                    GRANTED,
+                    CALLER,
+                    Map.of("operation", "find", "question", "wide tables", "limit", 10));
+
+    assertThat((long) JsonUtils.pojoToJson(found).length())
+        .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS);
+    assertThat(found.moreMatched()).isEqualTo(10 - found.nodes().size());
+    assertThat(found.nodes()).hasSizeGreaterThanOrEqualTo(8);
+  }
+
+  @Test
+  void aCallerThatCanTakeMoreAsksForItUpToTheServerLimit() throws IOException {
+    callersAreAdministrators(false);
+    final List<UUID> ids = IntStream.range(0, 10).mapToObj(index -> UUID.randomUUID()).toList();
+    final KnowledgeGraphTool tool = wideCatalog(ids);
+
+    final KnowledgeGraphTool.FindResponse small =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "find",
+                    "question",
+                    "wide tables",
+                    "limit",
+                    10,
+                    "maxChars",
+                    12_000));
+    final KnowledgeGraphTool.FindResponse beyond =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "find",
+                    "question",
+                    "wide tables",
+                    "limit",
+                    10,
+                    "maxChars",
+                    10_000_000));
+
+    assertThat(JsonUtils.pojoToJson(small).length()).isLessThanOrEqualTo(12_000);
+    assertThat(small.moreMatched()).isPositive();
+    assertThat((long) JsonUtils.pojoToJson(beyond).length())
+        .isLessThanOrEqualTo(ResponseBudget.defaultBudgetChars());
   }
 
   @Test

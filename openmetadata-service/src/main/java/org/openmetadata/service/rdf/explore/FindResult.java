@@ -24,11 +24,13 @@ import java.util.Map;
 public record FindResult(
     List<NodeCard> nodes,
     Map<String, RelationshipAbout> properties,
+    List<NotCoveredGroup> notCovered,
     int moreMatched,
     String termLookupSkipped) {
 
   public FindResult {
     nodes = List.copyOf(nodes);
     properties = Map.copyOf(properties);
+    notCovered = List.copyOf(notCovered);
   }
 }

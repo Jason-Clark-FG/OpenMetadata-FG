@@ -62,9 +62,11 @@ final class PropertyDescriptions {
 
   /** The properties a card names: its relationships and the properties of its values. */
   static Set<String> namesOf(final NodeCard card) {
-    return Stream.concat(
+    return Stream.of(
             card.reachable().stream().map(Reachable::relationship),
-            card.values().stream().map(CardValue::property))
+            card.values().stream().map(CardValue::property),
+            card.bookkeeping().stream())
+        .flatMap(names -> names)
         .collect(Collectors.toSet());
   }
 }

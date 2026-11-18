@@ -107,16 +107,6 @@ class NodeCardReaderTest {
   }
 
   @Test
-  void aCardSaysWhatTheProjectionDoesNotCarryForItsType() {
-    final NodeCard card = reader(InMemoryGraph.ofTurtle(GRAPH)).read(List.of(ORDERS)).getFirst();
-
-    assertThat(card.notCovered())
-        .isEqualTo(
-            OntologyVocabulary.canonical()
-                .notCoveredFor(List.of("https://open-metadata.org/ontology/Table")));
-  }
-
-  @Test
   void aNodeTheGraphDoesNotHoldIsMarkedAbsentRatherThanIsolated() {
     final String missing = BASE + "entity/table/0b0b0b0b-0000-0000-0000-00000000dead";
 

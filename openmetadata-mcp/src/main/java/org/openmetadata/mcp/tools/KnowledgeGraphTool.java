@@ -62,6 +62,15 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
 
   private static final String SPARQL_QUERY_ARGUMENT = "query";
 
+  /**
+   * The largest response sent unless the caller asks for more: Claude Code saves a tool result
+   * longer than 50,000 characters to a file instead of showing it, so this leaves a fifth spare.
+   */
+  public static final long DEFAULT_RESPONSE_CHARS = 40_000;
+
+  /** Room the response keeps beyond its cards: run, operation, counts and skip notes. */
+  private static final long ENVELOPE_RESERVE = 1_000;
+
   private final SparqlQueryTool sparqlQuery;
   private final StartingPoints startingPoints;
   private final Supplier<RunTraceStore> traces;
@@ -155,8 +164,10 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final RdfRepository repository = repository();
     final RunContext run = new RunContext(call.runOrNew(), principalOf(securityContext));
     return switch (call.request()) {
-      case KnowledgeGraphCall.Find find -> find(authorizer, securityContext, repository, run, find);
-      case KnowledgeGraphCall.Expand expand -> expand(securityContext, repository, run, expand);
+      case KnowledgeGraphCall.Find find -> find(
+          authorizer, securityContext, repository, new Turn(run, budget(call)), find);
+      case KnowledgeGraphCall.Expand expand -> expand(
+          securityContext, repository, new Turn(run, budget(call)), expand);
       case KnowledgeGraphCall.Query query -> query(securityContext, repository, run, query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
       case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
@@ -169,24 +180,24 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     throw new UnsupportedOperationException("knowledge_graph needs the authorizer for find");
   }
 
+  /** A call's run and the characters its answer may fill. */
+  private record Turn(RunContext run, long budget) {}
+
   private FindResponse find(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
-      final RunContext run,
+      final Turn turn,
       final KnowledgeGraphCall.Find find)
       throws IOException {
+    final RunContext run = turn.run();
     requireReadyProjectionForNonAdmin(securityContext);
     final CatalogHits catalog = catalogHits(authorizer, securityContext, find);
     final FindResult found =
         explorer(securityContext, repository)
             .find(
                 run,
-                new FindRequest(
-                    find.question(),
-                    find.termKinds(),
-                    find.limit(),
-                    ResponseBudget.defaultBudgetChars()),
+                new FindRequest(find.question(), find.termKinds(), find.limit(), turn.budget()),
                 catalog.hits());
     return new FindResponse(
         run.run(),
@@ -211,11 +222,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   private ExpandResponse expand(
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
-      final RunContext run,
+      final Turn turn,
       final KnowledgeGraphCall.Expand expand) {
     requireReadyProjectionForNonAdmin(securityContext);
+    final RunContext run = turn.run();
     final ExpandPage page =
-        explorer(securityContext, repository).expand(run, expandRequest(expand));
+        explorer(securityContext, repository).expand(run, expandRequest(expand, turn.budget()));
     return new ExpandResponse(
         run.run(),
         Operation.EXPAND,
@@ -225,7 +237,17 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         page.nextOffset() == null ? null : PageCursor.encodeOffset(page.nextOffset()));
   }
 
-  private static ExpandRequest expandRequest(final KnowledgeGraphCall.Expand expand) {
+  /**
+   * The characters a find or an expand may fill: the caller's {@code maxChars} or {@link
+   * #DEFAULT_RESPONSE_CHARS}, never more than the server's own budget, less the envelope's room.
+   */
+  static long budget(final KnowledgeGraphCall call) {
+    final long requested = call.maxChars() == null ? DEFAULT_RESPONSE_CHARS : call.maxChars();
+    return Math.min(requested, ResponseBudget.defaultBudgetChars()) - ENVELOPE_RESERVE;
+  }
+
+  private static ExpandRequest expandRequest(
+      final KnowledgeGraphCall.Expand expand, final long budget) {
     final OntologyVocabulary vocabulary = OntologyVocabulary.canonical();
     return new ExpandRequest(
         expand.nodes(),
@@ -233,7 +255,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         expand.directions(),
         expand.limit(),
         expand.offset(),
-        ResponseBudget.defaultBudgetChars());
+        budget);
   }
 
   private QueryResponse query(

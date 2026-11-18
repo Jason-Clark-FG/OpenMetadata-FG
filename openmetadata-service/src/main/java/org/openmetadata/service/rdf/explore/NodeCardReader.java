@@ -35,12 +35,14 @@ public final class NodeCardReader {
   private final GraphReader graph;
   private final OntologyVocabulary vocabulary;
   private final NodeIris nodeIris;
+  private final Set<String> bookkeeping;
 
   public NodeCardReader(
       final GraphReader graph, final OntologyVocabulary vocabulary, final String baseUri) {
     this.graph = Objects.requireNonNull(graph);
     this.vocabulary = Objects.requireNonNull(vocabulary);
     this.nodeIris = new NodeIris(baseUri);
+    this.bookkeeping = Bookkeeping.namesIn(vocabulary);
   }
 
   /**
@@ -79,6 +81,9 @@ public final class NodeCardReader {
     final boolean inGraph = facts != null || !values.isEmpty() || !reachable.isEmpty();
     final CardFacts known = facts == null ? new CardFacts() : facts;
     final List<String> types = known.types().stream().map(vocabulary::compact).sorted().toList();
+    final Map<Boolean, List<CardValue>> kept =
+        values.stream()
+            .collect(Collectors.partitioningBy(value -> bookkeeping.contains(value.property())));
     return new NodeCard(
         node,
         entityType(node, known.types()),
@@ -86,7 +91,8 @@ public final class NodeCardReader {
         Optional.ofNullable(known.label()).orElseGet(() -> DerivedLabel.of(types, values)),
         types,
         known.keyFacts(),
-        values,
+        kept.get(false),
+        kept.get(true).stream().map(CardValue::property).toList(),
         reachable,
         inGraph ? vocabulary.notCoveredFor(known.types()) : List.of(),
         inGraph);

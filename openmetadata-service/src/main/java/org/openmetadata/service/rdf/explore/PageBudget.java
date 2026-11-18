@@ -38,18 +38,25 @@ final class PageBudget {
       final long maxChars) {
     final Set<String> counted = new HashSet<>();
     final Set<String> described = new HashSet<>();
+    final Set<List<String>> kinds = new HashSet<>();
     long used = ENVELOPE_CHARS;
     int kept = 0;
     for (final GraphExpansion.ExpansionRow row : rows) {
       final NodeCard card = counted.contains(row.other()) ? null : cards.get(row.other());
       final Set<String> names = namesOf(row, card);
-      final long cost = rowChars(row, card) + newEntryChars(names, described, descriptions);
+      final long cost =
+          rowChars(row, card)
+              + newEntryChars(names, described, descriptions)
+              + newKindChars(card, kinds);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
       used += cost;
       counted.add(row.other());
       described.addAll(names);
+      if (card != null) {
+        kinds.add(card.types());
+      }
       kept++;
     }
     return kept;
@@ -59,16 +66,21 @@ final class PageBudget {
   static int cardsThatFit(
       final List<NodeCard> cards, final PropertyDescriptions descriptions, final long maxChars) {
     final Set<String> described = new HashSet<>();
+    final Set<List<String>> kinds = new HashSet<>();
     long used = ENVELOPE_CHARS;
     int kept = 0;
     for (final NodeCard card : cards) {
       final Set<String> names = PropertyDescriptions.namesOf(card);
-      final long cost = cardChars(card) + newEntryChars(names, described, descriptions);
+      final long cost =
+          cardChars(card)
+              + newEntryChars(names, described, descriptions)
+              + newKindChars(card, kinds);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
       used += cost;
       described.addAll(names);
+      kinds.add(card.types());
       kept++;
     }
     return kept;
@@ -90,6 +102,11 @@ final class PageBudget {
         .filter(name -> !described.contains(name))
         .mapToLong(descriptions::entryChars)
         .sum();
+  }
+
+  /** A kind of node's notCovered group is charged once, with its first card. */
+  private static long newKindChars(final NodeCard card, final Set<List<String>> kinds) {
+    return card == null || kinds.contains(card.types()) ? 0 : NotCoveredGroups.chars(card);
   }
 
   private static long rowChars(final GraphExpansion.ExpansionRow row, final NodeCard card) {

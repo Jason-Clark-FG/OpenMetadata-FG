@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -227,3 +227,32 @@ of its own (the shard-fair query), the governance `function_score` wrapper on th
 aggregations, `from` and `preference`, and its parent-grouping window. Only a live OpenSearch
 cluster with embeddings can show the ranking itself; the unit tests cover the request and the
 choice of path.
+
+## Amendment 2026-11-18. Answers fit the smallest client; cards are cheaper
+
+A `find` with `limit: 10` came back at 49.8 KB. Claude Code saved it to a file and showed the
+model a preview, so the model never read a card, never saw `reachable` and never expanded.
+
+- **Client limits.** Claude Code saves a tool result to a file instead of showing it "once it's
+  longer than 50,000 characters, whatever its token count", independently of
+  `MAX_MCP_OUTPUT_TOKENS` (default 25,000 tokens); a tool can raise its own threshold with
+  `_meta["anthropic/maxResultSizeChars"]`, up to 500,000 characters
+  (code.claude.com/docs/en/mcp, "MCP output limits and warnings"). claude.ai and Claude Desktop
+  connectors take a tool result of about 150,000 characters (claude.com/docs/connectors/building,
+  "Design within the size and timeout limits"). The smallest is 50,000 characters.
+- **Default size.** Every `find` and `expand` answer fits 40,000 characters unless the caller asks
+  for more with `maxChars`, which the server caps at its own budget (80% of `maxResponseChars`).
+  Fewer cards come back and `moreMatched` or `nextCursor` says so; 1,000 characters are kept for
+  the envelope.
+- **`notCovered` once per kind.** It is no longer on each card: a response carries one
+  `notCovered` group (`types`, `properties`) for each distinct set of card types.
+- **Bookkeeping by name.** Values that record how a node is kept rather than what it is
+  (`dct:hasVersion`, `dcat:version`, `dct:modified`, `dct:created`, `dct:publisher`, `om:isDeleted`,
+  `om:deleted`, `om:updatedAt`, `om:updatedBy`, `om:version`, `om:href`, `om:fqnHash`,
+  `om:processedLineage`) are listed by name under `bookkeeping`, described in `properties` and read
+  whole with `query`. Nothing is dropped.
+
+Measured on tables with 30 stored, described relationships: a card went from 5,570 characters
+(`notCovered` 3,136 of them, `reachable` 2,019, facts 185, identity 128) to 2,420; a default `find`
+of 10 such tables from 10 cards in 62,773 characters (over Claude Code's limit) to 10 cards in
+34,461. A glossary term card went from 1,634 to 660.

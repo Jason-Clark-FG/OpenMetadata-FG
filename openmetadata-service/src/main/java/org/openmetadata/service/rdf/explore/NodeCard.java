@@ -12,6 +12,7 @@
  */
 package org.openmetadata.service.rdf.explore;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
@@ -30,13 +31,15 @@ public record NodeCard(
     List<String> types,
     KeyFacts facts,
     List<CardValue> values,
+    List<String> bookkeeping,
     List<Reachable> reachable,
-    List<NotCovered> notCovered,
+    @JsonIgnore List<NotCovered> notCovered,
     boolean inGraph) {
 
   public NodeCard {
     types = List.copyOf(types);
     values = List.copyOf(values);
+    bookkeeping = List.copyOf(bookkeeping);
     reachable = List.copyOf(reachable);
     notCovered = List.copyOf(notCovered);
   }

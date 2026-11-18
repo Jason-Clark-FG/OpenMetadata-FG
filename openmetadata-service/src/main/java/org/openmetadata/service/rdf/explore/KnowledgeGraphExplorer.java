@@ -80,7 +80,11 @@ public final class KnowledgeGraphExplorer {
         RunSteps.served(found),
         List.of());
     return new FindResult(
-        found, descriptions.describeCards(found), matched.size() - found.size(), lookup.skipped());
+        found,
+        descriptions.describeCards(found),
+        NotCoveredGroups.of(found),
+        matched.size() - found.size(),
+        lookup.skipped());
   }
 
   private static List<String> alternate(final List<String> first, final List<String> second) {
