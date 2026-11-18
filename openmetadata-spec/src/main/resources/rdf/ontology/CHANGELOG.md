@@ -33,6 +33,15 @@ this repository.
   `om:memberReferredColumn`: each table constraint lists its columns in order, and a foreign key
   pairs each column with its referred column.
 
+### Added — Status properties
+
+- `om:statusProperty`, an annotation property on a class naming the property whose value says
+  how a node of that class stands. It entails nothing; a knowledge_graph card counts the nodes on
+  the other side of a relationship by it. Asserted as `om:TestCase om:statusProperty
+  om:latestResultStatus`, `om:TestCase om:statusProperty om:hasOpenIncident` and
+  `om:TestCaseIncident om:statusProperty om:incidentState`. See
+  ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards.
+
 ### Changed — Column-level composite primary keys
 
 - PRIMARY_KEY markers on several columns project as one composite `om:TableConstraint` and no
