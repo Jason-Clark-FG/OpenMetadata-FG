@@ -20,9 +20,18 @@ the MCP response budget, so `ontology_describe` without a `resource` returned a 
 - `rdfs:domain` and `rdfs:range` are asserted only when they hold for every use the projection makes.
   A predicate shared by several entity types leaves the domain open and says so in its comment.
   External vocabulary terms get a usage comment and no domain or range of ours.
+- A stored predicate with an open domain records each class the projection writes it on with
+  `schema:domainIncludes`, declared as an `owl:AnnotationProperty` so it entails nothing. It is the
+  established schema.org pattern for "used on these classes", and an annotation keeps the file OWL
+  2 DL and RDFS reasoning unchanged. Classes come from the projection fixtures; relationship edges,
+  which the fixtures write between untyped nodes, take theirs from the repositories that create the
+  rows. A typed subject outside the recorded classes fails the build.
 - `ontology_describe` takes `term`: a prefixed name or IRI of the bundled ontology. A class returns
-  its own statements plus those of every property whose `rdfs:domain` is the class or a superclass;
-  a property returns its own statements. Blank-node objects are followed so lists stay whole. It is
+  its own statements, those of every property whose `rdfs:domain` is the class or a superclass, and
+  the label and comment of every shared property whose `schema:domainIncludes` names one of them;
+  a property returns its own statements. Shared properties are cut to label and comment so the
+  largest class stays inside the response budget (`om:Table` is about 53 KB of the 80,000 bytes);
+  their own entry gives the range and classes. Blank-node objects are followed so lists stay whole. It is
   served from the same static file as the full ontology and needs no permission; `term` and
   `resource` are not combined. An undeclared term is an argument error.
 - `owl:versionInfo` is not bumped for comments and axiom corrections; the changelog records them
@@ -31,8 +40,9 @@ the MCP response budget, so `ontology_describe` without a `resource` returned a 
 ## Consequences
 Adding a stored predicate or a projected type without a comment fails the build, and so does a
 domain or literal range the projection contradicts. Class ranges are only checked against literal
-values: the fixtures point every reference at one shared id, so object types cannot be verified.
+values: the fixtures point every reference at one shared id, so object types cannot be verified. Recorded
+classes for relationship edges are not verified by the fixtures for the same reason.
 Terms written on branches still in flight are exempted by name in the test and must be removed from
 that list when those branches merge. A class entry grows with every property whose domain covers
-it; `om:Table` is about half the default budget, and the budget test fails before a class outgrows
-it.
+it; `om:Table` is about two thirds of the default budget, and the budget test fails before a class
+outgrows it.

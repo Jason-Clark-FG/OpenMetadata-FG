@@ -18,6 +18,12 @@ context. `owl:versionInfo` is unchanged: no predicate was added or removed.
   description and say when the value is JSON text rather than a graph edge.
 - `rdfs:domain` and `rdfs:range` where they hold for every use (347 domains, 396 ranges). A
   predicate shared by several entity types says so in its comment and leaves its domain open.
+- `schema:domainIncludes` (an `owl:AnnotationProperty`, prefix `schema: <https://schema.org/>`) on
+  193 stored predicates with an open domain, naming each class the projection writes them on. It
+  entails nothing; `ontology_describe` uses it to list shared predicates in a class's entry.
+- Agent-facing rewrites of short pre-existing comments that restated the name, among them
+  `om:Entity`, `om:DataAsset`, `om:Column`, `om:upstream`, `om:downstream`, `om:fromColumn`,
+  `om:toColumn` and `om:joinedWith`.
 - `owl:Class` declarations for the 35 types the projection already wrote without one, among them
   `om:DashboardDataModel`, `om:IngestionPipeline`, `om:PipelineExecution`, `om:LifeCycle`,
   `om:AccessDetails`, `om:CustomProperty`, `om:Extension`, `om:ContextMemory`, `om:Persona` and the

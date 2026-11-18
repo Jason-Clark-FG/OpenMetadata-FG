@@ -21,6 +21,7 @@
 @prefix odrl: <http://www.w3.org/ns/odrl/2/> .
 @prefix qb: <http://purl.org/linked-data/cube#> .
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix schema: <https://schema.org/> .
 
 # OpenMetadata Complete Ontology
 om: a owl:Ontology ;
@@ -38,18 +39,18 @@ om: a owl:Ontology ;
 
 om:Entity a owl:Class ;
     rdfs:label "Entity" ;
-    rdfs:comment "Base class for all OpenMetadata entities" ;
+    rdfs:comment "Any OpenMetadata entity: a data asset, a service, a governance object such as a glossary term or policy, or a user or team. Entities carry om:fullyQualifiedName and rdfs:label, and most have owners, tags and a description." ;
     rdfs:subClassOf dcat:Resource .
 
 om:DataAsset a owl:Class ;
     rdfs:label "Data Asset" ;
-    rdfs:comment "Base class for all data assets" ;
+    rdfs:comment "Something that holds, moves or presents data, such as a table, topic, dashboard, pipeline, ML model, container, file or API endpoint. Data assets carry lineage (om:upstream, om:downstream), owners, tags, domains and the service that hosts them (om:belongsToService)." ;
     rdfs:subClassOf om:Entity, dcat:Resource ;
     owl:equivalentClass dcat:Dataset .
 
 om:Service a owl:Class ;
     rdfs:label "Service" ;
-    rdfs:comment "Base class for all services" ;
+    rdfs:comment "A system OpenMetadata connects to and ingests from, such as a database, BI, messaging or pipeline service. Its assets point at it with om:belongsToService; om:serviceType names the technology." ;
     rdfs:subClassOf om:Entity .
 
 #################################################################
@@ -73,7 +74,7 @@ om:MessagingService a owl:Class ;
 
 om:PipelineService a owl:Class ;
     rdfs:label "Pipeline Service" ;
-    rdfs:comment "ETL Service" ;
+    rdfs:comment "A pipeline orchestration service such as Airflow, Dagster or Fivetran; it hosts pipelines." ;
     rdfs:subClassOf om:Service, dcat:DataService .
 
 om:MLModelService a owl:Class ;
@@ -115,7 +116,7 @@ om:ObservabilityService a owl:Class ;
 
 om:DriveService a owl:Class ;
     rdfs:label "Drive Service" ;
-    rdfs:comment "File and document storage service" ;
+    rdfs:comment "A file storage service such as Google Drive or SharePoint; it hosts directories, files and spreadsheets." ;
     rdfs:subClassOf om:Service, dcat:DataService .
 
 #################################################################
@@ -149,7 +150,7 @@ om:Query a owl:Class ;
 
 om:Dashboard a owl:Class ;
     rdfs:label "Dashboard" ;
-    rdfs:comment "Dashboard for data visualization" ;
+    rdfs:comment "A dashboard in a BI tool, built from charts (om:hasChart) over dashboard data models (om:hasDataModel). Its lineage shows which tables feed it." ;
     rdfs:subClassOf om:DataAsset .
 
 om:Chart a owl:Class ;
@@ -159,7 +160,7 @@ om:Chart a owl:Class ;
 
 om:Report a owl:Class ;
     rdfs:label "Report" ;
-    rdfs:comment "Report as a specific representation of data" ;
+    rdfs:comment "A report from a reporting service: a fixed presentation of data, such as a scheduled or paginated report." ;
     rdfs:subClassOf om:DataAsset, dcat:Distribution .
 
 om:Metric a owl:Class ;
@@ -204,7 +205,7 @@ om:SearchIndex a owl:Class ;
 
 om:APICollection a owl:Class ;
     rdfs:label "API Collection" ;
-    rdfs:comment "Collection of API endpoints" ;
+    rdfs:comment "A collection of API endpoints within an API service, such as one REST API. Its endpoints point at it with om:belongsToAPICollection." ;
     rdfs:subClassOf om:DataAsset, dcat:Catalog .
 
 om:APIDocumentation a owl:Class ;
@@ -214,27 +215,27 @@ om:APIDocumentation a owl:Class ;
 
 om:APIEndpoint a owl:Class ;
     rdfs:label "API Endpoint" ;
-    rdfs:comment "API endpoint providing data access service" ;
+    rdfs:comment "One endpoint of an API collection, with its request method and request and response schemas." ;
     rdfs:subClassOf om:DataAsset, dcat:DataService .
 
 om:Directory a owl:Class ;
     rdfs:label "Directory" ;
-    rdfs:comment "File system directory" ;
+    rdfs:comment "A folder in a drive service such as Google Drive or SharePoint, holding files, spreadsheets and sub-directories." ;
     rdfs:subClassOf om:DataAsset, dcat:Dataset .
 
 om:File a owl:Class ;
     rdfs:label "File" ;
-    rdfs:comment "Individual file" ;
+    rdfs:comment "A file in a drive service, with its type, size and path and, for structured files, its columns." ;
     rdfs:subClassOf om:DataAsset, dcat:Distribution .
 
 om:Spreadsheet a owl:Class ;
     rdfs:label "Spreadsheet" ;
-    rdfs:comment "Spreadsheet document" ;
+    rdfs:comment "A spreadsheet file in a drive service, such as a Google Sheet or Excel workbook. Its tabs are worksheets (om:hasWorksheet)." ;
     rdfs:subClassOf om:DataAsset, dcat:Dataset .
 
 om:Worksheet a owl:Class ;
     rdfs:label "Worksheet" ;
-    rdfs:comment "Worksheet within a spreadsheet" ;
+    rdfs:comment "One tab of a spreadsheet, with its columns." ;
     rdfs:subClassOf om:DataAsset .
 
 #################################################################
@@ -285,7 +286,7 @@ om:GlossaryTerm a owl:Class ;
 
 om:Classification a owl:Class ;
     rdfs:label "Classification" ;
-    rdfs:comment "Tag Category" ;
+    rdfs:comment "A classification: a named group of tags such as PII or Tier, whose tags may be mutually exclusive (om:isMutuallyExclusive). Its tags point at it with skos:inScheme." ;
     rdfs:subClassOf om:Entity, skos:ConceptScheme .
 
 om:Tag a owl:Class ;
@@ -719,12 +720,18 @@ om:Workflow a owl:Class ;
 om:contains a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "contains" ;
-    rdfs:comment "Containment from entity relationships: the subject holds the object. Examples are a service and its databases, dashboards, topics or pipelines, a database and its schemas, a schema and its tables, a glossary or parent term and its terms, a classification and its tags, and a domain and its sub-domains or data products. The child's om:belongsTo* edges give the upward view." .
+    rdfs:comment "Containment from entity relationships: the subject holds the object. Examples are a service and its databases, dashboards, topics or pipelines, a database and its schemas, a schema and its tables, a glossary or parent term and its terms, a classification and its tags, and a domain and its sub-domains or data products. The child's om:belongsTo* edges give the upward view." ;
+    schema:domainIncludes om:Classification, om:Database, om:DatabaseSchema, om:Domain,
+        om:Glossary, om:GlossaryTerm, om:Service, om:Tag .
 
 om:createdBy a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "created by" ;
     rdfs:comment "Two forms. As a literal, the name of the user or bot who created the entity in OpenMetadata (the createdBy field). As an edge it comes from CREATED relationships and points from the creating user to what was created, for example user om:createdBy task: read it as created." ;
+    schema:domainIncludes om:Chart, om:Container, om:Dashboard, om:DashboardDataModel,
+        om:DataContract, om:Database, om:DatabaseSchema, om:MLModel,
+        om:Metric, om:Pipeline, om:Query, om:Role,
+        om:Table, om:Team, om:Topic, om:User ;
     rdfs:subPropertyOf prov:wasGeneratedBy .
 
 om:repliedTo a owl:ObjectProperty ;
@@ -749,7 +756,7 @@ om:addressedTo a owl:ObjectProperty ;
 om:mentionedIn a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "mentioned in" ;
-    rdfs:comment "Entity is mentioned in a post or thread" .
+    rdfs:comment "From an entity to a query, task, knowledge page or context memory that mentions it (MENTIONED_IN relationships)." .
 
 om:testedBy a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
@@ -773,12 +780,15 @@ om:owns a owl:ObjectProperty ;
 om:parentOf a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "parent of" ;
-    rdfs:comment "From a parent to a child in a hierarchy kept in entity relationships, such as a parent team and its child teams, or a knowledge page and its sub-pages." .
+    rdfs:comment "From a parent to a child in a hierarchy kept in entity relationships, such as a parent team and its child teams, or a knowledge page and its sub-pages." ;
+    schema:domainIncludes om:Page, om:Team .
 
 om:has a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "has" ;
-    rdfs:comment "Generic possession from entity relationships. Examples are a domain or data product and its assets, a team and its users, a user or team and its roles, a role or team and its policies, and a dashboard and its charts. Read the subject and object types to tell which; om:belongsToDomain and om:hasDataProduct give asset membership from the asset side." .
+    rdfs:comment "Generic possession from entity relationships. Examples are a domain or data product and its assets, a team and its users, a user or team and its roles, a role or team and its policies, and a dashboard and its charts. Read the subject and object types to tell which; om:belongsToDomain and om:hasDataProduct give asset membership from the asset side." ;
+    schema:domainIncludes om:Dashboard, om:DataProduct, om:Domain, om:Role,
+        om:Team, om:User .
 
 om:follows a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
@@ -790,14 +800,14 @@ om:follows a owl:ObjectProperty ;
 om:joinedWith a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "joined with" ;
-    rdfs:comment "Join relationship between tables" ;
+    rdfs:comment "Relationship type for tables joined in queries. OpenMetadata keeps join counts in field relationships, which the projection does not read, so this edge is normally absent; a table's om:joins value, when present, carries its join details as JSON." ;
     rdfs:domain om:Table ;
     rdfs:range om:Table .
 
 om:upstream a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "upstream" ;
-    rdfs:comment "The subject data asset is derived from the upstream source in the object. Stored directly, including when inference is disabled." ;
+    rdfs:comment "Lineage, read from output to source: ?output om:upstream ?source. Following it reaches the assets this asset's data comes from, one edge per hop; use om:upstream+ for the whole chain. The edge's SQL, pipeline and column mappings sit on the details node the source points at with om:hasLineageDetails." ;
     rdfs:subPropertyOf prov:wasDerivedFrom ;
     rdfs:domain om:DataAsset ;
     rdfs:range om:DataAsset .
@@ -805,13 +815,15 @@ om:upstream a owl:ObjectProperty ;
 om:downstream a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "downstream" ;
-    rdfs:comment "The subject is an upstream source of the downstream data asset in the object. Stored directly, including when inference is disabled." ;
+    rdfs:comment "Lineage, read from source to output: ?source om:downstream ?output, the reverse of om:upstream. Following it reaches the assets built from this one, which a change or data issue here affects; use om:downstream+ for the whole impact." ;
+    schema:domainIncludes om:DataAsset ;
     owl:inverseOf om:upstream .
 
 om:appliedTo a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "applied to" ;
     rdfs:comment "From a persona to a user it is assigned to, and from a metric or context memory to an entity it applies to (APPLIED_TO relationships). Tags reach entities through om:hasTag, not through this edge." ;
+    schema:domainIncludes om:ContextMemory, om:Metric, om:Persona ;
     rdfs:range om:Entity .
 
 om:relatedTo a owl:ObjectProperty ;
@@ -844,6 +856,7 @@ om:expert a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "expert" ;
     rdfs:comment "From a domain, data product or metric to a user who is an expert for it (EXPERT relationships)." ;
+    schema:domainIncludes om:DataProduct, om:Domain, om:Metric ;
     rdfs:range om:User .
 
 om:editedBy a owl:ObjectProperty ;
@@ -856,7 +869,8 @@ om:editedBy a owl:ObjectProperty ;
 om:defaultsTo a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "defaults to" ;
-    rdfs:comment "From a domain or persona to a user for whom it is the default (DEFAULTS_TO relationships)." .
+    rdfs:comment "From a domain or persona to a user for whom it is the default (DEFAULTS_TO relationships)." ;
+    schema:domainIncludes om:Domain, om:Persona .
 
 om:relatesTo a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
@@ -872,6 +886,7 @@ om:belongsToDatabase a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "belongs to database" ;
     rdfs:comment "The database that contains a database schema, table or stored procedure. Walk it upward from a table to its catalog." ;
+    schema:domainIncludes om:DatabaseSchema, om:StoredProcedure, om:Table ;
     rdfs:subPropertyOf dct:isPartOf ;
     rdfs:range om:Database .
 
@@ -879,6 +894,7 @@ om:belongsToSchema a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "belongs to schema" ;
     rdfs:comment "The database schema that contains a table or stored procedure." ;
+    schema:domainIncludes om:StoredProcedure, om:Table ;
     rdfs:subPropertyOf dct:isPartOf ;
     rdfs:range om:DatabaseSchema .
 
@@ -892,7 +908,7 @@ om:belongsToService a owl:ObjectProperty ;
 
 om:Column a owl:Class ;
     rdfs:label "Column" ;
-    rdfs:comment "Column in a table" ;
+    rdfs:comment "A column of a table, dashboard data model, file or worksheet, at an IRI derived from its fully qualified name. It carries its name (rdfs:label), data type, description, position, nullability, tags and nested columns (om:hasChildColumn), and it is the endpoint of column lineage." ;
     rdfs:subClassOf om:Entity .
 
 om:TableConstraint a owl:Class ;
@@ -909,6 +925,7 @@ om:hasColumn a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "has column" ;
     rdfs:comment "A column of a table, dashboard data model, file or worksheet. Each column is an om:Column node with om:fullyQualifiedName, its data type and its tags; nested struct columns hang under om:hasChildColumn. Column lineage and column quality evidence attach to these nodes." ;
+    schema:domainIncludes om:DashboardDataModel, om:File, om:Table, om:Worksheet ;
     rdfs:range om:Column .
 
 om:hasTag a owl:ObjectProperty ;
@@ -1178,7 +1195,8 @@ om:format a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "format" ;
     rdfs:subPropertyOf dcat:format ;
-    rdfs:comment "Output format of an audit report (om:AuditReport)." .
+    rdfs:comment "Output format of an audit report (om:AuditReport)." ;
+    schema:domainIncludes om:AuditReport .
 
 om:mediaType a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -1233,7 +1251,8 @@ om:service a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "service" ;
     rdfs:subPropertyOf dcat:service ;
-    rdfs:comment "The service of an LLM model, MCP server or ingestion pipeline, as the referenced service's JSON text rather than a graph edge. Data assets use om:belongsToService instead." .
+    rdfs:comment "The service of an LLM model, MCP server or ingestion pipeline, as the referenced service's JSON text rather than a graph edge. Data assets use om:belongsToService instead." ;
+    schema:domainIncludes om:IngestionPipeline, om:LLMModel, om:McpServer .
 
 om:catalog a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -1314,7 +1333,8 @@ om:conformsToStandard a owl:ObjectProperty ;
 om:checksum a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "checksum" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:Query: a checksum used to avoid registering the same query twice. On om:File: the file's checksum. On om:ContextFileContent: the SHA-256 checksum of the stored content." .
+    rdfs:comment "Its meaning depends on the entity type. On om:Query: a checksum used to avoid registering the same query twice. On om:File: the file's checksum. On om:ContextFileContent: the SHA-256 checksum of the stored content." ;
+    schema:domainIncludes om:ContextFileContent, om:File, om:Query .
 
 om:hadRole a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -1502,13 +1522,15 @@ om:provenance a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "provenance" ;
     rdfs:subPropertyOf dct:provenance ;
-    rdfs:comment "How an ontology axiom (om:OntologyAxiom) came to exist (its provenance field)." .
+    rdfs:comment "How an ontology axiom (om:OntologyAxiom) came to exist (its provenance field)." ;
+    schema:domainIncludes om:OntologyAxiom .
 
 om:source a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "source" ;
     rdfs:subPropertyOf dct:source ;
-    rdfs:comment "Its meaning depends on the entity type. On om:LearningResource: where the resource lives, as JSON text. On om:AiGovernanceFramework: where the framework definition comes from." .
+    rdfs:comment "Its meaning depends on the entity type. On om:LearningResource: where the resource lives, as JSON text. On om:AiGovernanceFramework: where the framework definition comes from." ;
+    schema:domainIncludes om:AiGovernanceFramework, om:LearningResource .
 
 #################################################################
 # Datatype Properties
@@ -1576,14 +1598,14 @@ om:columnDataType a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "column data type" ;
     rdfs:subPropertyOf csvw:datatype ;
-    rdfs:comment "Data type of the column" ;
+    rdfs:comment "The column's data type as OpenMetadata normalizes it, such as VARCHAR, INT, TIMESTAMP or STRUCT, whatever the source system called it." ;
     rdfs:domain om:Column ;
     rdfs:range xsd:string .
 
 om:columnDescription a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "column description" ;
-    rdfs:comment "Description of what the column contains" ;
+    rdfs:comment "The column's description as written in OpenMetadata, usually Markdown. Read it for what the column means." ;
     rdfs:domain om:Column ;
     rdfs:range xsd:string .
 
@@ -1598,7 +1620,7 @@ om:isNullable a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "is nullable" ;
     rdfs:subPropertyOf csvw:null ;
-    rdfs:comment "Whether this column can contain null values" ;
+    rdfs:comment "Whether the column may hold nulls: false for a NOT_NULL or primary-key column, true for an explicit NULL constraint. Absent when the source declared neither, so a missing value does not mean nullable." ;
     rdfs:domain om:Column ;
     rdfs:range xsd:boolean .
 
@@ -1644,7 +1666,7 @@ om:fromColumn a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "from column" ;
     rdfs:subPropertyOf prov:used ;
-    rdfs:comment "Source column used in transformation" ;
+    rdfs:comment "On a column mapping (om:ColumnLineage), a source column the target column is computed from; a mapping can name several. The object is the same om:Column node om:hasColumn reaches, so it joins with the column's tags; om:fromColumnFqn carries its name. Stores not rebuilt since 2.1 may hold the name as a literal here." ;
     rdfs:domain om:ColumnLineage ;
     rdfs:range om:Column .
 
@@ -1652,7 +1674,7 @@ om:toColumn a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "to column" ;
     rdfs:subPropertyOf prov:wasGeneratedBy ;
-    rdfs:comment "Target column created by transformation" ;
+    rdfs:comment "On a column mapping (om:ColumnLineage), the target column the mapping produces. The object is the same om:Column node om:hasColumn reaches; om:toColumnFqn carries its name. Stores not rebuilt since 2.1 may hold the name as a literal here." ;
     rdfs:domain om:ColumnLineage ;
     rdfs:range om:Column .
 
@@ -1932,6 +1954,7 @@ om:hasPolicy a owl:ObjectProperty ;
     rdfs:label "has policy" ;
     rdfs:subPropertyOf odrl:hasPolicy ;
     rdfs:comment "A policy attached to a role or team (its policies field). The policy's rules decide what members may do." ;
+    schema:domainIncludes om:Role, om:Team ;
     rdfs:range om:Policy .
 
 om:qualifiedAccess a owl:ObjectProperty ;
@@ -2042,7 +2065,8 @@ om:endDate a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "end date" ;
     rdfs:subPropertyOf dcat:endDate ;
-    rdfs:comment "End date of the pipeline's schedule, as text." .
+    rdfs:comment "End date of the pipeline's schedule, as text." ;
+    schema:domainIncludes om:Pipeline .
 
 om:hasBeginning a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
@@ -2157,6 +2181,10 @@ om:Stored rdfs:label "stored" ;
 om:InferenceOnly rdfs:label "inference or external data only" ;
     rdfs:comment "Not asserted by the metadata projection. Requires custom rules or externally supplied data. Merely enabling RDFS/OWL does not guarantee this property is present, especially for aliases declared only as subproperties." .
 
+schema:domainIncludes a owl:AnnotationProperty ;
+    rdfs:label "domain includes" ;
+    rdfs:comment "A class whose nodes the metadata projection writes this predicate on, recorded for a predicate shared by several classes whose rdfs:domain is left open. It is an annotation and entails nothing about the subject. A class's entry in ontology_describe lists the shared predicates recorded for it." .
+
 om:UPSTREAM a owl:ObjectProperty ;
     om:projectionStatus om:InferenceOnly ;
     owl:deprecated true ;
@@ -2180,32 +2208,99 @@ om:ExtensionProperty a owl:Class ;
 <http://purl.org/dc/terms/created> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "created" ;
-    rdfs:comment "On a lineage details node (om:LineageDetails), when the lineage edge was first recorded, in Unix epoch milliseconds (xsd:long)." .
+    rdfs:comment "On a lineage details node (om:LineageDetails), when the lineage edge was first recorded, in Unix epoch milliseconds (xsd:long)." ;
+    schema:domainIncludes om:LineageDetails .
 
 <http://purl.org/dc/terms/description> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "description" ;
-    rdfs:comment "The description written for the entity in OpenMetadata, usually Markdown. On a tag node it is the description carried by a tag label, and on om:LineageDetails it describes the lineage edge. Read it for business meaning when names are ambiguous." .
+    rdfs:comment "The description written for the entity in OpenMetadata, usually Markdown. On a tag node it is the description carried by a tag label, and on om:LineageDetails it describes the lineage edge. Read it for business meaning when names are ambiguous." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:LineageDetails, om:MLModel, om:MLModelService,
+        om:McpServer, om:McpService, om:MessagingService, om:MetadataService,
+        om:Metric, om:MetricGroup, om:NotificationTemplate, om:Ontology,
+        om:OntologyAxiom, om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty,
+        om:OntologyRelease, om:Page, om:Persona, om:Pipeline,
+        om:PipelineService, om:Policy, om:PromptTemplate, om:Query,
+        om:RelationshipType, om:Report, om:Role, om:SearchIndex,
+        om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
+        om:StoredProcedure, om:Table, om:Tag, om:Team,
+        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
+        om:Workflow, om:Worksheet .
 
 <http://purl.org/dc/terms/hasVersion> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasVersion" ;
-    rdfs:comment "The entity's OpenMetadata metadata version, a decimal that grows with every change (0.1, 0.2, then 1.0 after a major change). dcat:version carries the same number." .
+    rdfs:comment "The entity's OpenMetadata metadata version, a decimal that grows with every change (0.1, 0.2, then 1.0 after a major change). dcat:version carries the same number." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Persona, om:Pipeline, om:PipelineService,
+        om:Policy, om:PromptTemplate, om:Query, om:RelationshipType,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Team, om:TestConnectionDefinition,
+        om:Topic, om:Type, om:User, om:Workflow,
+        om:Worksheet .
 
 <http://purl.org/dc/terms/modified> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "modified" ;
-    rdfs:comment "When the entity last changed in OpenMetadata, as xsd:dateTime. On om:LineageDetails it is the lineage edge's last update, in Unix epoch milliseconds (xsd:long)." .
+    rdfs:comment "When the entity last changed in OpenMetadata, as xsd:dateTime. On om:LineageDetails it is the lineage edge's last update, in Unix epoch milliseconds (xsd:long)." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:LineageDetails, om:MLModel, om:MLModelService,
+        om:McpServer, om:McpService, om:MessagingService, om:MetadataService,
+        om:Metric, om:MetricGroup, om:NotificationTemplate, om:Ontology,
+        om:OntologyAxiom, om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty,
+        om:OntologyRelease, om:Page, om:Persona, om:Pipeline,
+        om:PipelineService, om:Policy, om:PromptTemplate, om:Query,
+        om:RelationshipType, om:Report, om:Role, om:SearchIndex,
+        om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
+        om:StoredProcedure, om:Table, om:Tag, om:Task,
+        om:Team, om:TestConnectionDefinition, om:Topic, om:Type,
+        om:User, om:Workflow, om:Worksheet .
 
 <http://purl.org/dc/terms/publisher> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "publisher" ;
-    rdfs:comment "Who provides the definition (the provider field): system for definitions OpenMetadata ships and seeds, user for ones people created." .
+    rdfs:comment "Who provides the definition (the provider field): system for definitions OpenMetadata ships and seeds, user for ones people created." ;
+    schema:domainIncludes om:App, om:Bot, om:Classification, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Policy, om:RelationshipType, om:Role, om:Tag .
 
 <http://rdfs.org/ns/void#entities> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "entities" ;
-    rdfs:comment "On om:Container, the number of objects or files the container holds (numberOfObjects)." .
+    rdfs:comment "On om:Container, the number of objects or files the container holds (numberOfObjects)." ;
+    schema:domainIncludes om:Container .
 
 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2225,62 +2320,131 @@ om:ExtensionProperty a owl:Class ;
 <http://www.w3.org/2000/01/rdf-schema#label> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "label" ;
-    rdfs:comment "The entity's name (the name field), the last segment of its fully qualified name. Use om:fullyQualifiedName to identify an entity exactly and skos:prefLabel for the name people see." .
+    rdfs:comment "The entity's name (the name field), the last segment of its fully qualified name. Use om:fullyQualifiedName to identify an entity exactly and skos:prefLabel for the name people see." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Column, om:Container, om:ContextFile,
+        om:ContextFileContent, om:ContextMemory, om:Dashboard, om:DashboardDataModel,
+        om:DashboardService, om:DataContract, om:DataProduct, om:Database,
+        om:DatabaseSchema, om:DatabaseService, om:Directory, om:Document,
+        om:Domain, om:DriveService, om:File, om:Folder,
+        om:Glossary, om:GlossaryTerm, om:IngestionPipeline, om:LLMModel,
+        om:LLMService, om:LearningResource, om:MLModel, om:MLModelService,
+        om:McpServer, om:McpService, om:MessagingService, om:MetadataService,
+        om:Metric, om:MetricGroup, om:NotificationTemplate, om:Ontology,
+        om:OntologyAxiom, om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty,
+        om:OntologyRelease, om:Page, om:Persona, om:Pipeline,
+        om:PipelineService, om:Policy, om:PromptTemplate, om:Query,
+        om:RelationshipType, om:Report, om:Role, om:SearchIndex,
+        om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
+        om:StoredProcedure, om:Table, om:Tag, om:Team,
+        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
+        om:Workflow, om:Worksheet .
 
 <http://www.w3.org/2000/01/rdf-schema#seeAlso> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "seeAlso" ;
-    rdfs:comment "Glossary term relation of type seeAlso: the object is a related term that gives the subject additional context." .
+    rdfs:comment "Glossary term relation of type seeAlso: the object is a related term that gives the subject additional context." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 <http://www.w3.org/2000/01/rdf-schema#subClassOf> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "subClassOf" ;
-    rdfs:comment "Glossary term relation of type subClassOf: every instance of the subject term is also an instance of the object term, so the object's attributes apply to the subject. Unlike skos:broader it asserts subsumption." .
+    rdfs:comment "Glossary term relation of type subClassOf: every instance of the subject term is also an instance of the object term, so the object's attributes apply to the subject. Unlike skos:broader it asserts subsumption." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 <http://www.w3.org/2004/02/skos/core#altLabel> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "altLabel" ;
-    rdfs:comment "A synonym of a glossary term (the synonyms field), one literal per synonym. Match it together with rdfs:label and skos:prefLabel when looking a business term up by name." .
+    rdfs:comment "A synonym of a glossary term (the synonyms field), one literal per synonym. Match it together with rdfs:label and skos:prefLabel when looking a business term up by name." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 <http://www.w3.org/2004/02/skos/core#broader> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "broader" ;
-    rdfs:comment "The parent of a tag, glossary term or domain (its parent field), and the glossary term relation of type broader. Walk it upward for the hierarchy; skos:narrower is the reverse. It does not imply subclassing." .
+    rdfs:comment "The parent of a tag, glossary term or domain (its parent field), and the glossary term relation of type broader. Walk it upward for the hierarchy; skos:narrower is the reverse. It does not imply subclassing." ;
+    schema:domainIncludes om:Domain, om:GlossaryTerm, om:Tag .
 
 <http://www.w3.org/2004/02/skos/core#exactMatch> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "exactMatch" ;
-    rdfs:comment "Glossary term relation of type synonym: the two terms mean the same thing and can be used interchangeably." .
+    rdfs:comment "Glossary term relation of type synonym: the two terms mean the same thing and can be used interchangeably." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 <http://www.w3.org/2004/02/skos/core#inScheme> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "inScheme" ;
-    rdfs:comment "The glossary a glossary term belongs to, or the classification a tag belongs to." .
+    rdfs:comment "The glossary a glossary term belongs to, or the classification a tag belongs to." ;
+    schema:domainIncludes om:GlossaryTerm, om:Tag .
 
 <http://www.w3.org/2004/02/skos/core#narrower> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "narrower" ;
-    rdfs:comment "A child of a tag, glossary term or domain (its children field), and the glossary term relation of type narrower. skos:broader is the reverse." .
+    rdfs:comment "A child of a tag, glossary term or domain (its children field), and the glossary term relation of type narrower. skos:broader is the reverse." ;
+    schema:domainIncludes om:Domain, om:GlossaryTerm, om:Tag .
 
 <http://www.w3.org/2004/02/skos/core#prefLabel> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "prefLabel" ;
-    rdfs:comment "The entity's display name (displayName), the name shown in the UI. It may be absent or differ from rdfs:label." .
+    rdfs:comment "The entity's display name (displayName), the name shown in the UI. It may be absent or differ from rdfs:label." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Persona, om:Pipeline, om:PipelineService,
+        om:Policy, om:PromptTemplate, om:Query, om:RelationshipType,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Team, om:TestConnectionDefinition,
+        om:Topic, om:Type, om:User, om:Workflow,
+        om:Worksheet .
 
 <http://www.w3.org/ns/dcat#byteSize> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "byteSize" ;
-    rdfs:comment "Size of a file, spreadsheet or container. Files and spreadsheets give bytes; a container gives the total size of its objects in kilobytes (its size field)." .
+    rdfs:comment "Size of a file, spreadsheet or container. Files and spreadsheets give bytes; a container gives the total size of its objects in kilobytes (its size field)." ;
+    schema:domainIncludes om:Container, om:File, om:Spreadsheet .
 
 <http://www.w3.org/ns/dcat#mediaType> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "mediaType" ;
-    rdfs:comment "MIME type of a file or spreadsheet (mimeType)." .
+    rdfs:comment "MIME type of a file or spreadsheet (mimeType)." ;
+    schema:domainIncludes om:File, om:Spreadsheet .
 
 <http://www.w3.org/ns/dcat#version> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "version" ;
-    rdfs:comment "The entity's OpenMetadata metadata version as a number, the same value as dct:hasVersion." .
+    rdfs:comment "The entity's OpenMetadata metadata version as a number, the same value as dct:hasVersion." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Persona, om:Pipeline, om:PipelineService,
+        om:Policy, om:PromptTemplate, om:Query, om:RelationshipType,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Task, om:Team,
+        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
+        om:Workflow, om:Worksheet .
 
 <http://www.w3.org/ns/dqv#computedOn> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2301,12 +2465,14 @@ om:ExtensionProperty a owl:Class ;
 <http://www.w3.org/ns/prov#endedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "endedAtTime" ;
-    rdfs:comment "When an activity ended: a pipeline run's end time (om:PipelineExecution), or when a lineage edge was last updated (om:LineageDetails)." .
+    rdfs:comment "When an activity ended: a pipeline run's end time (om:PipelineExecution), or when a lineage edge was last updated (om:LineageDetails)." ;
+    schema:domainIncludes om:LineageDetails, om:PipelineExecution .
 
 <http://www.w3.org/ns/prov#generated> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "generated" ;
-    rdfs:comment "Outputs of an activity: from a pipeline to the details nodes (om:LineageDetails) of the lineage edges it produces, and from a pipeline run (om:PipelineExecution) to each output dataset it reported. A run's dataset node carries om:fullyQualifiedName; join on it to reach the catalog asset." .
+    rdfs:comment "Outputs of an activity: from a pipeline to the details nodes (om:LineageDetails) of the lineage edges it produces, and from a pipeline run (om:PipelineExecution) to each output dataset it reported. A run's dataset node carries om:fullyQualifiedName; join on it to reach the catalog asset." ;
+    schema:domainIncludes om:PipelineExecution .
 
 <http://www.w3.org/ns/prov#generatedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2315,22 +2481,45 @@ om:ExtensionProperty a owl:Class ;
 <http://www.w3.org/ns/prov#hadPlan> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hadPlan" ;
-    rdfs:comment "From a lineage details node to the prov:Plan that holds the SQL transformation of the lineage edge in prov:value." .
+    rdfs:comment "From a lineage details node to the prov:Plan that holds the SQL transformation of the lineage edge in prov:value." ;
+    schema:domainIncludes om:LineageDetails .
 
 <http://www.w3.org/ns/prov#invalidatedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "invalidatedAtTime" ;
-    rdfs:comment "Present only on a soft-deleted entity: its last update time, which is when it was deleted." .
+    rdfs:comment "Present only on a soft-deleted entity: its last update time, which is when it was deleted." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Persona, om:Pipeline, om:PipelineService,
+        om:Policy, om:PromptTemplate, om:Query, om:RelationshipType,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Task, om:Team,
+        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
+        om:Workflow, om:Worksheet .
 
 <http://www.w3.org/ns/prov#startedAtTime> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "startedAtTime" ;
-    rdfs:comment "When an activity started: a pipeline run's start time (om:PipelineExecution), or when a lineage edge was first recorded (om:LineageDetails)." .
+    rdfs:comment "When an activity started: a pipeline run's start time (om:PipelineExecution), or when a lineage edge was first recorded (om:LineageDetails)." ;
+    schema:domainIncludes om:LineageDetails, om:PipelineExecution .
 
 <http://www.w3.org/ns/prov#used> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "used" ;
-    rdfs:comment "Inputs of an activity: from a lineage details node to the upstream asset the edge reads, from a pipeline run to each input dataset it reported, and USES relationships such as a user or an asset to a query it uses." .
+    rdfs:comment "Inputs of an activity: from a lineage details node to the upstream asset the edge reads, from a pipeline run to each input dataset it reported, and USES relationships such as a user or an asset to a query it uses." ;
+    schema:domainIncludes om:LineageDetails, om:PipelineExecution, om:User .
 
 <http://www.w3.org/ns/prov#value> a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2340,22 +2529,43 @@ om:ExtensionProperty a owl:Class ;
 <http://www.w3.org/ns/prov#wasAssociatedWith> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "wasAssociatedWith" ;
-    rdfs:comment "The agent behind an activity: the user or bot that executed a pipeline run, or the user who created a lineage edge. On om:LineageDetails the user IRI is built from the user name, because only the name is recorded." .
+    rdfs:comment "The agent behind an activity: the user or bot that executed a pipeline run, or the user who created a lineage edge. On om:LineageDetails the user IRI is built from the user name, because only the name is recorded." ;
+    schema:domainIncludes om:LineageDetails, om:PipelineExecution .
 
 <http://www.w3.org/ns/prov#wasAttributedTo> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "wasAttributedTo" ;
-    rdfs:comment "An owner of the entity, the PROV-O mirror of om:hasOwner: a user or team that owns it." .
+    rdfs:comment "An owner of the entity, the PROV-O mirror of om:hasOwner: a user or team that owns it." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Chart, om:Classification,
+        om:Container, om:ContextFile, om:ContextMemory, om:Dashboard,
+        om:DashboardDataModel, om:DashboardService, om:DataContract, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:DatabaseService, om:Directory,
+        om:Domain, om:DriveService, om:File, om:Folder,
+        om:Glossary, om:GlossaryTerm, om:IngestionPipeline, om:LLMModel,
+        om:LLMService, om:LearningResource, om:MLModel, om:MLModelService,
+        om:McpServer, om:McpService, om:MessagingService, om:MetadataService,
+        om:Metric, om:MetricGroup, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Pipeline, om:PipelineService, om:Policy,
+        om:PromptTemplate, om:Query, om:RelationshipType, om:Report,
+        om:SearchIndex, om:SearchService, om:SecurityService, om:Spreadsheet,
+        om:StorageService, om:StoredProcedure, om:Table, om:Tag,
+        om:Team, om:TestConnectionDefinition, om:Topic, om:Workflow,
+        om:Worksheet .
 
 <http://www.w3.org/ns/prov#wasDerivedFrom> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "wasDerivedFrom" ;
-    rdfs:comment "Lineage: the subject asset is derived from the object asset. It is written with om:upstream for every lineage edge, so ?output prov:wasDerivedFrom ?source matches ?output om:upstream ?source." .
+    rdfs:comment "Lineage: the subject asset is derived from the object asset. It is written with om:upstream for every lineage edge, so ?output prov:wasDerivedFrom ?source matches ?output om:upstream ?source." ;
+    schema:domainIncludes om:DataAsset .
 
 <http://www.w3.org/ns/prov#wasGeneratedBy> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "wasGeneratedBy" ;
-    rdfs:comment "On a lineage details node (om:LineageDetails), the pipeline that produces the lineage edge. The pipeline carries the inverse, prov:generated." .
+    rdfs:comment "On a lineage details node (om:LineageDetails), the pipeline that produces the lineage edge. The pipeline carries the inverse, prov:generated." ;
+    schema:domainIncludes om:LineageDetails .
 
 <http://www.w3.org/ns/prov#wasInfluencedBy> a rdf:Property ;
     om:projectionStatus om:InferenceOnly ;
@@ -2365,12 +2575,14 @@ om:ExtensionProperty a owl:Class ;
 <http://www.w3.org/ns/prov#wasInformedBy> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "wasInformedBy" ;
-    rdfs:comment "From a pipeline run (om:PipelineExecution) to the pipeline it is a run of." .
+    rdfs:comment "From a pipeline run (om:PipelineExecution) to the pipeline it is a run of." ;
+    schema:domainIncludes om:PipelineExecution .
 
 <http://xmlns.com/foaf/0.1/mbox> a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "mbox" ;
-    rdfs:comment "Email address of a user or team." .
+    rdfs:comment "Email address of a user or team." ;
+    schema:domainIncludes om:Team, om:User .
 
 om:accessTimestamp a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2395,6 +2607,7 @@ om:agentType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "agentType" ;
     rdfs:comment "Type of agent the application runs as, such as Metadata." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:aliases a rdf:Property ;
@@ -2415,24 +2628,28 @@ om:allowConcurrentExecution a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "allowConcurrentExecution" ;
     rdfs:comment "If true, multiple instances of this app can run concurrently. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:boolean .
 
 om:allowConfiguration a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "allowConfiguration" ;
     rdfs:comment "Allow users to configure the app from the UI. If false, the configure step will be hidden. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:boolean .
 
 om:allowDelete a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "allowDelete" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Policy: Some system policies can't be deleted. On om:Role: Some system roles can't be deleted." ;
+    schema:domainIncludes om:Policy, om:Role ;
     rdfs:range xsd:boolean .
 
 om:allowEdit a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "allowEdit" ;
     rdfs:comment "Some system roles can't be edited. Set on om:Policy and om:Role; the domain is left open." ;
+    schema:domainIncludes om:Policy, om:Role ;
     rdfs:range xsd:boolean .
 
 om:allowImpersonation a rdf:Property ;
@@ -2456,7 +2673,8 @@ om:answer a rdf:Property ;
 om:antonym a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "antonym" ;
-    rdfs:comment "Glossary term relation of type antonym: the two terms have opposite meanings." .
+    rdfs:comment "Glossary term relation of type antonym: the two terms have opposite meanings." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 om:apiEndpoints a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2469,18 +2687,21 @@ om:appLogoUrl a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "appLogoUrl" ;
     rdfs:comment "Application Logo Url. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:appScreenshots a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "appScreenshots" ;
     rdfs:comment "Application Screenshots. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:appType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "appType" ;
     rdfs:comment "Whether the application runs inside OpenMetadata (internal) or outside it (external)." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:applicationResult a rdf:Property ;
@@ -2494,6 +2715,7 @@ om:applicationType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "applicationType" ;
     rdfs:comment "Its meaning depends on the entity type. On om:AIApplication: Type of AI application based on primary function and interaction pattern. On om:IngestionPipeline: Type of the application when pipelineType is 'application'." ;
+    schema:domainIncludes om:AIApplication, om:IngestionPipeline ;
     rdfs:range xsd:string .
 
 om:appliesTo a rdf:Property ;
@@ -2540,6 +2762,7 @@ om:assetId a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "assetId" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFileContent: Reference to the Asset entity storing the actual file blob. On om:ContextFile: Legacy reference to the current Asset entity storing the file blob." ;
+    schema:domainIncludes om:ContextFile, om:ContextFileContent ;
     rdfs:range xsd:string .
 
 om:assets a rdf:Property ;
@@ -2552,7 +2775,8 @@ om:assets a rdf:Property ;
 om:assignedTo a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "assignedTo" ;
-    rdfs:comment "From a user or team to a task (om:Task) assigned to it." .
+    rdfs:comment "From a user or team to a task (om:Task) assigned to it." ;
+    schema:domainIncludes om:Team, om:User .
 
 om:attachments a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2626,12 +2850,30 @@ om:belongsToAPICollection a rdf:Property ;
 om:belongsToDomain a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "belongsToDomain" ;
-    rdfs:comment "A domain the entity belongs to (its domain or domains field); for a data product, the domains it is published in. Follow it to scope a question to a business area, or walk it backwards from an om:Domain to list its assets." .
+    rdfs:comment "A domain the entity belongs to (its domain or domains field); for a data product, the domains it is published in. Follow it to scope a question to a business area, or walk it backwards from an om:Domain to list its assets." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextMemory,
+        om:Dashboard, om:DashboardDataModel, om:DashboardService, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:DatabaseService, om:Directory,
+        om:Document, om:DriveService, om:File, om:Folder,
+        om:Glossary, om:GlossaryTerm, om:IngestionPipeline, om:LLMModel,
+        om:LLMService, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:Page, om:Persona, om:Pipeline,
+        om:PipelineService, om:Policy, om:PromptTemplate, om:Query,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Team, om:TestConnectionDefinition,
+        om:Topic, om:Type, om:User, om:Workflow,
+        om:Worksheet .
 
 om:belongsToProject a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "belongsToProject" ;
     rdfs:comment "Its meaning depends on the entity type. On om:DashboardDataModel: Name of the project / workspace / collection in which the dataModel is contained. On om:Dashboard: Name of the project / workspace / collection in which the dashboard is contained." ;
+    schema:domainIncludes om:Dashboard, om:DashboardDataModel ;
     rdfs:range xsd:string .
 
 om:belongsToSpreadsheet a rdf:Property ;
@@ -2666,6 +2908,7 @@ om:capabilities a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "capabilities" ;
     rdfs:comment "Its meaning depends on the entity type. On om:LLMModel: Capabilities of this model. On om:McpServer: Capabilities supported by the MCP server. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:LLMModel, om:McpServer ;
     rdfs:range xsd:string .
 
 om:cardinality a rdf:Property ;
@@ -2686,22 +2929,38 @@ om:category a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "category" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Type: field or entity. On om:AiFrameworkControl: the control's category, such as Risk, Data or Transparency. On om:RelationshipType: CORE, OWL_SKOS or CUSTOM." ;
+    schema:domainIncludes om:AiFrameworkControl, om:RelationshipType, om:Type ;
     rdfs:range xsd:string .
 
 om:certificationAppliedAt a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "certificationAppliedAt" ;
-    rdfs:comment "When the entity's certification was applied, in Unix epoch milliseconds." .
+    rdfs:comment "When the entity's certification was applied, in Unix epoch milliseconds." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:Chart,
+        om:Container, om:Dashboard, om:DashboardDataModel, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:Directory, om:Domain,
+        om:File, om:LLMModel, om:MLModel, om:McpServer,
+        om:Metric, om:MetricGroup, om:Pipeline, om:SearchIndex,
+        om:Spreadsheet, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet .
 
 om:certificationExpiresAt a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "certificationExpiresAt" ;
-    rdfs:comment "When the entity's certification expires, in Unix epoch milliseconds. Compare it with the current time to tell whether the certification still holds." .
+    rdfs:comment "When the entity's certification expires, in Unix epoch milliseconds. Compare it with the current time to tell whether the certification still holds." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:Chart,
+        om:Container, om:Dashboard, om:DashboardDataModel, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:Directory, om:Domain,
+        om:File, om:LLMModel, om:MLModel, om:McpServer,
+        om:Metric, om:MetricGroup, om:Pipeline, om:SearchIndex,
+        om:Spreadsheet, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet .
 
 om:certificationLevel a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "certificationLevel" ;
     rdfs:comment "Level of the entity's certification: the last segment of the certification tag's fully qualified name (Gold in Certification.Gold)." ;
+    schema:domainIncludes om:Table ;
     rdfs:range xsd:string .
 
 om:certifications a rdf:Property ;
@@ -2715,23 +2974,28 @@ om:characteristics a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "characteristics" ;
     rdfs:comment "OWL characteristics of a relationship type or ontology property, such as transitive or symmetric, as JSON text." ;
+    schema:domainIncludes om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:childrenCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "childrenCount" ;
-    rdfs:comment "Number of children: nested sub-domains for a domain, child teams for a team, direct children for a folder, child terms for a glossary term or knowledge page, child metrics for a metric." .
+    rdfs:comment "Number of children: nested sub-domains for a domain, child teams for a team, direct children for a folder, child terms for a glossary term or knowledge page, child metrics for a metric." ;
+    schema:domainIncludes om:Domain, om:Folder, om:GlossaryTerm, om:Metric,
+        om:Page, om:Team .
 
 om:className a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "className" ;
     rdfs:comment "Java class that implements the application (on om:AppMarketPlaceDefinition) or runs its schedule (on om:App)." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:code a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "code" ;
     rdfs:comment "Its meaning depends on the entity type. On om:AiFrameworkControl: Stable short code for the control within its framework (e.g. 'art-10'). On om:StoredProcedure: SQL Query definition." ;
+    schema:domainIncludes om:AiFrameworkControl, om:StoredProcedure ;
     rdfs:range xsd:string .
 
 om:color a rdf:Property ;
@@ -2779,6 +3043,7 @@ om:conceptMappings a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "conceptMappings" ;
     rdfs:comment "Mappings from a glossary term or ontology concept to external concepts, such as SKOS alignments, as JSON text." ;
+    schema:domainIncludes om:GlossaryTerm, om:OntologyConcept ;
     rdfs:range xsd:string .
 
 om:conceptType a rdf:Property ;
@@ -2809,6 +3074,7 @@ om:contentType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "contentType" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFileContent: MIME type of the stored content. On om:ContextFile: MIME type of the file." ;
+    schema:domainIncludes om:ContextFile, om:ContextFileContent ;
     rdfs:range xsd:string .
 
 om:contextDefinition a rdf:Property ;
@@ -2856,12 +3122,17 @@ om:costMetrics a rdf:Property ;
 om:createdAt a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "createdAt" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:DataContract: Timestamp in Unix epoch time milliseconds corresponding to when the data contract was created. On most other entity types: Timestamp in Unix epoch time milliseconds corresponding to when this entity was created in OpenMetadata." .
+    rdfs:comment "Its meaning depends on the entity type. On om:DataContract: Timestamp in Unix epoch time milliseconds corresponding to when the data contract was created. On most other entity types: Timestamp in Unix epoch time milliseconds corresponding to when this entity was created in OpenMetadata." ;
+    schema:domainIncludes om:Chart, om:Container, om:Dashboard, om:DashboardDataModel,
+        om:DataContract, om:Database, om:DatabaseSchema, om:MLModel,
+        om:Metric, om:Pipeline, om:Query, om:Role,
+        om:Table, om:Team, om:Topic, om:User .
 
 om:createdTime a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "createdTime" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:File: File creation timestamp. On om:Spreadsheet: Spreadsheet creation timestamp." .
+    rdfs:comment "Its meaning depends on the entity type. On om:File: File creation timestamp. On om:Spreadsheet: Spreadsheet creation timestamp." ;
+    schema:domainIncludes om:File, om:Spreadsheet .
 
 om:crossGlossaryAllowed a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -2916,6 +3187,15 @@ om:dataContract a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "dataContract" ;
     rdfs:comment "Reference to the data contract for this entity. Set on many entity types; the domain is left open. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:Chart, om:Container, om:Dashboard, om:DashboardDataModel,
+        om:DashboardService, om:Database, om:DatabaseSchema, om:DatabaseService,
+        om:Directory, om:DriveService, om:File, om:Glossary,
+        om:GlossaryTerm, om:LLMModel, om:LLMService, om:MLModel,
+        om:MLModelService, om:MessagingService, om:Metric, om:Pipeline,
+        om:PipelineService, om:SearchIndex, om:SearchService, om:SecurityService,
+        om:Spreadsheet, om:StorageService, om:StoredProcedure, om:Table,
+        om:Tag, om:Topic, om:Worksheet ;
     rdfs:range xsd:string .
 
 om:dataModelType a rdf:Property ;
@@ -2958,6 +3238,7 @@ om:default a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "default" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Persona: When true, this persona is the system-wide default persona that will be applied to users who don't have any persona assigned or no default persona set. On om:Database: Some databases don't support a database/catalog in the hierarchy and use default database." ;
+    schema:domainIncludes om:Database, om:Persona ;
     rdfs:range xsd:boolean .
 
 om:defaultDomain a rdf:Property ;
@@ -2971,6 +3252,7 @@ om:defaultPersona a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "defaultPersona" ;
     rdfs:comment "Its meaning depends on the entity type. On om:User: Default Persona for the user from list of personas. On om:Team: Default persona for all users in this team. Only applicable to Group type teams. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:Team, om:User ;
     rdfs:range xsd:string .
 
 om:deploymentInfo a rdf:Property ;
@@ -2984,12 +3266,14 @@ om:deploymentUrl a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "deploymentUrl" ;
     rdfs:comment "Its meaning depends on the entity type. On om:McpServer: Deployment endpoint URL. On om:AIApplication: Production deployment endpoint." ;
+    schema:domainIncludes om:AIApplication, om:McpServer ;
     rdfs:range xsd:string .
 
 om:deprecated a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "deprecated" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Tag: If the tag is deprecated. On om:OntologyConcept, om:OntologyProperty: A deprecated definition stays resolvable for existing references but should not be used for new ones." ;
+    schema:domainIncludes om:OntologyConcept, om:OntologyProperty, om:Tag ;
     rdfs:range xsd:boolean .
 
 om:descendantTeams a rdf:Property ;
@@ -3009,7 +3293,8 @@ om:derivedEntities a rdf:Property ;
 om:derivedFrom a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "derivedFrom" ;
-    rdfs:comment "Two forms. As an edge (DERIVED_FROM relationships), the subject was derived from the object, for example an ontology change set or metric created by the Memory Agent from a context memory. On om:Metric the derivedFrom field also appears as the source memory's JSON text." .
+    rdfs:comment "Two forms. As an edge (DERIVED_FROM relationships), the subject was derived from the object, for example an ontology change set or metric created by the Memory Agent from a context memory. On om:Metric the derivedFrom field also appears as the source memory's JSON text." ;
+    schema:domainIncludes om:Metric, om:OntologyChangeSet .
 
 om:detection a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3022,18 +3307,21 @@ om:developer a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "developer" ;
     rdfs:comment "Developer For the Application. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:developerUrl a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "developerUrl" ;
     rdfs:comment "Url for the developer. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:developmentStage a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "developmentStage" ;
     rdfs:comment "Its meaning depends on the entity type. On om:McpServer: Development stage of the MCP server. 'Unauthorized' indicates Shadow AI that needs governance review. On om:AIApplication: Development stage of the AI application. 'Unauthorized' indicates Shadow AI that needs governance review." ;
+    schema:domainIncludes om:AIApplication, om:McpServer ;
     rdfs:range xsd:string .
 
 om:difficulty a rdf:Property ;
@@ -3054,12 +3342,14 @@ om:directory a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "directory" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: Parent directory containing this file. On om:Spreadsheet: Reference to Directory that contains this spreadsheet. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:File, om:Spreadsheet ;
     rdfs:range xsd:string .
 
 om:disjointWith a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "disjointWith" ;
     rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Relationship types declared property-disjoint with this type. On om:OntologyProperty: Semantic IRIs of properties disjoint with this property. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:disputes a rdf:Property ;
@@ -3080,6 +3370,7 @@ om:documentation a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "documentation" ;
     rdfs:comment "Link to external documentation. Set on om:AIApplication and om:McpServer; the domain is left open." ;
+    schema:domainIncludes om:AIApplication, om:McpServer ;
     rdfs:range xsd:string .
 
 om:domainType a rdf:Property ;
@@ -3154,6 +3445,7 @@ om:enabled a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "enabled" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Policy: Is the policy enabled. On om:AiGovernancePolicy: Whether this policy is currently active. On om:AiGovernanceFramework: Whether this framework is enabled in the workspace. Disabled frameworks remain in the library but do not auto-apply." ;
+    schema:domainIncludes om:AiGovernanceFramework, om:AiGovernancePolicy, om:Policy ;
     rdfs:range xsd:boolean .
 
 om:enforcementLevel a rdf:Property ;
@@ -3174,6 +3466,18 @@ om:entityStatus a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "entityStatus" ;
     rdfs:comment "Lifecycle status of the entity, such as Draft, In Review, Approved, Deprecated or Archived; context memories add statuses such as Superseded and Invalidated. Filter on Approved for governed content." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:Chart, om:Classification, om:Container, om:ContextMemory,
+        om:Dashboard, om:DashboardDataModel, om:DashboardService, om:DataContract,
+        om:DataProduct, om:Database, om:DatabaseSchema, om:DatabaseService,
+        om:Directory, om:Domain, om:File, om:Glossary,
+        om:GlossaryTerm, om:LLMModel, om:MLModel, om:MLModelService,
+        om:McpServer, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:OntologyRelease, om:Page, om:Pipeline,
+        om:PipelineService, om:Query, om:RelationshipType, om:Report,
+        om:SearchIndex, om:SearchService, om:Spreadsheet, om:StorageService,
+        om:StoredProcedure, om:Table, om:Tag, om:Topic,
+        om:Worksheet ;
     rdfs:range xsd:string .
 
 om:estimatedDuration a rdf:Property ;
@@ -3267,18 +3571,21 @@ om:externalId a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "externalId" ;
     rdfs:comment "Its meaning depends on the entity type. On om:User: External identifier from identity provider (used for SCIM). On om:Team: External identifier for the team from an external identity provider (e.g., Azure AD group ID)." ;
+    schema:domainIncludes om:Team, om:User ;
     rdfs:range xsd:string .
 
 om:extractedText a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "extractedText" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFileContent: Canonical extracted text for this content snapshot. On om:ContextFile: Full text extracted from the file for search and AI context." ;
+    schema:domainIncludes om:ContextFile, om:ContextFileContent ;
     rdfs:range xsd:string .
 
 om:extractionStats a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "extractionStats" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFile: Statistics from the most recent knowledge-pill extraction run. On om:Page: Statistics from the most recent knowledge-pill extraction run on this page's body. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:ContextFile, om:Page ;
     rdfs:range xsd:string .
 
 om:failureReason a rdf:Property ;
@@ -3292,12 +3599,14 @@ om:features a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "features" ;
     rdfs:comment "Features of the Application. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:fileExtension a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "fileExtension" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: File extension. On om:ContextFile: File extension (e.g., pdf, xlsx)." ;
+    schema:domainIncludes om:ContextFile, om:File ;
     rdfs:range xsd:string .
 
 om:fileFormats a rdf:Property ;
@@ -3317,12 +3626,14 @@ om:fileType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "fileType" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: Type of file based on content. On om:ContextFile: Type of file (PDF, Spreadsheet, etc.)." ;
+    schema:domainIncludes om:ContextFile, om:File ;
     rdfs:range xsd:string .
 
 om:fileVersion a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "fileVersion" ;
     rdfs:comment "File version information. Set on om:File and om:Spreadsheet; the domain is left open." ;
+    schema:domainIncludes om:File, om:Spreadsheet ;
     rdfs:range xsd:string .
 
 om:filters a rdf:Property ;
@@ -3350,12 +3661,14 @@ om:framework a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "framework" ;
     rdfs:comment "Its meaning depends on the entity type. On om:AIApplication: Information about the framework used to build the application. On om:AuditReport: Framework this audit pack is scoped to (omit for an estate-wide multi-framework pack). On om:AiFrameworkControl: Framework this control belongs to. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:AIApplication, om:AiFrameworkControl, om:AuditReport ;
     rdfs:range xsd:string .
 
 om:fromColumnFqn a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "fromColumnFqn" ;
-    rdfs:comment "Fully qualified name of the source column in a column-level lineage edge, written alongside the column IRI in om:fromColumn for string matching." .
+    rdfs:comment "Fully qualified name of the source column in a column-level lineage edge, written alongside the column IRI in om:fromColumn for string matching." ;
+    schema:domainIncludes om:ColumnLineage .
 
 om:fullPath a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3375,6 +3688,7 @@ om:governanceMetadata a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "governanceMetadata" ;
     rdfs:comment "Its meaning depends on the entity type. On om:McpServer: Governance metadata for compliance and risk management of the MCP server. On om:AIApplication: AI governance metadata for compliance and risk management. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:AIApplication, om:McpServer ;
     rdfs:range xsd:string .
 
 om:governanceStatus a rdf:Property ;
@@ -3402,6 +3716,7 @@ om:hasAppConfiguration a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasAppConfiguration" ;
     rdfs:comment "Application Configuration object. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:hasAppSchedule a rdf:Property ;
@@ -3414,7 +3729,8 @@ om:hasAppSchedule a rdf:Property ;
 om:hasAsset a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasAsset" ;
-    rdfs:comment "An asset that belongs to a domain or data product (its assets field). om:belongsToDomain and om:hasDataProduct on the asset give the same membership from the asset side." .
+    rdfs:comment "An asset that belongs to a domain or data product (its assets field). om:belongsToDomain and om:hasDataProduct on the asset give the same membership from the asset side." ;
+    schema:domainIncludes om:DataProduct, om:Domain .
 
 om:hasBot a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3425,7 +3741,14 @@ om:hasBot a rdf:Property ;
 om:hasCertification a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasCertification" ;
-    rdfs:comment "The entity's certification tag, for example Certification.Gold. om:certificationLevel, om:certificationAppliedAt and om:certificationExpiresAt on the entity give its level and validity window." .
+    rdfs:comment "The entity's certification tag, for example Certification.Gold. om:certificationLevel, om:certificationAppliedAt and om:certificationExpiresAt on the entity give its level and validity window." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:Chart,
+        om:Container, om:Dashboard, om:DashboardDataModel, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:Directory, om:Domain,
+        om:File, om:LLMModel, om:MLModel, om:McpServer,
+        om:Metric, om:MetricGroup, om:Pipeline, om:SearchIndex,
+        om:Spreadsheet, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet .
 
 om:hasChart a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3443,12 +3766,15 @@ om:hasChartType a rdf:Property ;
 om:hasChild a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasChild" ;
-    rdfs:comment "A child of a container, directory, folder, metric, knowledge page or team (its children field). om:hasParent is the reverse." .
+    rdfs:comment "A child of a container, directory, folder, metric, knowledge page or team (its children field). om:hasParent is the reverse." ;
+    schema:domainIncludes om:Container, om:Directory, om:Folder, om:Metric,
+        om:Page, om:Team .
 
 om:hasChildColumn a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasChildColumn" ;
-    rdfs:comment "Nested column of a struct, map or union column. The projection links each child that has a fully qualified name to its parent column." .
+    rdfs:comment "Nested column of a struct, map or union column. The projection links each child that has a fully qualified name to its parent column." ;
+    schema:domainIncludes om:Column .
 
 om:hasCleanupPolicy a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3475,17 +3801,30 @@ om:hasCustomProperty a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasCustomProperty" ;
     rdfs:comment "A custom property declared on an entity type (om:Type) or carried in an entity's customProperties, as an om:CustomProperty node with om:propertyName, om:propertyType and, when set, om:propertyValue." ;
+    schema:domainIncludes om:Table, om:Type ;
     rdfs:range om:CustomProperty .
 
 om:hasDataModel a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasDataModel" ;
-    rdfs:comment "The data model behind an asset: for a dashboard, the dashboard data models it is built on; for a table, its dbt model; for a container, the structure of the data it holds." .
+    rdfs:comment "The data model behind an asset: for a dashboard, the dashboard data models it is built on; for a table, its dbt model; for a container, the structure of the data it holds." ;
+    schema:domainIncludes om:Container, om:Dashboard, om:Table .
 
 om:hasDataProduct a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasDataProduct" ;
-    rdfs:comment "A data product the entity is part of (its dataProducts field). Walk it backwards from an om:DataProduct to list the product's assets." .
+    rdfs:comment "A data product the entity is part of (its dataProducts field). Walk it backwards from an om:DataProduct to list the product's assets." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:Chart, om:Container, om:Dashboard, om:DashboardDataModel,
+        om:DashboardService, om:Database, om:DatabaseSchema, om:DatabaseService,
+        om:Directory, om:DriveService, om:File, om:Glossary,
+        om:GlossaryTerm, om:LLMModel, om:LLMService, om:MLModel,
+        om:MLModelService, om:McpServer, om:McpService, om:MessagingService,
+        om:Metric, om:MetricGroup, om:Page, om:Pipeline,
+        om:PipelineService, om:SearchIndex, om:SearchService, om:SecurityService,
+        om:Spreadsheet, om:StorageService, om:StoredProcedure, om:Table,
+        om:Tag, om:Topic, om:Type, om:Workflow,
+        om:Worksheet .
 
 om:hasDefaultRole a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3517,12 +3856,23 @@ om:hasExecution a rdf:Property ;
 om:hasExpert a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasExpert" ;
-    rdfs:comment "A user who is an expert for the domain, data product or metric (its experts field)." .
+    rdfs:comment "A user who is an expert for the domain, data product or metric (its experts field)." ;
+    schema:domainIncludes om:DataProduct, om:Domain, om:Metric .
 
 om:hasExtension a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasExtension" ;
     rdfs:comment "The entity's custom property values (its extension field), as one om:Extension node whose om:hasExtensionProperty entries each carry an om:extensionKey and an om:extensionValue." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:AiFrameworkControl,
+        om:AiGovernanceFramework, om:AiGovernancePolicy, om:AuditReport, om:Chart,
+        om:Container, om:Dashboard, om:DashboardDataModel, om:DataContract,
+        om:DataProduct, om:Database, om:DatabaseSchema, om:Directory,
+        om:Domain, om:File, om:Glossary, om:GlossaryTerm,
+        om:LLMModel, om:LearningResource, om:MLModel, om:McpServer,
+        om:Metric, om:MetricGroup, om:Page, om:Pipeline,
+        om:PromptTemplate, om:SearchIndex, om:Spreadsheet, om:StoredProcedure,
+        om:Table, om:Team, om:Topic, om:User,
+        om:Worksheet ;
     rdfs:range om:Extension .
 
 om:hasExtensionProperty a rdf:Property ;
@@ -3549,7 +3899,19 @@ om:hasFileFormat a rdf:Property ;
 om:hasFollower a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasFollower" ;
-    rdfs:comment "A user who follows the entity (its followers field)." .
+    rdfs:comment "A user who follows the entity (its followers field)." ;
+    schema:domainIncludes om:AIApplication, om:APIEndpoint, om:APIService, om:AiGovernancePolicy,
+        om:Chart, om:Container, om:ContextFile, om:Dashboard,
+        om:DashboardDataModel, om:DashboardService, om:DataProduct, om:Database,
+        om:DatabaseSchema, om:DatabaseService, om:Directory, om:Domain,
+        om:DriveService, om:File, om:Folder, om:IngestionPipeline,
+        om:LLMModel, om:LLMService, om:LearningResource, om:MLModel,
+        om:MLModelService, om:McpServer, om:McpService, om:MessagingService,
+        om:MetadataService, om:Metric, om:MetricGroup, om:Page,
+        om:Pipeline, om:PipelineService, om:PromptTemplate, om:Query,
+        om:SearchIndex, om:SearchService, om:SecurityService, om:Spreadsheet,
+        om:StorageService, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet .
 
 om:hasGranularity a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3576,12 +3938,20 @@ om:hasLifeCycle a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasLifeCycle" ;
     rdfs:comment "The entity's lifecycle node (om:LifeCycle): when it was created, last updated and last accessed in its source system, and by whom. Use it to judge whether an asset is still in use." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:AiFrameworkControl,
+        om:AiGovernanceFramework, om:AiGovernancePolicy, om:Chart, om:Container,
+        om:Dashboard, om:DashboardDataModel, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:LLMModel, om:MLModel,
+        om:McpServer, om:Pipeline, om:PromptTemplate, om:SearchIndex,
+        om:Spreadsheet, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet ;
     rdfs:range om:LifeCycle .
 
 om:hasLineageDetails a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasLineageDetails" ;
     rdfs:comment "From the upstream asset of a lineage edge to the edge's details node (om:LineageDetails), which records the SQL, how the lineage was created, the pipeline that produces it and the column mappings." ;
+    schema:domainIncludes om:DataAsset ;
     rdfs:range om:LineageDetails .
 
 om:hasLineageNode a rdf:Property ;
@@ -3626,7 +3996,8 @@ om:hasMLStore a rdf:Property ;
 om:hasMember a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasMember" ;
-    rdfs:comment "On a team, a user that is part of it; on a role, a user who has the role (the users field)." .
+    rdfs:comment "On a team, a user that is part of it; on a role, a user who has the role (the users field)." ;
+    schema:domainIncludes om:Role, om:Team .
 
 om:hasMessageSchema a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3652,22 +4023,26 @@ om:hasMetricType a rdf:Property ;
 om:hasParent a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasParent" ;
-    rdfs:comment "The parent of a container, directory, metric or team (its parent or parents field). Walk it upward to the top of the hierarchy; om:hasChild is the reverse." .
+    rdfs:comment "The parent of a container, directory, metric or team (its parent or parents field). Walk it upward to the top of the hierarchy; om:hasChild is the reverse." ;
+    schema:domainIncludes om:Container, om:Directory, om:Metric, om:Team .
 
 om:hasPart a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasPart" ;
-    rdfs:comment "Glossary term relation of type hasPart: the object concept is a part or component of the subject concept. om:partOf is the inverse." .
+    rdfs:comment "Glossary term relation of type hasPart: the object concept is a part or component of the subject concept. om:partOf is the inverse." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 om:hasPartition a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasPartition" ;
-    rdfs:comment "Partitioning. For a topic, the number of partitions; for a table, its partition columns and intervals as JSON text." .
+    rdfs:comment "Partitioning. For a topic, the number of partitions; for a table, its partition columns and intervals as JSON text." ;
+    schema:domainIncludes om:Table, om:Topic .
 
 om:hasPath a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasPath" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: Full path to the file. On om:Directory: Full path to the directory. On om:Spreadsheet: Full path to the spreadsheet file." ;
+    schema:domainIncludes om:Directory, om:File, om:Spreadsheet ;
     rdfs:range xsd:string .
 
 om:hasPipelineStatus a rdf:Property ;
@@ -3686,7 +4061,7 @@ om:hasPromptTemplate a rdf:Property ;
 om:hasQueryText a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasQueryText" ;
-    rdfs:comment "SQL Query definition. Set on om:Query." ;
+    rdfs:comment "The SQL text of a query (om:Query) recorded in OpenMetadata. Search it to find the queries that read or write a table." ;
     rdfs:domain om:Query ;
     rdfs:range xsd:string .
 
@@ -3736,17 +4111,22 @@ om:hasRetentionTime a rdf:Property ;
 om:hasReviewer a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasReviewer" ;
-    rdfs:comment "A user or team that reviews changes to this glossary, glossary term, classification, tag, data product or data contract (its reviewers field). Other entity types expose the same field as om:reviewers." .
+    rdfs:comment "A user or team that reviews changes to this glossary, glossary term, classification, tag, data product or data contract (its reviewers field). Other entity types expose the same field as om:reviewers." ;
+    schema:domainIncludes om:Classification, om:DataContract, om:DataProduct, om:Glossary,
+        om:GlossaryTerm, om:Tag .
 
 om:hasRole a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasRole" ;
-    rdfs:comment "A role: on a user, a role assigned to the user; on a policy, a role that uses the policy." .
+    rdfs:comment "A role: on a user, a role assigned to the user; on a policy, a role that uses the policy." ;
+    schema:domainIncludes om:Policy, om:User .
 
 om:hasSampleData a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasSampleData" ;
     rdfs:comment "The asset's sample data as JSON text: sample rows for a table, file, container or worksheet, sample messages for a topic. Often absent." ;
+    schema:domainIncludes om:Container, om:File, om:SearchIndex, om:Table,
+        om:Topic, om:Worksheet ;
     rdfs:range xsd:string .
 
 om:hasScheduleInterval a rdf:Property ;
@@ -3759,7 +4139,7 @@ om:hasScheduleInterval a rdf:Property ;
 om:hasSchemaDefinition a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasSchemaDefinition" ;
-    rdfs:comment "DDL for Tables and Views. Set on om:Table." ;
+    rdfs:comment "The DDL that creates the table or view, as captured from the source; for a view it includes the query that defines it." ;
     rdfs:domain om:Table ;
     rdfs:range xsd:string .
 
@@ -3774,6 +4154,11 @@ om:hasServiceType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasServiceType" ;
     rdfs:comment "The type of service that hosts the asset, such as Snowflake, BigQuery, Kafka or GoogleDrive." ;
+    schema:domainIncludes om:APICollection, om:APIEndpoint, om:Chart, om:Container,
+        om:Dashboard, om:DashboardDataModel, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:SearchIndex, om:Spreadsheet, om:StoredProcedure, om:Table,
+        om:Topic, om:Worksheet ;
     rdfs:range xsd:string .
 
 om:hasStartDate a rdf:Property ;
@@ -3793,6 +4178,7 @@ om:hasStyle a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasStyle" ;
     rdfs:comment "UI Style is used to associate a color code and/or icon to entity to customize the look of that entity in UI. Set on om:DataProduct, om:Domain, om:GlossaryTerm and om:Tag; the domain is left open. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:DataProduct, om:Domain, om:GlossaryTerm, om:Tag ;
     rdfs:range xsd:string .
 
 om:hasTableType a rdf:Property ;
@@ -3812,7 +4198,8 @@ om:hasTarget a rdf:Property ;
 om:hasTier a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasTier" ;
-    rdfs:comment "The entity's tier tag, a tag under the Tier classification such as Tier.Tier1 that marks business importance. The same tag also appears under om:hasTag; filter on its om:tagFQN." .
+    rdfs:comment "The entity's tier tag, a tag under the Tier classification such as Tier.Tier1 that marks business importance. The same tag also appears under om:hasTag; filter on its om:tagFQN." ;
+    schema:domainIncludes om:Table .
 
 om:hasTopicConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3852,6 +4239,23 @@ om:impersonatedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "impersonatedBy" ;
     rdfs:comment "The bot that made the entity's last change on behalf of a user, when that change was impersonated." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:App, om:AppMarketPlaceDefinition, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextMemory, om:Dashboard,
+        om:DashboardDataModel, om:DashboardService, om:DataContract, om:DataProduct,
+        om:Database, om:DatabaseSchema, om:DatabaseService, om:Directory,
+        om:Document, om:Domain, om:DriveService, om:File,
+        om:Glossary, om:GlossaryTerm, om:IngestionPipeline, om:LLMModel,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:MessagingService, om:MetadataService, om:Metric, om:MetricGroup,
+        om:NotificationTemplate, om:Ontology, om:OntologyAxiom, om:OntologyConcept,
+        om:OntologyProperty, om:OntologyRelease, om:Page, om:Persona,
+        om:Pipeline, om:PipelineService, om:Policy, om:Query,
+        om:RelationshipType, om:Report, om:Role, om:SearchIndex,
+        om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
+        om:StoredProcedure, om:Table, om:Tag, om:Team,
+        om:TestConnectionDefinition, om:Topic, om:Type, om:User,
+        om:Workflow, om:Worksheet ;
     rdfs:range xsd:string .
 
 om:includeRedacted a rdf:Property ;
@@ -3865,6 +4269,26 @@ om:incrementalChangeDescription a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "incrementalChangeDescription" ;
     rdfs:comment "JSON of the change that produced the entity's current version: fields added, updated and deleted. It is one step, not the history; the entity version APIs keep the history." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:DataProduct, om:Database, om:DatabaseSchema,
+        om:DatabaseService, om:Directory, om:Document, om:Domain,
+        om:DriveService, om:File, om:Folder, om:Glossary,
+        om:GlossaryTerm, om:IngestionPipeline, om:LLMModel, om:LLMService,
+        om:LearningResource, om:MLModel, om:MLModelService, om:McpServer,
+        om:McpService, om:MessagingService, om:MetadataService, om:Metric,
+        om:MetricGroup, om:NotificationTemplate, om:Ontology, om:OntologyAxiom,
+        om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty, om:OntologyRelease,
+        om:Page, om:Persona, om:Pipeline, om:PipelineService,
+        om:Policy, om:PromptTemplate, om:Query, om:RelationshipType,
+        om:Report, om:Role, om:SearchIndex, om:SearchService,
+        om:SecurityService, om:Spreadsheet, om:StorageService, om:StoredProcedure,
+        om:Table, om:Tag, om:Team, om:TestConnectionDefinition,
+        om:Topic, om:Type, om:User, om:Workflow,
+        om:Worksheet ;
     rdfs:range xsd:string .
 
 om:index a rdf:Property ;
@@ -3883,6 +4307,10 @@ om:ingestionRunner a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "ingestionRunner" ;
     rdfs:comment "The ingestion agent responsible for executing the ingestion pipeline. Set on many entity types; the domain is left open. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:APIService, om:App, om:DashboardService, om:DatabaseService,
+        om:DriveService, om:IngestionPipeline, om:LLMService, om:MLModelService,
+        om:McpService, om:MessagingService, om:MetadataService, om:PipelineService,
+        om:SearchService, om:SecurityService, om:StorageService ;
     rdfs:range xsd:string .
 
 om:inherited a rdf:Property ;
@@ -3903,6 +4331,7 @@ om:inheritedRoles a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "inheritedRoles" ;
     rdfs:comment "Its meaning depends on the entity type. On om:User: Roles that a user is inheriting through membership in teams that have set team default roles. On om:Team: Roles that a team is inheriting through membership in teams that have set team default roles. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:Team, om:User ;
     rdfs:range xsd:string .
 
 om:installedPacks a rdf:Property ;
@@ -3915,18 +4344,22 @@ om:installedPacks a rdf:Property ;
 om:inputPort a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "inputPort" ;
-    rdfs:comment "From a data product to an asset that is one of its input ports: data the product consumes." .
+    rdfs:comment "From a data product to an asset that is one of its input ports: data the product consumes." ;
+    schema:domainIncludes om:DataProduct .
 
 om:inverse a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "inverse" ;
     rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Inverse relationship type. Symmetric types reference themselves. On om:OntologyProperty: Semantic IRI of the inverse object property. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:iri a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "iri" ;
     rdfs:comment "The semantic IRI of a glossary term, relationship type, ontology, ontology concept or ontology property, preserved across import and export. It differs from the node's own IRI, which identifies the catalog entity; no owl:sameAs joins the two." ;
+    schema:domainIncludes om:GlossaryTerm, om:Ontology, om:OntologyConcept, om:OntologyProperty,
+        om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:isAdmin a rdf:Property ;
@@ -3954,6 +4387,24 @@ om:isDeleted a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isDeleted" ;
     rdfs:comment "True when the entity is soft-deleted (the deleted field)." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+        om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
+        om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
+        om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
+        om:ContextMemory, om:Dashboard, om:DashboardDataModel, om:DashboardService,
+        om:DataContract, om:Database, om:DatabaseSchema, om:DatabaseService,
+        om:Directory, om:DriveService, om:File, om:Folder,
+        om:Glossary, om:GlossaryTerm, om:IngestionPipeline, om:LLMModel,
+        om:LLMService, om:LearningResource, om:MLModel, om:MLModelService,
+        om:McpServer, om:McpService, om:MessagingService, om:MetadataService,
+        om:Metric, om:MetricGroup, om:NotificationTemplate, om:Ontology,
+        om:OntologyAxiom, om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty,
+        om:OntologyRelease, om:Pipeline, om:PipelineService, om:Policy,
+        om:PromptTemplate, om:RelationshipType, om:Report, om:Role,
+        om:SearchIndex, om:SearchService, om:SecurityService, om:Spreadsheet,
+        om:StorageService, om:StoredProcedure, om:Table, om:Tag,
+        om:Team, om:TestConnectionDefinition, om:Topic, om:User,
+        om:Workflow, om:Worksheet ;
     rdfs:range xsd:boolean .
 
 om:isDeployed a rdf:Property ;
@@ -3967,6 +4418,8 @@ om:isDisabled a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isDisabled" ;
     rdfs:comment "True when a system tag, classification, glossary, glossary term, policy or role has been disabled instead of deleted. Do not apply a disabled tag." ;
+    schema:domainIncludes om:Classification, om:Glossary, om:GlossaryTerm, om:Policy,
+        om:Role, om:Tag ;
     rdfs:range xsd:boolean .
 
 om:isEmailVerified a rdf:Property ;
@@ -3980,6 +4433,7 @@ om:isEnabled a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isEnabled" ;
     rdfs:comment "Its meaning depends on the entity type. On om:IngestionPipeline: True if the pipeline is ready to be run in the next schedule. On om:App, om:AppMarketPlaceDefinition: Flag to enable/disable the application. If the app is not enabled, it can't be installed." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition, om:IngestionPipeline ;
     rdfs:range xsd:boolean .
 
 om:isHidden a rdf:Property ;
@@ -4007,12 +4461,14 @@ om:isMutuallyExclusive a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isMutuallyExclusive" ;
     rdfs:comment "True when the children of this classification, tag, glossary or glossary term are mutually exclusive: an entity may carry at most one of them." ;
+    schema:domainIncludes om:Classification, om:Glossary, om:GlossaryTerm, om:Tag ;
     rdfs:range xsd:boolean .
 
 om:isShared a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isShared" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: Whether this file is shared. On om:Directory: Whether this directory is shared." ;
+    schema:domainIncludes om:Directory, om:File ;
     rdfs:range xsd:boolean .
 
 om:isUnique a rdf:Property ;
@@ -4045,6 +4501,7 @@ om:labelType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "labelType" ;
     rdfs:comment "How a tag label was applied, such as Manual, Automated or Derived. It sits on the tag's shared node, so it mixes the labels of every entity carrying that tag and does not say how one entity was tagged." ;
+    schema:domainIncludes om:Tag ;
     rdfs:range xsd:string .
 
 om:lastActivityTime a rdf:Property ;
@@ -4069,6 +4526,7 @@ om:lastModifiedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "lastModifiedBy" ;
     rdfs:comment "Its meaning depends on the entity type. On om:File: User who last modified the file. On om:Spreadsheet: User who last modified the spreadsheet. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:File, om:Spreadsheet ;
     rdfs:range xsd:string .
 
 om:lastReviewedAt a rdf:Property ;
@@ -4173,7 +4631,8 @@ om:measures a rdf:Property ;
 om:memoryCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "memoryCount" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:ContextFile: Number of knowledge pills (context memories) extracted from this file. On om:Page: Number of knowledge pills (context memories) extracted from this page." .
+    rdfs:comment "Its meaning depends on the entity type. On om:ContextFile: Number of knowledge pills (context memories) extracted from this file. On om:Page: Number of knowledge pills (context memories) extracted from this page." ;
+    schema:domainIncludes om:ContextFile, om:Page .
 
 om:memoryScope a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4213,6 +4672,7 @@ om:metrics a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "metrics" ;
     rdfs:comment "Its meaning depends on the entity type. On om:PromptTemplate: Usage and performance metrics for the prompt template. On om:MetricGroup: Metrics that belong to this group. This relationship-derived field is used internally for mutations and is exposed to clients only through the authorized, paginated /v1/metricGroups/{id}/metrics endpoint. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:MetricGroup, om:PromptTemplate ;
     rdfs:range xsd:string .
 
 om:minimumInSyncReplicas a rdf:Property ;
@@ -4273,7 +4733,8 @@ om:models a rdf:Property ;
 om:modifiedTime a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "modifiedTime" ;
-    rdfs:comment "Last modification timestamp. Set on om:File and om:Spreadsheet; the domain is left open." .
+    rdfs:comment "Last modification timestamp. Set on om:File and om:Spreadsheet; the domain is left open." ;
+    schema:domainIncludes om:File, om:Spreadsheet .
 
 om:name a rdf:Property ;
     om:projectionStatus om:InferenceOnly ;
@@ -4305,6 +4766,7 @@ om:neverExtracted a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "neverExtracted" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFile: Whether this file was processed but its memories were never extracted, so it shows as Not processed. On om:Page: Whether this article has a body but its memories were never extracted, so it shows as Not processed." ;
+    schema:domainIncludes om:ContextFile, om:Page ;
     rdfs:range xsd:boolean .
 
 om:nextDeadline a rdf:Property ;
@@ -4347,6 +4809,8 @@ om:ontology a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "ontology" ;
     rdfs:comment "The ontology that owns a concept, property, axiom, change set or release, as the reference's JSON text." ;
+    schema:domainIncludes om:OntologyAxiom, om:OntologyChangeSet, om:OntologyConcept, om:OntologyProperty,
+        om:OntologyRelease ;
     rdfs:range xsd:string .
 
 om:operations a rdf:Property ;
@@ -4359,7 +4823,7 @@ om:operations a rdf:Property ;
 om:ordinalPosition a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "ordinalPosition" ;
-    rdfs:comment "Position of the column within its table." ;
+    rdfs:comment "Position of the column within its table, as ingested from the source; order by it to list columns as declared." ;
     rdfs:domain om:Column ;
     rdfs:range xsd:int .
 
@@ -4373,7 +4837,8 @@ om:outcomes a rdf:Property ;
 om:outputPort a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "outputPort" ;
-    rdfs:comment "From a data product to an asset that is one of its output ports: data the product serves to consumers." .
+    rdfs:comment "From a data product to an asset that is one of its output ports: data the product serves to consumers." ;
+    schema:domainIncludes om:DataProduct .
 
 om:page a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4406,6 +4871,7 @@ om:parent a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "parent" ;
     rdfs:comment "On om:Folder, the parent folder; on om:Page, the parent knowledge page. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:Folder, om:Page ;
     rdfs:range xsd:string .
 
 om:parentMemory a rdf:Property ;
@@ -4425,7 +4891,8 @@ om:parentTemplate a rdf:Property ;
 om:partOf a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "partOf" ;
-    rdfs:comment "Glossary term relation of type partOf: the subject concept is a part or component of the object concept. om:hasPart is the inverse." .
+    rdfs:comment "Glossary term relation of type partOf: the subject concept is a part or component of the object concept. om:hasPart is the inverse." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 om:performanceMetrics a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4445,6 +4912,7 @@ om:permission a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "permission" ;
     rdfs:comment "Permission used by Native Applications. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open. One of: All." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:personaPreferences a rdf:Property ;
@@ -4493,6 +4961,10 @@ om:pipelines a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "pipelines" ;
     rdfs:comment "The ingestion pipelines deployed for this service or application, as the JSON of their references rather than graph edges." ;
+    schema:domainIncludes om:APIService, om:App, om:DashboardService, om:DatabaseService,
+        om:DriveService, om:LLMService, om:MLModelService, om:McpService,
+        om:MessagingService, om:MetadataService, om:PipelineService, om:SearchService,
+        om:SecurityService, om:StorageService ;
     rdfs:range xsd:string .
 
 om:policyType a rdf:Property ;
@@ -4541,6 +5013,7 @@ om:privacyPolicyUrl a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "privacyPolicyUrl" ;
     rdfs:comment "Privacy Policy for the developer. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:privateConfiguration a rdf:Property ;
@@ -4554,6 +5027,7 @@ om:processedLineage a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "processedLineage" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Query: Flag if this query has already been successfully processed for lineage. On om:Table: Processed lineage for the table. On om:StoredProcedure: Processed lineage for the stored procedure." ;
+    schema:domainIncludes om:Query, om:StoredProcedure, om:Table ;
     rdfs:range xsd:boolean .
 
 om:processingEngine a rdf:Property ;
@@ -4567,12 +5041,14 @@ om:processingError a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "processingError" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFileContent: Processing failure details for this snapshot. On om:ContextFile: Reason the most recent processing attempt failed. Cleared when a new attempt starts. On om:Page: Error message from the most recent failed knowledge-pill extraction run, if any." ;
+    schema:domainIncludes om:ContextFile, om:ContextFileContent, om:Page ;
     rdfs:range xsd:string .
 
 om:processingStatus a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "processingStatus" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextFileContent: Processing status for this content snapshot. On om:ContextFile: Current processing state after upload. On om:Page: Status of the most recent knowledge-pill extraction run on this article's body." ;
+    schema:domainIncludes om:ContextFile, om:ContextFileContent, om:Page ;
     rdfs:range xsd:string .
 
 om:prompts a rdf:Property ;
@@ -4586,6 +5062,7 @@ om:propertyChain a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "propertyChain" ;
     rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Ordered property chain whose composition implies this relationship type. On om:OntologyProperty: Ordered object-property IRIs whose composition implies this property. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:propertyIri a rdf:Property ;
@@ -4691,6 +5168,7 @@ om:range a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "range" ;
     rdfs:comment "Semantic IRIs of the range classes or datatypes of an ontology property or relationship type, as JSON text." ;
+    schema:domainIncludes om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:rdfPredicate a rdf:Property ;
@@ -4736,6 +5214,7 @@ om:relatedEntities a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "relatedEntities" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextMemory: Additional related entities this memory applies to. On om:Page: Related Entities for the Knowledge Page. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:ContextMemory, om:Page ;
     rdfs:range xsd:string .
 
 om:relationshipType a rdf:Property ;
@@ -4753,6 +5232,7 @@ om:replacedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "replacedBy" ;
     rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Replacement relationship type when this type is deprecated. On om:OntologyProperty: IRI of the property in the same ontology that replaces this one. On om:OntologyConcept: IRI of the concept in the same ontology that replaces this one. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyConcept, om:OntologyProperty, om:RelationshipType ;
     rdfs:range xsd:string .
 
 om:requestSchema a rdf:Property ;
@@ -4800,6 +5280,7 @@ om:retentionPeriod a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "retentionPeriod" ;
     rdfs:comment "How long data is retained in the table, schema, database or container, as an ISO 8601 duration such as P23DT23H." ;
+    schema:domainIncludes om:Container, om:Database, om:DatabaseSchema, om:Table ;
     rdfs:range xsd:string .
 
 om:retentionSize a rdf:Property ;
@@ -4819,6 +5300,7 @@ om:reviewTask a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "reviewTask" ;
     rdfs:comment "Its meaning depends on the entity type. On om:OntologyRelease: Current approval task, assigned by the existing workflow infrastructure. On om:OntologyChangeSet: Review task created when a suggester submits the change set. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyChangeSet, om:OntologyRelease ;
     rdfs:range xsd:string .
 
 om:reviewAuthor a rdf:Property ;
@@ -4845,7 +5327,10 @@ om:approvalRule a rdf:Property ;
 om:reviewers a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "reviewers" ;
-    rdfs:comment "A user or team that reviews this entity (its reviewers field), on entity types whose context does not map the field to om:hasReviewer." .
+    rdfs:comment "A user or team that reviews this entity (its reviewers field), on entity types whose context does not map the field to om:hasReviewer." ;
+    schema:domainIncludes om:AIApplication, om:LLMModel, om:LearningResource, om:McpServer,
+        om:Metric, om:Ontology, om:OntologyRelease, om:Page,
+        om:RelationshipType .
 
 om:rootMemory a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4858,6 +5343,7 @@ om:rules a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "rules" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Policy: Set of rules that the policy contains. On om:AiGovernancePolicy: Rules that make up this policy. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:AiGovernancePolicy, om:Policy ;
     rdfs:range xsd:string .
 
 om:runningOn a rdf:Property ;
@@ -4871,6 +5357,7 @@ om:runtime a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "runtime" ;
     rdfs:comment "Its meaning depends on the entity type. On om:App: Execution Configuration. On om:AppMarketPlaceDefinition: If app type is live, user can provide additional runtime context." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:safetyMetrics a rdf:Property ;
@@ -4884,12 +5371,14 @@ om:scheduleType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "scheduleType" ;
     rdfs:comment "How the application is scheduled: Live, Scheduled, ScheduledOrManual, NoSchedule or OnlyManual." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:schema a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "schema" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Type: JSON schema encoded as string that defines the type. This will be used to validate the type values. On om:DataContract: Schema definition for the data contract. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:DataContract, om:Type ;
     rdfs:range xsd:string .
 
 om:scimUserName a rdf:Property ;
@@ -4952,12 +5441,17 @@ om:serviceAttributes a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "serviceAttributes" ;
     rdfs:comment "Deployment attributes of this service: environment, region and deployment. Set on many entity types; the domain is left open. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:APIService, om:DashboardService, om:DatabaseService, om:DriveService,
+        om:LLMService, om:MLModelService, om:McpService, om:MessagingService,
+        om:MetadataService, om:PipelineService, om:SearchService, om:SecurityService,
+        om:StorageService ;
     rdfs:range xsd:string .
 
 om:shareConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "shareConfig" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextMemory: Visibility and sharing configuration for the memory. On om:ContextFile: Who can see this file, beyond its owners. Absent means the file follows ordinary policy, which is how every file added before this field behaved; Private restricts it to its owners and the principals it names. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:ContextFile, om:ContextMemory ;
     rdfs:range xsd:string .
 
 om:size a rdf:Property ;
@@ -4970,6 +5464,7 @@ om:sla a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "sla" ;
     rdfs:comment "Its meaning depends on the entity type. On om:DataProduct: Service Level Agreement for this data product. On om:DataContract: Service Level Agreement expectations defined in the data contract. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:DataContract, om:DataProduct ;
     rdfs:range xsd:string .
 
 om:sourceAssistantMessage a rdf:Property ;
@@ -4983,6 +5478,7 @@ om:sourceCode a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "sourceCode" ;
     rdfs:comment "Link to source code repository. Set on om:AIApplication and om:McpServer; the domain is left open." ;
+    schema:domainIncludes om:AIApplication, om:McpServer ;
     rdfs:range xsd:string .
 
 om:sourceConversation a rdf:Property ;
@@ -5010,6 +5506,13 @@ om:sourceHash a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "sourceHash" ;
     rdfs:comment "Hash of the entity's source metadata, computed by ingestion to detect changes between runs." ;
+    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:AiFrameworkControl,
+        om:AiGovernanceFramework, om:AiGovernancePolicy, om:Chart, om:Container,
+        om:Dashboard, om:DashboardDataModel, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:LLMModel, om:MLModel,
+        om:McpServer, om:Pipeline, om:PromptTemplate, om:SearchIndex,
+        om:Spreadsheet, om:StoredProcedure, om:Table, om:Topic,
+        om:Worksheet ;
     rdfs:range xsd:string .
 
 om:sourceHumanMessage a rdf:Property ;
@@ -5037,12 +5540,14 @@ om:sourcePythonClass a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "sourcePythonClass" ;
     rdfs:comment "Fully Qualified class name for the Python source that will execute the external application. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:sourceType a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "sourceType" ;
     rdfs:comment "Its meaning depends on the entity type. On om:ContextMemory: How the memory was created. ConversationExtraction is captured automatically at the end of a chat turn; it is ground truth, not regenerable like a file or page pill. On om:ContextFile: How this file was added." ;
+    schema:domainIncludes om:ContextFile, om:ContextMemory ;
     rdfs:range xsd:string .
 
 om:sourceVersion a rdf:Property ;
@@ -5069,12 +5574,14 @@ om:state a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "state" ;
     rdfs:comment "Its meaning depends on the entity type. On om:OntologyChangeSet: DRAFT, SUBMITTED, APPLIED, APPLY_FAILED or DISCARDED. On om:Pipeline: Active or Inactive." ;
+    schema:domainIncludes om:OntologyChangeSet, om:Pipeline ;
     rdfs:range xsd:string .
 
 om:status a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "status" ;
     rdfs:comment "Its meaning depends on the entity type. On om:LearningResource: Lifecycle state for controllable publishing. On om:AuditReport: Current state of the audit pack job." ;
+    schema:domainIncludes om:AuditReport, om:LearningResource ;
     rdfs:range xsd:string .
 
 om:statusReason a rdf:Property ;
@@ -5109,6 +5616,8 @@ om:style a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "style" ;
     rdfs:comment "UI Style is used to associate a color code and/or icon to entity to customize the look of that entity in UI. Set on many entity types; the domain is left open. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:DashboardService, om:DatabaseService, om:DriveService, om:MLModelService,
+        om:MessagingService, om:PipelineService, om:SearchService, om:StorageService ;
     rdfs:range xsd:string .
 
 om:subjectIri a rdf:Property ;
@@ -5128,7 +5637,8 @@ om:summary a rdf:Property ;
 om:superClassOf a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "superClassOf" ;
-    rdfs:comment "Glossary term relation of type superClassOf: every instance of the object term is also an instance of the subject term. The inverse of rdfs:subClassOf between glossary terms." .
+    rdfs:comment "Glossary term relation of type superClassOf: every instance of the object term is also an instance of the subject term. The inverse of rdfs:subClassOf between glossary terms." ;
+    schema:domainIncludes om:GlossaryTerm .
 
 om:superProperties a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5148,18 +5658,21 @@ om:supportEmail a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "supportEmail" ;
     rdfs:comment "Support Email for the application. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:string .
 
 om:supportsIngestionRunner a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "supportsIngestionRunner" ;
     rdfs:comment "If the app support execution through the external runner. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:boolean .
 
 om:supportsInterrupt a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "supportsInterrupt" ;
     rdfs:comment "If the app run can be interrupted as part of the execution. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:boolean .
 
 om:synonyms a rdf:Property ;
@@ -5173,6 +5686,7 @@ om:system a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "system" ;
     rdfs:comment "A system app cannot be uninstalled or modified. Set on om:App and om:AppMarketPlaceDefinition; the domain is left open." ;
+    schema:domainIncludes om:App, om:AppMarketPlaceDefinition ;
     rdfs:range xsd:boolean .
 
 om:systemDefined a rdf:Property ;
@@ -5204,18 +5718,21 @@ om:tagFQN a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "tagFQN" ;
     rdfs:comment "Fully qualified name of a tag or glossary term, such as PII.Sensitive or Tier.Tier1. Match on it to find the assets that carry a tag." ;
+    schema:domainIncludes om:Tag ;
     rdfs:range xsd:string .
 
 om:tagSource a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "tagSource" ;
     rdfs:comment "Where a tag label comes from: Classification for a tag, Glossary for a glossary term." ;
+    schema:domainIncludes om:Tag ;
     rdfs:range xsd:string .
 
 om:tagState a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "tagState" ;
     rdfs:comment "Whether a tag label is Suggested or Confirmed. Like om:labelType it sits on the tag's shared node and mixes the labels of every entity carrying that tag." ;
+    schema:domainIncludes om:Tag ;
     rdfs:range xsd:string .
 
 om:targetIri a rdf:Property ;
@@ -5270,7 +5787,8 @@ om:templateVersion a rdf:Property ;
 om:termCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "termCount" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:Classification: Total number of children tag terms under this classification. On om:Glossary: Total number of terms in the glossary. This includes all the children in the hierarchy." .
+    rdfs:comment "Its meaning depends on the entity type. On om:Classification: Total number of children tag terms under this classification. On om:Glossary: Total number of terms in the glossary. This includes all the children in the hierarchy." ;
+    schema:domainIncludes om:Classification, om:Glossary .
 
 om:termsOfUse a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5283,6 +5801,10 @@ om:testConnectionResult a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "testConnectionResult" ;
     rdfs:comment "Its meaning depends on the entity type. On om:McpService: Result of the last test connection performed on this service. On most other entity types: Last test connection results for this service. The value is the field's JSON, serialized as a string." ;
+    schema:domainIncludes om:APIService, om:DashboardService, om:DatabaseService, om:DriveService,
+        om:LLMService, om:MLModelService, om:McpService, om:MessagingService,
+        om:MetadataService, om:PipelineService, om:SearchService, om:SecurityService,
+        om:StorageService ;
     rdfs:range xsd:string .
 
 om:testSuite a rdf:Property ;
@@ -5303,7 +5825,8 @@ om:timezone a rdf:Property ;
 om:toColumnFqn a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "toColumnFqn" ;
-    rdfs:comment "Fully qualified name of the target column in a column-level lineage edge, written alongside the column IRI in om:toColumn for string matching." .
+    rdfs:comment "Fully qualified name of the target column in a column-level lineage edge, written alongside the column IRI in om:toColumn for string matching." ;
+    schema:domainIncludes om:ColumnLineage .
 
 om:totalSize a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5362,22 +5885,33 @@ om:upstreamApplications a rdf:Property ;
 om:usageCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageCount" ;
-    rdfs:comment "How many times a tag, glossary term, classification or glossary is used as a label, child terms included; for a context memory, how often AI-assisted retrieval used it." .
+    rdfs:comment "How many times a tag, glossary term, classification or glossary is used as a label, child terms included; for a context memory, how often AI-assisted retrieval used it." ;
+    schema:domainIncludes om:Classification, om:ContextMemory, om:Glossary, om:GlossaryTerm,
+        om:Tag .
 
 om:usageDailyCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageDailyCount" ;
-    rdfs:comment "Number of times the asset was used in the day of om:usageDate, from the usage summary: queries for tables, views for dashboards and charts." .
+    rdfs:comment "Number of times the asset was used in the day of om:usageDate, from the usage summary: queries for tables, views for dashboards and charts." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usageDailyPercentile a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageDailyPercentile" ;
-    rdfs:comment "Percentile rank (0 to 100) of the asset's daily usage among assets of its type. Divide by 100 for a 0 to 1 importance score." .
+    rdfs:comment "Percentile rank (0 to 100) of the asset's daily usage among assets of its type. Divide by 100 for a 0 to 1 importance score." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usageDate a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageDate" ;
     rdfs:comment "Date of the usage summary that the om:usage* counts and percentiles describe." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet ;
     rdfs:range xsd:date .
 
 om:usageMetrics a rdf:Property ;
@@ -5390,22 +5924,34 @@ om:usageMetrics a rdf:Property ;
 om:usageMonthlyCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageMonthlyCount" ;
-    rdfs:comment "Number of times the asset was used in the month ending on om:usageDate, from the usage summary." .
+    rdfs:comment "Number of times the asset was used in the month ending on om:usageDate, from the usage summary." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usageMonthlyPercentile a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageMonthlyPercentile" ;
-    rdfs:comment "Percentile rank (0 to 100) of the asset's monthly usage among assets of its type." .
+    rdfs:comment "Percentile rank (0 to 100) of the asset's monthly usage among assets of its type." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usageWeeklyCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageWeeklyCount" ;
-    rdfs:comment "Number of times the asset was used in the week ending on om:usageDate, from the usage summary." .
+    rdfs:comment "Number of times the asset was used in the week ending on om:usageDate, from the usage summary." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usageWeeklyPercentile a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usageWeeklyPercentile" ;
-    rdfs:comment "Percentile rank (0 to 100) of the asset's weekly usage among assets of its type." .
+    rdfs:comment "Percentile rank (0 to 100) of the asset's weekly usage among assets of its type." ;
+    schema:domainIncludes om:Chart, om:Dashboard, om:Database, om:DatabaseSchema,
+        om:Directory, om:File, om:MLModel, om:Pipeline,
+        om:Report, om:Spreadsheet, om:Table, om:Worksheet .
 
 om:usedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5418,6 +5964,7 @@ om:usedByAgents a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "usedByAgents" ;
     rdfs:comment "Its meaning depends on the entity type. On om:LLMModel: AI Agents that use this model. On om:PromptTemplate: AI Agents using this template. The value is the JSON of the referenced entities as a string, not a graph edge." ;
+    schema:domainIncludes om:LLMModel, om:PromptTemplate ;
     rdfs:range xsd:string .
 
 om:usedByApplications a rdf:Property ;
@@ -5430,7 +5977,8 @@ om:usedByApplications a rdf:Property ;
 om:userCount a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "userCount" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:Persona: Distinct active users assigned this persona directly, through a team, or as their default persona. On om:Team: Total count of users that are part of the team." .
+    rdfs:comment "Its meaning depends on the entity type. On om:Persona: Distinct active users assigned this persona directly, through a team, or as their default persona. On om:Team: Total count of users that are part of the team." ;
+    schema:domainIncludes om:Persona, om:Team .
 
 om:usesMcpServer a rdf:Property ;
     om:projectionStatus om:Stored ;

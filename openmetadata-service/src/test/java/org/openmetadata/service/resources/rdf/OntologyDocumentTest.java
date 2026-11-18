@@ -24,7 +24,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.vocabulary.RDFS;
@@ -35,6 +37,8 @@ import org.openmetadata.service.rdf.OntologyDocument;
 class OntologyDocumentTest {
 
   private static final String OM_NS = "https://open-metadata.org/ontology/";
+  private static final Property DOMAIN_INCLUDES =
+      ResourceFactory.createProperty("https://schema.org/domainIncludes");
   private static final String OWL_VERSION_INFO = "http://www.w3.org/2002/07/owl#versionInfo";
 
   @Test
@@ -92,9 +96,44 @@ class OntologyDocumentTest {
     assertCommented(term, "Table");
     assertCommented(term, "joinedWith");
     assertCommented(term, "fullyQualifiedName");
+    assertCommented(term, "hasColumn");
+    assertCommented(term, "belongsToSchema");
+    assertCommented(term, "belongsToDomain");
+    assertCommented(term, "downstream");
+    assertFalse(
+        term.contains(term.createResource(OM_NS + "belongsToDomain"), DOMAIN_INCLUDES),
+        "A shared property is listed with its label and comment only");
     assertFalse(
         term.containsResource(term.createResource(OM_NS + "hasChart")),
         "A dashboard-only property must not be listed for om:Table");
+  }
+
+  @Test
+  @DisplayName("A column reads back with the shared properties the projection uses on columns")
+  void testDescribeColumnWithSharedProperties() {
+    Model term =
+        parse(OntologyDocument.describeTerm("om:Column", "turtle").orElseThrow().document().body());
+
+    assertCommented(term, "Column");
+    assertCommented(term, "hasChildColumn");
+    assertTrue(term.contains(term.createResource(OM_NS + "hasChildColumn"), RDFS.label));
+  }
+
+  @Test
+  @DisplayName("A shared property read on its own lists the classes the projection uses it on")
+  void testDescribeSharedPropertyListsItsClasses() {
+    Model term =
+        parse(
+            OntologyDocument.describeTerm("om:belongsToDomain", "turtle")
+                .orElseThrow()
+                .document()
+                .body());
+
+    assertTrue(
+        term.contains(
+            term.createResource(OM_NS + "belongsToDomain"),
+            DOMAIN_INCLUDES,
+            term.createResource(OM_NS + "Table")));
   }
 
   @Test

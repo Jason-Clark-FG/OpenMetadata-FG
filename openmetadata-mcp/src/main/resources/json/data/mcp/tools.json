@@ -1074,13 +1074,13 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Return the OpenMetadata ontology: one of its terms ('term'), the full canonical ontology (no 'term' and no 'resource'), or a SPARQL DESCRIBE of one graph resource ('resource'). Prefer 'term' to learn what an edge or a node type means before querying: a class comes back with every property whose rdfs:domain is the class or one of its superclasses, each with its rdfs:comment, domain and range, and a property comes back on its own, both small enough for the response limit. The full ontology exceeds that limit; its body is capped at maxBytes and flagged 'truncated'. Format: turtle (default), jsonld, ntriples, rdfxml. The full ontology (no 'resource') is open to every caller, like the REST ontology endpoint, and so is a 'term'. A DESCRIBE of a 'resource' reads instance data and requires the ExecuteSparqlQuery permission; administrators always pass.",
+      "description": "Return the OpenMetadata ontology: one of its terms ('term'), the full canonical ontology (no 'term' and no 'resource'), or a SPARQL DESCRIBE of one graph resource ('resource'). Prefer 'term' to learn what an edge or a node type means before querying: a class comes back with every property whose rdfs:domain is the class or one of its superclasses, in full, and with the shared properties the projection uses on it (schema:domainIncludes) by label and comment; a property comes back on its own. Both fit the response limit. The full ontology exceeds that limit; its body is capped at maxBytes and flagged 'truncated'. Format: turtle (default), jsonld, ntriples, rdfxml. The full ontology (no 'resource') is open to every caller, like the REST ontology endpoint, and so is a 'term'. A DESCRIBE of a 'resource' reads instance data and requires the ExecuteSparqlQuery permission; administrators always pass.",
       "parameters": {
         "type": "object",
         "properties": {
           "term": {
             "type": "string",
-            "description": "Optional. One class or property of the ontology, as a prefixed name such as 'om:Table' or a full IRI such as 'https://open-metadata.org/ontology/hasOwner'. Properties used on several classes leave their domain open, so a class read does not list them; read them by name. Cannot be combined with 'resource'."
+            "description": "Optional. One class or property of the ontology, as a prefixed name such as 'om:Table' or a full IRI such as 'https://open-metadata.org/ontology/hasOwner'. Read a shared property by name for its range and every class it is used on. Cannot be combined with 'resource'."
           },
           "resource": {
             "type": "string",

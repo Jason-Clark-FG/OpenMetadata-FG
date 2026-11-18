@@ -1,6 +1,7 @@
 package org.openmetadata.service.rdf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.vocabulary.OWL;
@@ -42,6 +44,8 @@ class RdfOntologyDescriptionContractTest {
           OM + "hasConstrainedColumn",
           OM + "hasReferredColumn",
           OM + "references",
+          OM + "isPrimaryKey",
+          OM + "isUnique",
           OM + "memberOf",
           OM + "memberCount",
           OM + "boundAsset",
@@ -62,6 +66,9 @@ class RdfOntologyDescriptionContractTest {
           DQV + "value",
           DQV + "computedOn",
           PROV + "generatedAtTime");
+
+  private static final Property DOMAIN_INCLUDES =
+      ResourceFactory.createProperty("https://schema.org/domainIncludes");
 
   private static Model projection;
   private static Model ontology;
@@ -137,6 +144,69 @@ class RdfOntologyDescriptionContractTest {
     assertEquals(Set.of(), violations, "Values outside the declared rdfs:range");
   }
 
+  /**
+   * A stored predicate with an open domain records, as schema:domainIncludes, every class the
+   * projection uses it on; a subject typed outside those classes fails.
+   */
+  @Test
+  void sharedPredicatesRecordEveryClassThatUsesThem() {
+    assertEquals(
+        Set.of(), sharedPredicateViolations(ontology), "Shared predicates outside their classes");
+  }
+
+  @Test
+  void usingASharedPredicateOutsideItsRecordedClassesFails() {
+    final Model changed = RDFDataMgr.loadModel("rdf/ontology/openmetadata.ttl");
+    try {
+      changed.remove(
+          changed.createResource(OM + "hasColumn"),
+          DOMAIN_INCLUDES,
+          changed.createResource(OM + "Table"));
+      assertTrue(
+          sharedPredicateViolations(changed).stream()
+              .anyMatch(violation -> violation.startsWith(OM + "hasColumn used on")));
+    } finally {
+      changed.close();
+    }
+  }
+
+  private static Set<String> sharedPredicateViolations(final Model declared) {
+    final Set<String> stored = storedPredicates(declared);
+    final Set<String> violations = new TreeSet<>();
+    for (Statement statement : projection.listStatements().toList()) {
+      final Resource predicate = declared.createResource(statement.getPredicate().getURI());
+      final List<Resource> owners = omTypes(statement.getSubject());
+      final boolean shared =
+          stored.contains(predicate.getURI())
+              && !RDF.type.equals(predicate)
+              && !DESCRIBED_BY_OPEN_BRANCHES.contains(predicate.getURI())
+              && !declared.contains(predicate, RDFS.domain);
+      if (shared && !owners.isEmpty() && !recordedFor(declared, predicate, owners)) {
+        violations.add(predicate.getURI() + " used on " + owners);
+      }
+    }
+    return violations;
+  }
+
+  private static boolean recordedFor(
+      final Model declared, final Resource predicate, final List<Resource> owners) {
+    final Set<RDFNode> recorded =
+        declared.listObjectsOfProperty(predicate, DOMAIN_INCLUDES).toSet();
+    return owners.stream()
+        .anyMatch(
+            owner ->
+                superClasses(declared, owner).stream()
+                    .anyMatch(uri -> recorded.contains(declared.createResource(uri))));
+  }
+
+  private static List<Resource> omTypes(final Resource node) {
+    return projection
+        .listObjectsOfProperty(node, RDF.type)
+        .filterKeep(type -> type.isURIResource() && type.asResource().getURI().startsWith(OM))
+        .mapWith(RDFNode::asResource)
+        .toList();
+  }
+
   private static Set<String> storedPredicates(final Model declared) {
     final Property status = declared.createProperty(OM + "projectionStatus");
     final Resource stored = declared.createResource(OM + "Stored");
@@ -184,16 +254,17 @@ class RdfOntologyDescriptionContractTest {
     final List<Resource> types =
         projection.listObjectsOfProperty(node, RDF.type).mapWith(RDFNode::asResource).toList();
     return types.isEmpty()
-        || types.stream().anyMatch(candidate -> superClasses(candidate).contains(type.getURI()));
+        || types.stream()
+            .anyMatch(candidate -> superClasses(ontology, candidate).contains(type.getURI()));
   }
 
-  private static Set<String> superClasses(final Resource start) {
+  private static Set<String> superClasses(final Model declared, final Resource start) {
     final Set<String> seen = new TreeSet<>();
     final List<Resource> frontier = new ArrayList<>(List.of(start));
     while (!frontier.isEmpty()) {
-      final Resource next = ontology.createResource(frontier.remove(frontier.size() - 1).getURI());
+      final Resource next = declared.createResource(frontier.remove(frontier.size() - 1).getURI());
       if (seen.add(next.getURI())) {
-        ontology
+        declared
             .listObjectsOfProperty(next, RDFS.subClassOf)
             .filterKeep(RDFNode::isURIResource)
             .forEachRemaining(parent -> frontier.add(parent.asResource()));

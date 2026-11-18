@@ -16,13 +16,16 @@ package org.openmetadata.service.rdf;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.vocabulary.OWL;
 import org.apache.jena.vocabulary.RDF;
@@ -30,11 +33,15 @@ import org.apache.jena.vocabulary.RDFS;
 
 /**
  * Cuts one term out of the canonical ontology: a class with every property whose declared domain
- * is the class or one of its superclasses, or a property on its own.
+ * is the class or one of its superclasses, plus by label and comment every shared property whose
+ * schema:domainIncludes names one of them; or a property on its own.
  */
 final class OntologyTermEntry {
   private static final String HTTP = "http://";
   private static final String HTTPS = "https://";
+  private static final Property DOMAIN_INCLUDES =
+      ResourceFactory.createProperty("https://schema.org/domainIncludes");
+  private static final List<Property> SUMMARY = List.of(RDFS.label, RDFS.comment);
 
   private OntologyTermEntry() {}
 
@@ -51,21 +58,35 @@ final class OntologyTermEntry {
     final Model entry = ModelFactory.createDefaultModel();
     entry.setNsPrefixes(ontology.getNsPrefixMap());
     addDescription(ontology, term, entry);
-    applicableProperties(ontology, term)
-        .forEach(property -> addDescription(ontology, property, entry));
+    final Set<Resource> classes = classesCovering(ontology, term);
+    final Set<Resource> declared = propertiesWith(ontology, RDFS.domain, classes);
+    declared.forEach(property -> addDescription(ontology, property, entry));
+    propertiesWith(ontology, DOMAIN_INCLUDES, classes).stream()
+        .filter(property -> !declared.contains(property))
+        .forEach(property -> addSummary(ontology, property, entry));
     return entry;
   }
 
-  private static Set<Resource> applicableProperties(Model ontology, Resource term) {
+  private static Set<Resource> classesCovering(Model ontology, Resource term) {
     final boolean isClass =
         ontology.contains(term, RDF.type, OWL.Class)
             || ontology.contains(term, RDF.type, RDFS.Class);
-    final Set<Resource> classes = isClass ? superClasses(ontology, term) : Set.of();
+    return isClass ? superClasses(ontology, term) : Set.of();
+  }
+
+  private static Set<Resource> propertiesWith(
+      Model ontology, Property axis, Set<Resource> classes) {
     return ontology
-        .listStatements(null, RDFS.domain, (RDFNode) null)
+        .listStatements(null, axis, (RDFNode) null)
         .filterKeep(statement -> classes.contains(statement.getObject()))
         .mapWith(Statement::getSubject)
         .toSet();
+  }
+
+  /** A shared predicate is listed by label and comment; its own entry has the rest. */
+  private static void addSummary(Model ontology, Resource property, Model entry) {
+    SUMMARY.forEach(
+        axis -> entry.add(ontology.listStatements(property, axis, (RDFNode) null).toList()));
   }
 
   private static Set<Resource> superClasses(Model ontology, Resource start) {

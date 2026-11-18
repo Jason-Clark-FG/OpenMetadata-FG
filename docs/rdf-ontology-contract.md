@@ -226,10 +226,12 @@ field's JSON Schema description, and say when the value is JSON text rather than
 
 Read one entry instead of the whole file with the MCP tool `ontology_describe` and `term`, a
 prefixed name such as `om:Table` or a full IRI. A class comes back with every property whose declared
-domain is the class or one of its superclasses; a property comes back on its own. Properties with an
-open domain are read by name. Like the full ontology, a term read needs no permission. The largest
-class entry, `om:Table`, is about 42 KB of Turtle against the 80,000-byte default response budget;
-the full file is about 310 KB. See ADR:2026-11-18-ontology-terms-describe-themselves-and-read-one-at-a-time.
+domain is the class or one of its superclasses, in full, and with every shared property recorded for
+it by label and comment; a property comes back on its own. A shared property is one with an open
+domain: `schema:domainIncludes` records each class the projection writes it on, as an annotation that
+entails nothing, so `om:hasColumn` and `om:downstream` appear in the entry for `om:Table`. Like the
+full ontology, a term read needs no permission. The largest class entry, `om:Table`, is about 53 KB of
+Turtle against the 80,000-byte default response budget; the full file is about 349 KB. See ADR:2026-11-18-ontology-terms-describe-themselves-and-read-one-at-a-time.
 
 ## Regression coverage
 
@@ -250,8 +252,9 @@ conditional mapper branches. The tests never derive the writer's predicate list
 from the ontology itself.
 
 `RdfOntologyDescriptionContractTest` fails when a stored predicate or a projected class has no
-comment, when a projected subject falls outside a declared domain, and when a value contradicts a
-declared range: a literal under a class range, or a datatype other than a declared `xsd:` range.
+comment, when a projected subject falls outside a declared domain or, for a shared predicate,
+outside its recorded `schema:domainIncludes` classes, and when a value contradicts a declared range:
+a literal under a class range, or a datatype other than a declared `xsd:` range.
 Terms whose descriptions belong to branches still in flight are listed there as temporary
 exemptions.
 
