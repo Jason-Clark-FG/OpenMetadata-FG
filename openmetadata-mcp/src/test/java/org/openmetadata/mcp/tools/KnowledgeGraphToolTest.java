@@ -49,6 +49,7 @@ import org.openmetadata.service.rdf.SparqlQueryLimits;
 import org.openmetadata.service.rdf.explore.Direction;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.ExplorationState;
+import org.openmetadata.service.rdf.explore.NoRows;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
 import org.openmetadata.service.rdf.explore.Operation;
@@ -242,6 +243,72 @@ class KnowledgeGraphToolTest {
 
     assertThat(response.result()).isEqualTo(direct);
     assertThat(response.result().body()).contains(E + "team-crm", E + "team-growth");
+  }
+
+  private static final String OM_PREFIX = "PREFIX om: <https://open-metadata.org/ontology/> ";
+
+  @Test
+  void aQueryAnswerOverTheResponseLimitKeepsTheRowsThatFitAndSaysHowToReadTheRest()
+      throws IOException {
+    callersAreAdministrators(false);
+    final List<UUID> ids = IntStream.range(0, 10).mapToObj(index -> UUID.randomUUID()).toList();
+
+    final KnowledgeGraphTool.QueryResponse answer =
+        (KnowledgeGraphTool.QueryResponse)
+            wideCatalog(ids)
+                .execute(
+                    GRANTED,
+                    CALLER,
+                    Map.of(
+                        "operation",
+                        "query",
+                        "sparql",
+                        "SELECT ?s ?p ?o WHERE { ?s ?p ?o } ORDER BY ?s ?p ?o"));
+
+    assertThat((long) JsonUtils.pojoToJson(answer).length())
+        .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS);
+    assertThat(answer.rows().returned()).isPositive().isLessThan(answer.rows().total());
+    assertThat(answer.rows().rest()).contains("OFFSET " + answer.rows().returned());
+    assertThat(JsonUtils.readTree(answer.result().body()).path("results").path("bindings").size())
+        .isEqualTo(answer.rows().returned());
+  }
+
+  @Test
+  void aQueryWithNoRowsSaysWhatTheToolCanKnowAboutWhy() throws IOException {
+    callersAreAdministrators(false);
+
+    final KnowledgeGraphTool.QueryResponse answer =
+        (KnowledgeGraphTool.QueryResponse)
+            call(
+                Map.of(
+                    "operation",
+                    "query",
+                    "sparql",
+                    OM_PREFIX + "SELECT ?owner WHERE { ?table om:owner ?owner }"));
+
+    assertThat(answer.rows().total()).isZero();
+    assertThat(answer.noRows().undeclared())
+        .containsExactly(new NoRows.Term("om:owner", "om:hasOwner"));
+    assertThat(answer.noRows().means()).contains("not evidence");
+  }
+
+  @Test
+  void aQueryUsingTheCardPrefixesWithoutDeclaringThemRunsWithTheirDeclarations()
+      throws IOException {
+    callersAreAdministrators(false);
+
+    final KnowledgeGraphTool.QueryResponse answer =
+        (KnowledgeGraphTool.QueryResponse)
+            call(
+                Map.of(
+                    "operation",
+                    "query",
+                    "sparql",
+                    "SELECT ?owner WHERE { ?table om:hasOwner ?owner } ORDER BY ?owner"));
+
+    assertThat(answer.prefixesAdded()).containsExactly("om");
+    assertThat(answer.result().body()).contains(E + "team-crm", E + "team-growth");
+    assertThat(answer.noRows()).isNull();
   }
 
   @Test

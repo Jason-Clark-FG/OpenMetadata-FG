@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -30,6 +31,7 @@ public final class KnowledgeGraphExplorer {
 
   private static final String BOTH_DIRECTIONS = "both";
 
+  private final GraphReader graph;
   private final OntologyVocabulary vocabulary;
   private final NodeCardReader cards;
   private final OntologyTerms terms;
@@ -45,6 +47,7 @@ public final class KnowledgeGraphExplorer {
       final String baseUri,
       final RunTraceStore traces,
       final Clock clock) {
+    this.graph = Objects.requireNonNull(graph);
     this.vocabulary = Objects.requireNonNull(vocabulary);
     this.cards = new NodeCardReader(graph, vocabulary, baseUri);
     this.terms = new OntologyTerms(graph);
@@ -126,6 +129,59 @@ public final class KnowledgeGraphExplorer {
         RunStep.Input.query(sparql),
         QueriedNodes.of(sparql, resultBody).stream().map(RunSteps::queried).toList(),
         List.of());
+  }
+
+  /**
+   * Why a query may have returned no rows: the terms it names that the ontology does not declare,
+   * with the closest declared one, and the terms no triple in the graph uses.
+   */
+  public NoRows explainNoRows(final String sparql) {
+    final QueryTerms terms = QueryTerms.of(sparql);
+    final List<NoRows.Term> undeclared =
+        Stream.concat(undeclared(terms.properties(), false), undeclared(terms.classes(), true))
+            .toList();
+    final Set<String> named =
+        undeclared.stream().map(NoRows.Term::term).collect(Collectors.toSet());
+    final List<String> checkable =
+        Stream.concat(terms.properties().stream(), terms.classes().stream())
+            .filter(term -> !named.contains(vocabulary.compact(term)))
+            .filter(ExplorationQueries::isQueryable)
+            .toList();
+    return NoRows.of(undeclared, unused(terms, checkable));
+  }
+
+  private Stream<NoRows.Term> undeclared(final Set<String> terms, final boolean isClass) {
+    return terms.stream()
+        .filter(term -> vocabulary.isUndeclared(term, isClass))
+        .sorted()
+        .map(
+            term ->
+                new NoRows.Term(
+                    vocabulary.compact(term),
+                    vocabulary
+                        .closestDeclared(term, isClass)
+                        .map(vocabulary::compact)
+                        .orElse(null)));
+  }
+
+  private List<String> unused(final QueryTerms terms, final List<String> checkable) {
+    if (checkable.isEmpty()) {
+      return List.of();
+    }
+    final Set<String> used =
+        SparqlRows.parse(
+                graph.select(
+                    ExplorationQueries.used(
+                        terms.properties().stream().filter(checkable::contains).toList(),
+                        terms.classes().stream().filter(checkable::contains).toList())))
+            .stream()
+            .map(row -> SparqlRows.iri(row, "term"))
+            .collect(Collectors.toSet());
+    return checkable.stream()
+        .filter(term -> !used.contains(term))
+        .map(vocabulary::compact)
+        .sorted()
+        .toList();
   }
 
   /**

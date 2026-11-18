@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -42,6 +43,7 @@ import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.shared.PrefixMapping;
 import org.apache.jena.vocabulary.OWL2;
+import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.openmetadata.service.rdf.OntologyDocument;
 
@@ -66,12 +68,18 @@ public final class OntologyVocabulary {
   private static final String PROJECTION_NOTE = "Not emitted by the metadata projection";
   private static final String EXAMPLE_RELATIONSHIP = "om:hasOwner";
   private static final String IRI_SCHEME_SEPARATOR = "://";
+  private static final List<Resource> PROPERTY_TYPES =
+      List.of(RDF.Property, OWL2.ObjectProperty, OWL2.DatatypeProperty, OWL2.AnnotationProperty);
+  private static final List<Resource> CLASS_TYPES = List.of(OWL2.Class, RDFS.Class);
+  private static final int CLOSE_EDITS = 2;
 
   private final PrefixMapping prefixes;
   private final Map<String, RelationshipAbout> abouts;
   private final Map<String, Set<String>> classAncestors;
   private final List<UnprojectedProperty> unprojected;
   private final Map<String, List<String>> statusProperties;
+  private final Set<String> declaredProperties;
+  private final Set<String> declaredClasses;
 
   OntologyVocabulary(final Model ontology) {
     prefixes = PrefixMapping.Factory.create().setNsPrefixes(ontology).lock();
@@ -79,6 +87,8 @@ public final class OntologyVocabulary {
     classAncestors = Map.copyOf(readClassAncestors(ontology));
     unprojected = readUnprojected(ontology);
     statusProperties = readStatusProperties(ontology);
+    declaredProperties = declared(ontology, PROPERTY_TYPES);
+    declaredClasses = declared(ontology, CLASS_TYPES);
   }
 
   private static final class StandardTerms {
@@ -151,6 +161,47 @@ public final class OntologyVocabulary {
     return statusProperties;
   }
 
+  /** The query with declarations for the card prefixes it uses and does not declare. */
+  public QueryPrefixes.Completed completePrefixes(final String sparql) {
+    return QueryPrefixes.complete(sparql, prefixes);
+  }
+
+  /**
+   * Whether the ontology owns the term's namespace and does not declare it as a property, or as a
+   * class when {@code isClass}. A term of another vocabulary is never undeclared here.
+   */
+  boolean isUndeclared(final String iri, final boolean isClass) {
+    return iri.startsWith(OM) && !(isClass ? declaredClasses : declaredProperties).contains(iri);
+  }
+
+  /**
+   * The declared term of the same kind whose name is closest to the term's, when one is close: one
+   * whose name contains the term's or is contained in it first, then the fewest edits (at most two).
+   */
+  Optional<String> closestDeclared(final String iri, final boolean isClass) {
+    final String name = localName(iri).toLowerCase(Locale.ROOT);
+    return (isClass ? declaredClasses : declaredProperties)
+        .stream()
+            .filter(candidate -> candidate.startsWith(OM))
+            .filter(candidate -> isClose(name, localName(candidate).toLowerCase(Locale.ROOT)))
+            .min(
+                Comparator.<String, Boolean>comparing(
+                        candidate -> !contains(name, localName(candidate).toLowerCase(Locale.ROOT)))
+                    .thenComparingInt(
+                        candidate ->
+                            EditDistance.of(name, localName(candidate).toLowerCase(Locale.ROOT)))
+                    .thenComparingInt(String::length)
+                    .thenComparing(Comparator.naturalOrder()));
+  }
+
+  private static boolean contains(final String name, final String candidate) {
+    return candidate.contains(name) || name.contains(candidate);
+  }
+
+  private static boolean isClose(final String name, final String candidate) {
+    return contains(name, candidate) || EditDistance.of(name, candidate) <= CLOSE_EDITS;
+  }
+
   public String compact(final String iri) {
     return prefixes.shortForm(iri);
   }
@@ -218,6 +269,14 @@ public final class OntologyVocabulary {
   private static String localName(final String iri) {
     final String name = ResourceFactory.createResource(iri).getLocalName();
     return nullOrEmpty(name) ? iri : name;
+  }
+
+  private static Set<String> declared(final Model ontology, final List<Resource> types) {
+    return types.stream()
+        .flatMap(type -> ontology.listSubjectsWithProperty(RDF.type, type).toList().stream())
+        .filter(Resource::isURIResource)
+        .map(Resource::getURI)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   private static Map<String, List<String>> readStatusProperties(final Model ontology) {

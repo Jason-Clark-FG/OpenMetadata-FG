@@ -155,6 +155,19 @@ final class ExplorationQueries {
         .collect(Collectors.joining(" "));
   }
 
+  /** One row per property or class among those given that some triple in the graph uses. */
+  static String used(final Collection<String> properties, final Collection<String> classes) {
+    return PREFIXES
+        + """
+        SELECT ?term WHERE {
+          { VALUES ?term { %s } FILTER EXISTS { ?s ?term ?o } }
+          UNION
+          { VALUES ?term { %s } FILTER EXISTS { ?s a ?term } }
+        }
+        """
+            .formatted(iris(properties), iris(classes));
+  }
+
   /** One row per far node, ordered so pages never overlap; one row beyond the page shows more. */
   static String expansion(final ExpandRequest request) {
     final String branches =

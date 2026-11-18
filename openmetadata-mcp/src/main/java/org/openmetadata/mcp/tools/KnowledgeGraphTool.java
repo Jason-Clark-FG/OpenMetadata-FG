@@ -37,9 +37,11 @@ import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.FindRequest;
 import org.openmetadata.service.rdf.explore.FindResult;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
+import org.openmetadata.service.rdf.explore.NoRows;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
 import org.openmetadata.service.rdf.explore.Operation;
+import org.openmetadata.service.rdf.explore.QueryPrefixes;
 import org.openmetadata.service.rdf.explore.RelationshipAbout;
 import org.openmetadata.service.rdf.explore.RunContext;
 import org.openmetadata.service.rdf.explore.RunTrace;
@@ -59,8 +61,6 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
  * ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards.
  */
 public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> {
-
-  private static final String SPARQL_QUERY_ARGUMENT = "query";
 
   /**
    * The largest response sent unless the caller asks for more: Claude Code saves a tool result
@@ -139,7 +139,19 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       String nextCursor)
       implements Response {}
 
-  public record QueryResponse(UUID run, Operation operation, SparqlQueryTool.Result result)
+  /**
+   * A query's answer: the rows that fit ({@code rows} says how many of how many and how to read the
+   * rest), what the tool can tell when there are none ({@code noRows}), and the card prefixes it
+   * declared for the query ({@code prefixesAdded}).
+   */
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  public record QueryResponse(
+      UUID run,
+      Operation operation,
+      SparqlQueryTool.Result result,
+      QueryRows rows,
+      NoRows noRows,
+      List<String> prefixesAdded)
       implements Response {}
 
   /** What a cite recorded, and what it refused because the run never reached it. */
@@ -168,7 +180,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
           authorizer, securityContext, repository, new Turn(run, budget(call)), find);
       case KnowledgeGraphCall.Expand expand -> expand(
           securityContext, repository, new Turn(run, budget(call)), expand);
-      case KnowledgeGraphCall.Query query -> query(securityContext, repository, run, query);
+      case KnowledgeGraphCall.Query query -> query(
+          securityContext, repository, new Turn(run, budget(call)), query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
       case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
     };
@@ -261,14 +274,50 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   private QueryResponse query(
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
-      final RunContext run,
+      final Turn turn,
       final KnowledgeGraphCall.Query query)
       throws IOException {
+    final RunContext run = turn.run();
+    final QueryPrefixes.Completed sparql =
+        OntologyVocabulary.canonical().completePrefixes(query.sparql());
     final SparqlQueryTool.Result result =
-        sparqlQuery.executeAuthorized(
-            securityContext, Map.of(SPARQL_QUERY_ARGUMENT, query.sparql()));
-    explorer(securityContext, repository).recordQuery(run, query.sparql(), result.body());
-    return new QueryResponse(run.run(), Operation.QUERY, result);
+        sparqlQuery.executeWhole(securityContext, sparql.sparql());
+    final KnowledgeGraphExplorer explorer = explorer(securityContext, repository);
+    final QueryRows.Fitted fitted =
+        QueryRows.fit(
+                result,
+                candidate -> queryResponse(run, candidate, null, sparql),
+                size -> size <= turn.budget())
+            .orElseGet(() -> new QueryRows.Fitted(bounded(result, turn.budget()), null));
+    explorer.recordQuery(run, sparql.sparql(), fitted.result().body());
+    final NoRows noRows =
+        fitted.rows() != null && fitted.rows().isEmpty()
+            ? explorer.explainNoRows(sparql.sparql())
+            : null;
+    return queryResponse(run, fitted, noRows, sparql);
+  }
+
+  /** A body that is not SELECT rows, such as an ASK or a graph, cut at the answer's size. */
+  private static SparqlQueryTool.Result bounded(
+      final SparqlQueryTool.Result result, final long budget) {
+    final RdfBody.Bounded body = RdfBody.bound(result.body(), (int) budget);
+    return new SparqlQueryTool.Result(
+        result.format(),
+        result.queryType(),
+        body.value(),
+        result.truncated() || body.truncated(),
+        result.byteCount(),
+        result.warning(),
+        result.completeness());
+  }
+
+  private static QueryResponse queryResponse(
+      final RunContext run,
+      final QueryRows.Fitted fitted,
+      final NoRows noRows,
+      final QueryPrefixes.Completed sparql) {
+    return new QueryResponse(
+        run.run(), Operation.QUERY, fitted.result(), fitted.rows(), noRows, sparql.added());
   }
 
   private CiteResponse cite(

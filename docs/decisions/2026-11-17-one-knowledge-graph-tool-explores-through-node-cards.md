@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -317,3 +317,24 @@ the card said `om:testsEntity` 11 and nothing more.
   of node gets them by being annotated, not by code.
 - **Trust in the facts.** `facts` carries `status` (`om:entityStatus`, such as Deprecated) beside
   `tier` and `certification`.
+
+## Amendment 2026-11-18. The query path does not mislead
+
+Of 176 calls in round two, 99 were `query`. Answers of about 90,000 characters were saved to a
+file the model never read, and three empty answers became statements that something did not
+exist.
+
+- **Fitted.** `query` reads the whole answer (up to the store's own output cap) and keeps the
+  leading rows that fit the response limit `find` and `expand` use. `rows` gives `returned`,
+  `total` and, when rows were left out, `rest`: run it again with `ORDER BY` and `OFFSET`. A body
+  that is not SELECT rows is cut at the limit as before. An answer that fits is the
+  `sparql_query` result unchanged.
+- **No rows.** An empty answer carries `noRows`: the properties and classes the query names that
+  the ontology does not declare (in its own `om:` namespace), each with the closest declared term
+  (a name containing the term's first, then at most two edits), and the declared or foreign terms
+  that no triple in the graph uses, from one extra read. Its `means` says plainly that no rows is
+  not evidence that nothing exists. The served nodes a step records are those of the rows sent.
+- **Prefixes.** A query that does not parse and uses prefixes cards name terms with (the
+  ontology's own `om:`, `dct:`, `prov:`, `skos:` and the rest) without declaring them gets their
+  declarations, listed in `prefixesAdded`, only when the result parses. The completed text is what
+  runs, through the same validation, so nothing a caller could not have written is accepted.
