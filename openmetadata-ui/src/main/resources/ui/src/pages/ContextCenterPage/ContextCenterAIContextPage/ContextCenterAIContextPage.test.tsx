@@ -189,7 +189,7 @@ describe('ContextCenterAIContextPage', () => {
     );
 
     expect(mockNavigate).toHaveBeenCalledWith(
-      '/context-center/ai-context/DataEngineer'
+      '/context-center/agent-harness/persona/DataEngineer'
     );
   });
 

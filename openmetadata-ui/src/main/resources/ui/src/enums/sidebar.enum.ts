@@ -41,5 +41,5 @@ export enum SidebarItem {
   DOCUMENTS = 'documents',
   OVERVIEW = 'overview',
   MEMORIES = 'memories',
-  AI_CONTEXT = 'ai-context',
+  AGENT_HARNESS = 'agent-harness',
 }

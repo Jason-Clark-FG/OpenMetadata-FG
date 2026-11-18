@@ -66,6 +66,8 @@ export interface SubNavItem {
   badgeColor?: BadgeColors;
   /** CTA-styled item: semibold weight, secondary text color. */
   emphasized?: boolean;
+  /** Marks a recently added item with a "New" badge after its label. */
+  isNew?: boolean;
   /**
    * Fires `emitIntent(intent)` on click instead of navigating. The
    * currently-mounted route layout listens via `useIntent`. Constrained

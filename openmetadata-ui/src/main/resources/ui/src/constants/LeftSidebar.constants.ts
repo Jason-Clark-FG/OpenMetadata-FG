@@ -65,7 +65,7 @@ export const SIDEBAR_NESTED_KEYS = {
   [ROUTES.CONTEXT_CENTER_DOCUMENTS]: ROUTES.CONTEXT_CENTER,
   [ROUTES.CONTEXT_CENTER_MEMORIES]: ROUTES.CONTEXT_CENTER,
   [ROUTES.CONTEXT_CENTER_INTEGRATIONS]: ROUTES.CONTEXT_CENTER,
-  [ROUTES.CONTEXT_CENTER_AI_CONTEXT]: ROUTES.CONTEXT_CENTER,
+  [ROUTES.CONTEXT_CENTER_AGENT_HARNESS]: ROUTES.CONTEXT_CENTER,
   [ROUTES.CONTEXT_CENTER_ARCHIVE]: ROUTES.CONTEXT_CENTER,
 };
 
@@ -238,11 +238,13 @@ export const SIDEBAR_LIST: Array<LeftSidebarItem> = [
         dataTestId: `app-bar-item-${SidebarItem.OVERVIEW}`,
       },
       {
-        key: ROUTES.CONTEXT_CENTER_AI_CONTEXT,
-        title: 'label.ai-context',
-        redirect_url: ROUTES.CONTEXT_CENTER_AI_CONTEXT,
+        key: ROUTES.CONTEXT_CENTER_AGENT_HARNESS,
+        title: 'label.agent-harness',
+        redirect_url: ROUTES.CONTEXT_CENTER_AGENT_HARNESS,
         icon: Persona,
-        dataTestId: `app-bar-item-${SidebarItem.AI_CONTEXT}`,
+        dataTestId: `app-bar-item-${SidebarItem.AGENT_HARNESS}`,
+        // TODO(2.3.0): remove the New badge; Agent Harness ships in 2.1.0 and is badged for two releases.
+        isNew: true,
       },
       {
         key: ROUTES.CONTEXT_CENTER_ARTICLES,

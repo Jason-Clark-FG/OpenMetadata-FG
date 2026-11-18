@@ -21,6 +21,7 @@ export interface LeftSidebarItemProps {
     redirect_url?: string;
     icon: SvgComponent;
     isBeta?: boolean;
+    isNew?: boolean;
     onClick?: () => void;
   };
 }

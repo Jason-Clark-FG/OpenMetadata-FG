@@ -29,6 +29,7 @@ import {
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { ROUTES } from '../../../constants/constants';
+import AIContextRedirect from '../../AppRouter/ContextCenterRouter/AIContextRedirect';
 import withSuspenseFallback from '../../AppRouter/withSuspenseFallback';
 import { AppModule } from '../../platform/ai-shell/AppModule.types';
 import { RoutePosition } from '../../Settings/Applications/plugins/AppPlugin';
@@ -93,20 +94,20 @@ const ContextCenterArchivePage = withSuspenseFallback(
   )
 );
 
-const ContextCenterAIContextPage = withSuspenseFallback(
+const AgentHarnessListPage = withSuspenseFallback(
   React.lazy(
     () =>
       import(
-        '../../../pages/ContextCenterPage/ContextCenterAIContextPage/ContextCenterAIContextPage'
+        '../../../pages/ContextCenterPage/AgentHarnessPage/AgentHarnessListPage'
       )
   )
 );
 
-const ContextCenterAIContextDetailPage = withSuspenseFallback(
+const AgentHarnessEditorPage = withSuspenseFallback(
   React.lazy(
     () =>
       import(
-        '../../../pages/ContextCenterPage/ContextCenterAIContextPage/ContextCenterAIContextDetailPage'
+        '../../../pages/ContextCenterPage/AgentHarnessPage/AgentHarnessEditorPage'
       )
   )
 );
@@ -135,23 +136,34 @@ export const contextCenterModule: AppModule = {
       position: RoutePosition.APP,
     },
     {
-      path: ROUTES.CONTEXT_CENTER_AI_CONTEXT,
+      path: ROUTES.CONTEXT_CENTER_AGENT_HARNESS,
       element: (
         <ContextCenterLayout>
-          <ContextCenterAIContextPage />
+          <AgentHarnessListPage />
         </ContextCenterLayout>
       ),
       position: RoutePosition.APP,
     },
-    {
-      path: ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL,
+    ...[
+      ROUTES.CONTEXT_CENTER_AGENT_HARNESS_DEFAULT,
+      ROUTES.CONTEXT_CENTER_AGENT_HARNESS_PERSONA,
+    ].map((path) => ({
+      path,
       element: (
         <ContextCenterLayout>
-          <ContextCenterAIContextDetailPage />
+          <AgentHarnessEditorPage />
         </ContextCenterLayout>
       ),
       position: RoutePosition.APP,
-    },
+    })),
+    ...[
+      ROUTES.CONTEXT_CENTER_AI_CONTEXT,
+      ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL,
+    ].map((path) => ({
+      path,
+      element: <AIContextRedirect />,
+      position: RoutePosition.APP,
+    })),
     {
       path: ROUTES.CONTEXT_CENTER_FILTER,
       element: (
@@ -249,11 +261,13 @@ export const contextCenterModule: AppModule = {
             path: ROUTES.CONTEXT_CENTER_OVERVIEW,
           },
           {
-            key: 'ai-context',
+            key: 'agent-harness',
             icon: Persona,
             activeIcon: Persona,
-            labelKey: 'label.ai-context',
-            path: ROUTES.CONTEXT_CENTER_AI_CONTEXT,
+            labelKey: 'label.agent-harness',
+            path: ROUTES.CONTEXT_CENTER_AGENT_HARNESS,
+            // TODO(2.3.0): remove the New badge; Agent Harness ships in 2.1.0 and is badged for two releases.
+            isNew: true,
           },
           {
             key: 'articles',
