@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -42,6 +43,7 @@ import org.openmetadata.service.rdf.explore.Direction;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.ExplorationState;
 import org.openmetadata.service.rdf.explore.NodeCard;
+import org.openmetadata.service.rdf.explore.OntologyVocabulary;
 import org.openmetadata.service.rdf.explore.Operation;
 import org.openmetadata.service.rdf.explore.RunStep;
 import org.openmetadata.service.rdf.explore.RunTraceStore;
@@ -354,6 +356,12 @@ class KnowledgeGraphToolTest {
 
     assertThat(json)
         .contains("\"operation\":\"find\"", "\"reachable\"", "\"direction\":\"outgoing\"");
+    final String ownerComment =
+        OntologyVocabulary.canonical()
+            .about("https://open-metadata.org/ontology/hasOwner")
+            .comment();
+    assertThat(json).contains("\"properties\":{", "\"om:hasOwner\":{");
+    assertThat(json.split(Pattern.quote(ownerComment), -1)).hasSize(2);
   }
 
   /** Keeps steps serialized, as the SQL store does, so a step that does not round-trip fails. */

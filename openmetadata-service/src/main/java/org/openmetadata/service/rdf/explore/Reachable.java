@@ -15,6 +15,6 @@ package org.openmetadata.service.rdf.explore;
 /**
  * One populated relationship of a node: the name a caller passes back to {@code expand}, which end
  * the node is on and how many distinct nodes are on the other side. What the relationship is comes
- * once per response, under its name in {@code relationships}.
+ * once per response, under its name in {@code properties}.
  */
 public record Reachable(String relationship, Direction direction, long count) {}

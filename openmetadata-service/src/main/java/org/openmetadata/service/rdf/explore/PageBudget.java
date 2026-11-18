@@ -34,7 +34,7 @@ final class PageBudget {
   static int rowsThatFit(
       final List<GraphExpansion.ExpansionRow> rows,
       final Map<String, NodeCard> cards,
-      final RelationshipGlossary glossary,
+      final PropertyDescriptions descriptions,
       final long maxChars) {
     final Set<String> counted = new HashSet<>();
     final Set<String> described = new HashSet<>();
@@ -43,7 +43,7 @@ final class PageBudget {
     for (final GraphExpansion.ExpansionRow row : rows) {
       final NodeCard card = counted.contains(row.other()) ? null : cards.get(row.other());
       final Set<String> names = namesOf(row, card);
-      final long cost = rowChars(row, card) + newEntryChars(names, described, glossary);
+      final long cost = rowChars(row, card) + newEntryChars(names, described, descriptions);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
@@ -57,13 +57,13 @@ final class PageBudget {
 
   /** How many leading cards fit {@code maxChars} serialized; the first card is always kept. */
   static int cardsThatFit(
-      final List<NodeCard> cards, final RelationshipGlossary glossary, final long maxChars) {
+      final List<NodeCard> cards, final PropertyDescriptions descriptions, final long maxChars) {
     final Set<String> described = new HashSet<>();
     long used = ENVELOPE_CHARS;
     int kept = 0;
     for (final NodeCard card : cards) {
-      final Set<String> names = RelationshipGlossary.namesOf(card);
-      final long cost = cardChars(card) + newEntryChars(names, described, glossary);
+      final Set<String> names = PropertyDescriptions.namesOf(card);
+      final long cost = cardChars(card) + newEntryChars(names, described, descriptions);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
@@ -77,16 +77,18 @@ final class PageBudget {
   private static Set<String> namesOf(final GraphExpansion.ExpansionRow row, final NodeCard card) {
     final Set<String> names = new HashSet<>(Set.of(row.relationship()));
     if (card != null) {
-      names.addAll(RelationshipGlossary.namesOf(card));
+      names.addAll(PropertyDescriptions.namesOf(card));
     }
     return names;
   }
 
   private static long newEntryChars(
-      final Set<String> names, final Set<String> described, final RelationshipGlossary glossary) {
+      final Set<String> names,
+      final Set<String> described,
+      final PropertyDescriptions descriptions) {
     return names.stream()
         .filter(name -> !described.contains(name))
-        .mapToLong(glossary::entryChars)
+        .mapToLong(descriptions::entryChars)
         .sum();
   }
 

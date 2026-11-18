@@ -38,6 +38,7 @@ import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
 import org.openmetadata.service.rdf.explore.Operation;
+import org.openmetadata.service.rdf.explore.RelationshipAbout;
 import org.openmetadata.service.rdf.explore.RunContext;
 import org.openmetadata.service.rdf.explore.RunTrace;
 import org.openmetadata.service.rdf.explore.RunTraceStore;
@@ -102,24 +103,27 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   }
 
   /**
-   * {@code moreMatched} counts matched nodes left out. {@code termLookupSkipped} is present only when
-   * ontology terms could not be looked for, so their absence proves nothing.
+   * {@code properties} says once what each property the cards name is. {@code moreMatched} counts
+   * matched nodes left out. {@code termLookupSkipped} is present only when ontology terms could not
+   * be looked for, so their absence proves nothing.
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record FindResponse(
       UUID run,
       Operation operation,
       List<NodeCard> nodes,
+      Map<String, RelationshipAbout> properties,
       int moreMatched,
       String termLookupSkipped)
       implements Response {}
 
-  /** {@code nextCursor} is null on the last page. */
+  /** {@code properties} as in find; {@code nextCursor} is null on the last page. */
   public record ExpandResponse(
       UUID run,
       Operation operation,
       List<ExpansionGroup> expansions,
       List<NodeCard> nodes,
+      Map<String, RelationshipAbout> properties,
       String nextCursor)
       implements Response {}
 
@@ -176,7 +180,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
                     ResponseBudget.defaultBudgetChars()),
                 catalogHits(authorizer, securityContext, find));
     return new FindResponse(
-        run.run(), Operation.FIND, found.nodes(), found.moreMatched(), found.termLookupSkipped());
+        run.run(),
+        Operation.FIND,
+        found.nodes(),
+        found.properties(),
+        found.moreMatched(),
+        found.termLookupSkipped());
   }
 
   private List<SearchHit> catalogHits(
@@ -202,6 +211,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         Operation.EXPAND,
         page.expansions(),
         page.nodes(),
+        page.properties(),
         page.nextOffset() == null ? null : PageCursor.encodeOffset(page.nextOffset()));
   }
 

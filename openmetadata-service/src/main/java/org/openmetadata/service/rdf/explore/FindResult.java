@@ -23,12 +23,12 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record FindResult(
     List<NodeCard> nodes,
-    Map<String, RelationshipAbout> relationships,
+    Map<String, RelationshipAbout> properties,
     int moreMatched,
     String termLookupSkipped) {
 
   public FindResult {
     nodes = List.copyOf(nodes);
-    relationships = Map.copyOf(relationships);
+    properties = Map.copyOf(properties);
   }
 }

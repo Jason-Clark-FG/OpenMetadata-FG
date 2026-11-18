@@ -23,17 +23,17 @@ import java.util.stream.Collectors;
 import org.openmetadata.schema.utils.JsonUtils;
 
 /**
- * What each relationship named in a response is, sent once per response: cards and groups refer to
- * a relationship by the name {@code expand} takes, and the response maps each name to the label
- * and comment the ontology gives it.
+ * What each property named in a response is, sent once per response: cards and groups refer to a
+ * relationship or a value by the property's name, and the response's {@code properties} map gives
+ * each name the label and comment the ontology has for it.
  */
-final class RelationshipGlossary {
+final class PropertyDescriptions {
 
   private static final int ENTRY_SEPARATORS = 4;
 
   private final OntologyVocabulary vocabulary;
 
-  RelationshipGlossary(final OntologyVocabulary vocabulary) {
+  PropertyDescriptions(final OntologyVocabulary vocabulary) {
     this.vocabulary = Objects.requireNonNull(vocabulary);
   }
 

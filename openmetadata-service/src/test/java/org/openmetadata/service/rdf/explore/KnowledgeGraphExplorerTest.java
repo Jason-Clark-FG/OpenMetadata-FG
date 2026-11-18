@@ -315,7 +315,7 @@ class KnowledgeGraphExplorerTest {
         explorer(InMemoryGraph.ofTurtle(turtle.toString()))
             .find(run, catalog("wide", UNBOUNDED), hits);
 
-    assertDescribedOnce(found.relationships(), JsonUtils.pojoToJson(found), predicates);
+    assertDescribedOnce(found.properties(), JsonUtils.pojoToJson(found), predicates);
   }
 
   @Test
@@ -342,8 +342,8 @@ class KnowledgeGraphExplorerTest {
                     UNBOUNDED));
 
     assertThat(page.nodes()).hasSize(20);
-    assertThat(page.relationships()).containsKey("om:upstream");
-    assertDescribedOnce(page.relationships(), JsonUtils.pojoToJson(page), predicates);
+    assertThat(page.properties()).containsKey("om:upstream");
+    assertDescribedOnce(page.properties(), JsonUtils.pojoToJson(page), predicates);
   }
 
   private static void assertDescribedOnce(

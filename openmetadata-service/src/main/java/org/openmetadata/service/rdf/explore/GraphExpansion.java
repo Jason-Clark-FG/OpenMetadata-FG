@@ -29,14 +29,14 @@ public final class GraphExpansion {
   private final GraphReader graph;
   private final NodeCardReader cards;
   private final OntologyVocabulary vocabulary;
-  private final RelationshipGlossary glossary;
+  private final PropertyDescriptions descriptions;
 
   public GraphExpansion(
       final GraphReader graph, final NodeCardReader cards, final OntologyVocabulary vocabulary) {
     this.graph = Objects.requireNonNull(graph);
     this.cards = Objects.requireNonNull(cards);
     this.vocabulary = Objects.requireNonNull(vocabulary);
-    this.glossary = new RelationshipGlossary(vocabulary);
+    this.descriptions = new PropertyDescriptions(vocabulary);
   }
 
   /** Up to {@code limit} rows, fewer when their cards would not fit {@code maxChars}. */
@@ -46,7 +46,7 @@ public final class GraphExpansion {
     final Map<String, NodeCard> cardsById = cardsOf(candidates);
     final List<ExpansionRow> page =
         candidates.subList(
-            0, PageBudget.rowsThatFit(candidates, cardsById, glossary, request.maxChars()));
+            0, PageBudget.rowsThatFit(candidates, cardsById, descriptions, request.maxChars()));
     final List<NodeCard> pageCards =
         page.stream()
             .map(ExpansionRow::other)
@@ -57,7 +57,7 @@ public final class GraphExpansion {
     return ExpansionRow.toPage(
         page,
         pageCards,
-        glossary.describe(relationshipNames(page, pageCards)),
+        descriptions.describe(relationshipNames(page, pageCards)),
         rows.size() > page.size() ? request.offset() + page.size() : null);
   }
 
@@ -65,7 +65,7 @@ public final class GraphExpansion {
       final List<ExpansionRow> page, final List<NodeCard> pageCards) {
     return Stream.concat(
             page.stream().map(ExpansionRow::relationship),
-            pageCards.stream().flatMap(card -> RelationshipGlossary.namesOf(card).stream()))
+            pageCards.stream().flatMap(card -> PropertyDescriptions.namesOf(card).stream()))
         .toList();
   }
 
@@ -98,7 +98,7 @@ public final class GraphExpansion {
     static ExpandPage toPage(
         final List<ExpansionRow> rows,
         final List<NodeCard> cards,
-        final Map<String, RelationshipAbout> relationships,
+        final Map<String, RelationshipAbout> properties,
         final Integer nextOffset) {
       final Map<GroupKey, List<String>> groups = new LinkedHashMap<>();
       rows.forEach(
@@ -106,7 +106,7 @@ public final class GraphExpansion {
       return new ExpandPage(
           groups.entrySet().stream().map(entry -> entry.getKey().group(entry.getValue())).toList(),
           cards,
-          relationships,
+          properties,
           nextOffset);
     }
   }
