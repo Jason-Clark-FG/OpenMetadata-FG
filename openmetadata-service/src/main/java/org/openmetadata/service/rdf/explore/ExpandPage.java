@@ -14,6 +14,7 @@ package org.openmetadata.service.rdf.explore;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import java.util.Map;
 
 /**
  * One page of an expansion: the groups, one card per distinct far node, and the offset of the
@@ -21,10 +22,14 @@ import java.util.List;
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExpandPage(
-    List<ExpansionGroup> expansions, List<NodeCard> nodes, Integer nextOffset) {
+    List<ExpansionGroup> expansions,
+    List<NodeCard> nodes,
+    Map<String, RelationshipAbout> relationships,
+    Integer nextOffset) {
 
   public ExpandPage {
     expansions = List.copyOf(expansions);
     nodes = List.copyOf(nodes);
+    relationships = Map.copyOf(relationships);
   }
 }

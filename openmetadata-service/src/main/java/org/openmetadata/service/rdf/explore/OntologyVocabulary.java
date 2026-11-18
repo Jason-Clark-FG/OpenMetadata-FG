@@ -91,6 +91,11 @@ public final class OntologyVocabulary {
     return abouts.getOrDefault(predicateIri, new RelationshipAbout(localName(predicateIri), null));
   }
 
+  /** What a relationship is, by the name a card gives it: a prefixed name or an absolute IRI. */
+  public RelationshipAbout aboutNamed(final String name) {
+    return about(prefixes.expandPrefix(name));
+  }
+
   /** Properties the projection never writes for a node of these types, sorted by name. */
   public List<NotCovered> notCoveredFor(final Collection<String> typeIris) {
     final Set<String> classes = withAncestors(typeIris);

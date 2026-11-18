@@ -102,7 +102,6 @@ public final class NodeCardReader {
     return new Reachable(
         vocabulary.compact(predicate),
         Direction.fromValue(row.getLiteral(ExplorationQueries.DIRECTION).getString()),
-        row.getLiteral(ExplorationQueries.COUNT).getLong(),
-        vocabulary.about(predicate));
+        row.getLiteral(ExplorationQueries.COUNT).getLong());
   }
 }

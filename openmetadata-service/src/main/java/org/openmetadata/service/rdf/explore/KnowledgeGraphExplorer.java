@@ -30,6 +30,7 @@ public final class KnowledgeGraphExplorer {
   private final OntologyVocabulary vocabulary;
   private final NodeCardReader cards;
   private final OntologyTerms terms;
+  private final RelationshipGlossary glossary;
   private final GraphExpansion expansion;
   private final NodeIris nodeIris;
   private final RunTraceStore traces;
@@ -44,6 +45,7 @@ public final class KnowledgeGraphExplorer {
     this.vocabulary = Objects.requireNonNull(vocabulary);
     this.cards = new NodeCardReader(graph, vocabulary, baseUri);
     this.terms = new OntologyTerms(graph);
+    this.glossary = new RelationshipGlossary(vocabulary);
     this.expansion = new GraphExpansion(graph, cards, vocabulary);
     this.nodeIris = new NodeIris(baseUri);
     this.traces = Objects.requireNonNull(traces);
@@ -66,14 +68,16 @@ public final class KnowledgeGraphExplorer {
         alternate(lookup.terms(), hits.stream().map(nodeIris::of).distinct().toList());
     final List<NodeCard> read =
         cards.read(matched.subList(0, Math.min(request.limit(), matched.size())));
-    final List<NodeCard> found = read.subList(0, PageBudget.cardsThatFit(read, request.maxChars()));
+    final List<NodeCard> found =
+        read.subList(0, PageBudget.cardsThatFit(read, glossary, request.maxChars()));
     record(
         run,
         Operation.FIND,
         new RunStep.Input(request.question(), List.of(), List.of(), null),
         found,
         List.of());
-    return new FindResult(found, matched.size() - found.size(), lookup.skipped());
+    return new FindResult(
+        found, glossary.describeCards(found), matched.size() - found.size(), lookup.skipped());
   }
 
   private static List<String> alternate(final List<String> first, final List<String> second) {

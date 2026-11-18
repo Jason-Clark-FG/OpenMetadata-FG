@@ -19,9 +19,10 @@ import java.util.Set;
 import org.openmetadata.schema.utils.JsonUtils;
 
 /**
- * How many leading rows of an expansion page, or cards of a find, fit a serialized size. Each far node's card is
- * counted once, and each row is charged as if it opened its own group, so the estimate is an upper
- * bound. The first row is always kept, so paging never stalls.
+ * How many leading rows of an expansion page, or cards of a find, fit a serialized size. Each far
+ * node's card, and each relationship's description, is counted once, and each row is charged as if
+ * it opened its own group, so the estimate is an upper bound. The first row is always kept, so
+ * paging never stalls.
  */
 final class PageBudget {
 
@@ -33,45 +34,69 @@ final class PageBudget {
   static int rowsThatFit(
       final List<GraphExpansion.ExpansionRow> rows,
       final Map<String, NodeCard> cards,
+      final RelationshipGlossary glossary,
       final long maxChars) {
     final Set<String> counted = new HashSet<>();
+    final Set<String> described = new HashSet<>();
     long used = ENVELOPE_CHARS;
     int kept = 0;
     for (final GraphExpansion.ExpansionRow row : rows) {
-      final long cost = cost(row, cards, counted);
+      final NodeCard card = counted.contains(row.other()) ? null : cards.get(row.other());
+      final Set<String> names = namesOf(row, card);
+      final long cost = rowChars(row, card) + newEntryChars(names, described, glossary);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
       used += cost;
       counted.add(row.other());
+      described.addAll(names);
       kept++;
     }
     return kept;
   }
 
   /** How many leading cards fit {@code maxChars} serialized; the first card is always kept. */
-  static int cardsThatFit(final List<NodeCard> cards, final long maxChars) {
+  static int cardsThatFit(
+      final List<NodeCard> cards, final RelationshipGlossary glossary, final long maxChars) {
+    final Set<String> described = new HashSet<>();
     long used = ENVELOPE_CHARS;
     int kept = 0;
     for (final NodeCard card : cards) {
-      final long cost = JsonUtils.pojoToJson(card).length() + 1L;
+      final Set<String> names = RelationshipGlossary.namesOf(card);
+      final long cost = cardChars(card) + newEntryChars(names, described, glossary);
       if (kept > 0 && used + cost > maxChars) {
         break;
       }
       used += cost;
+      described.addAll(names);
       kept++;
     }
     return kept;
   }
 
-  private static long cost(
-      final GraphExpansion.ExpansionRow row,
-      final Map<String, NodeCard> cards,
-      final Set<String> counted) {
+  private static Set<String> namesOf(final GraphExpansion.ExpansionRow row, final NodeCard card) {
+    final Set<String> names = new HashSet<>(Set.of(row.relationship()));
+    if (card != null) {
+      names.addAll(RelationshipGlossary.namesOf(card));
+    }
+    return names;
+  }
+
+  private static long newEntryChars(
+      final Set<String> names, final Set<String> described, final RelationshipGlossary glossary) {
+    return names.stream()
+        .filter(name -> !described.contains(name))
+        .mapToLong(glossary::entryChars)
+        .sum();
+  }
+
+  private static long rowChars(final GraphExpansion.ExpansionRow row, final NodeCard card) {
     final long group = GROUP_CHARS + row.node().length() + row.relationship().length();
     final long reference = row.other().length() + 3L;
-    final NodeCard card = counted.contains(row.other()) ? null : cards.get(row.other());
-    final long cardChars = card == null ? 0 : JsonUtils.pojoToJson(card).length() + 1L;
-    return group + reference + cardChars;
+    return group + reference + (card == null ? 0 : cardChars(card));
+  }
+
+  private static long cardChars(final NodeCard card) {
+    return JsonUtils.pojoToJson(card).length() + 1L;
   }
 }

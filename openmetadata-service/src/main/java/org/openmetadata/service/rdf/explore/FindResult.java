@@ -14,15 +14,21 @@ package org.openmetadata.service.rdf.explore;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Starting nodes as cards. {@code moreMatched} counts the matched nodes left out. {@code
  * termLookupSkipped} is present only when the ontology terms could not be looked for, and says why.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record FindResult(List<NodeCard> nodes, int moreMatched, String termLookupSkipped) {
+public record FindResult(
+    List<NodeCard> nodes,
+    Map<String, RelationshipAbout> relationships,
+    int moreMatched,
+    String termLookupSkipped) {
 
   public FindResult {
     nodes = List.copyOf(nodes);
+    relationships = Map.copyOf(relationships);
   }
 }

@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.openmetadata.schema.utils.JsonUtils;
 
 class NodeCardReaderTest {
 
@@ -68,15 +69,16 @@ class NodeCardReaderTest {
   }
 
   @Test
-  void reachableEntriesSayWhatIsBehindTheRelationship() {
+  void reachableEntriesNameTheRelationshipAndLeaveItsDescriptionToTheResponse() {
     final NodeCard card = reader(InMemoryGraph.ofTurtle(GRAPH)).read(List.of(ORDERS)).getFirst();
+    final String ownerComment =
+        OntologyVocabulary.canonical()
+            .about("https://open-metadata.org/ontology/hasOwner")
+            .comment();
 
-    assertThat(card.reachable())
-        .filteredOn(entry -> entry.relationship().equals("om:hasOwner"))
-        .singleElement()
-        .extracting(Reachable::about)
-        .isEqualTo(
-            OntologyVocabulary.canonical().about("https://open-metadata.org/ontology/hasOwner"));
+    assertThat(card.reachable()).extracting(Reachable::relationship).contains("om:hasOwner");
+    assertThat(ownerComment).isNotBlank();
+    assertThat(JsonUtils.pojoToJson(card)).doesNotContain(ownerComment);
   }
 
   @Test

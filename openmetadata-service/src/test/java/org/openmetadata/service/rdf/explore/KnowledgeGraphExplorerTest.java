@@ -24,8 +24,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.jena.rdf.model.Model;
 import org.junit.jupiter.api.Test;
@@ -51,6 +54,7 @@ class KnowledgeGraphExplorerTest {
 
   private static final long UNBOUNDED = Long.MAX_VALUE;
   private static final int MAX_CARDS = 10;
+  private static final long MCP_RESPONSE_BUDGET = 80_000;
 
   private final InMemoryRunTraceStore traces = new InMemoryRunTraceStore();
   private final RunContext run = new RunContext(UUID.randomUUID(), "analyst");
@@ -282,6 +286,88 @@ class KnowledgeGraphExplorerTest {
         .singleElement()
         .extracting(TraceEdge::count, TraceEdge::firstStep)
         .containsExactly(2L, 1);
+  }
+
+  @Test
+  void aFindOfTenTablesWithThirtyDescribedRelationshipsEachFitsTheResponseBudget() {
+    final List<String> predicates = DescribedRelationships.predicates(30);
+    final List<SearchHit> hits = tables(10);
+    final StringBuilder turtle = new StringBuilder();
+    hits.forEach(hit -> turtle.append(DescribedRelationships.wideTable(hit.id(), predicates)));
+
+    final FindResult found =
+        explorer(InMemoryGraph.ofTurtle(turtle.toString()))
+            .find(run, catalog("wide", MCP_RESPONSE_BUDGET), hits);
+
+    assertThat(predicates).hasSize(30);
+    assertThat(found.nodes()).hasSize(10);
+    assertThat(found.moreMatched()).isZero();
+  }
+
+  @Test
+  void aFindDescribesEachRelationshipOnceAndItsCardsReferToItByName() {
+    final List<String> predicates = DescribedRelationships.predicates(30);
+    final List<SearchHit> hits = tables(2);
+    final StringBuilder turtle = new StringBuilder();
+    hits.forEach(hit -> turtle.append(DescribedRelationships.wideTable(hit.id(), predicates)));
+
+    final FindResult found =
+        explorer(InMemoryGraph.ofTurtle(turtle.toString()))
+            .find(run, catalog("wide", UNBOUNDED), hits);
+
+    assertDescribedOnce(found.relationships(), JsonUtils.pojoToJson(found), predicates);
+  }
+
+  @Test
+  void anExpandDescribesEachRelationshipOnceAcrossItsCardsAndItsGroups() {
+    final List<String> predicates = DescribedRelationships.predicates(30);
+    final List<SearchHit> far = tables(20);
+    final StringBuilder turtle = new StringBuilder();
+    far.forEach(
+        hit ->
+            turtle
+                .append(DescribedRelationships.wideTable(hit.id(), predicates))
+                .append("e:hub om:upstream <%s> .%n".formatted(tableIri(hit))));
+
+    final ExpandPage page =
+        explorer(InMemoryGraph.ofTurtle(turtle.toString()))
+            .expand(
+                run,
+                new ExpandRequest(
+                    List.of(BASE + "entity/hub"),
+                    List.of(OM + "upstream"),
+                    Set.of(Direction.OUTGOING),
+                    20,
+                    0,
+                    UNBOUNDED));
+
+    assertThat(page.nodes()).hasSize(20);
+    assertThat(page.relationships()).containsKey("om:upstream");
+    assertDescribedOnce(page.relationships(), JsonUtils.pojoToJson(page), predicates);
+  }
+
+  private static void assertDescribedOnce(
+      final Map<String, RelationshipAbout> described,
+      final String json,
+      final List<String> predicates) {
+    final OntologyVocabulary vocabulary = OntologyVocabulary.canonical();
+    final Map<String, Long> predicatesPerComment =
+        predicates.stream()
+            .collect(
+                Collectors.groupingBy(
+                    predicate -> vocabulary.about(predicate).comment(), Collectors.counting()));
+    for (final String predicate : predicates) {
+      final RelationshipAbout about = vocabulary.about(predicate);
+      assertThat(described).containsEntry(vocabulary.compact(predicate), about);
+      final String comment = JsonUtils.pojoToJson(about.comment());
+      assertThat((long) occurrences(json, comment.substring(1, comment.length() - 1)))
+          .as("times the description of %s is sent", predicate)
+          .isEqualTo(predicatesPerComment.get(about.comment()));
+    }
+  }
+
+  private static int occurrences(final String text, final String part) {
+    return text.split(Pattern.quote(part), -1).length - 1;
   }
 
   @Test

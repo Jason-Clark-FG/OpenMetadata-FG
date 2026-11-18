@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.jena.query.QuerySolution;
 
 /** Follows named relationships from a set of nodes, one page of far nodes at a time. */
@@ -28,12 +29,14 @@ public final class GraphExpansion {
   private final GraphReader graph;
   private final NodeCardReader cards;
   private final OntologyVocabulary vocabulary;
+  private final RelationshipGlossary glossary;
 
   public GraphExpansion(
       final GraphReader graph, final NodeCardReader cards, final OntologyVocabulary vocabulary) {
     this.graph = Objects.requireNonNull(graph);
     this.cards = Objects.requireNonNull(cards);
     this.vocabulary = Objects.requireNonNull(vocabulary);
+    this.glossary = new RelationshipGlossary(vocabulary);
   }
 
   /** Up to {@code limit} rows, fewer when their cards would not fit {@code maxChars}. */
@@ -42,16 +45,28 @@ public final class GraphExpansion {
     final List<ExpansionRow> candidates = rows.subList(0, Math.min(rows.size(), request.limit()));
     final Map<String, NodeCard> cardsById = cardsOf(candidates);
     final List<ExpansionRow> page =
-        candidates.subList(0, PageBudget.rowsThatFit(candidates, cardsById, request.maxChars()));
-    return ExpansionRow.toPage(
-        page,
+        candidates.subList(
+            0, PageBudget.rowsThatFit(candidates, cardsById, glossary, request.maxChars()));
+    final List<NodeCard> pageCards =
         page.stream()
             .map(ExpansionRow::other)
             .distinct()
             .map(cardsById::get)
             .filter(Objects::nonNull)
-            .toList(),
+            .toList();
+    return ExpansionRow.toPage(
+        page,
+        pageCards,
+        glossary.describe(relationshipNames(page, pageCards)),
         rows.size() > page.size() ? request.offset() + page.size() : null);
+  }
+
+  private static List<String> relationshipNames(
+      final List<ExpansionRow> page, final List<NodeCard> pageCards) {
+    return Stream.concat(
+            page.stream().map(ExpansionRow::relationship),
+            pageCards.stream().flatMap(card -> RelationshipGlossary.namesOf(card).stream()))
+        .toList();
   }
 
   private Map<String, NodeCard> cardsOf(final List<ExpansionRow> rows) {
@@ -81,13 +96,17 @@ public final class GraphExpansion {
     }
 
     static ExpandPage toPage(
-        final List<ExpansionRow> rows, final List<NodeCard> cards, final Integer nextOffset) {
+        final List<ExpansionRow> rows,
+        final List<NodeCard> cards,
+        final Map<String, RelationshipAbout> relationships,
+        final Integer nextOffset) {
       final Map<GroupKey, List<String>> groups = new LinkedHashMap<>();
       rows.forEach(
           row -> groups.computeIfAbsent(row.key(), key -> new ArrayList<>()).add(row.other));
       return new ExpandPage(
           groups.entrySet().stream().map(entry -> entry.getKey().group(entry.getValue())).toList(),
           cards,
+          relationships,
           nextOffset);
     }
   }
