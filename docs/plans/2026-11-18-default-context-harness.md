@@ -32,8 +32,10 @@ Goals:
 4. One server contract that serves every surface people use (chat apps such as claude.ai, Claude
    Desktop, and ChatGPT; coding harnesses such as Claude Code and Codex; SDK agents), so an
    enterprise governs agent context in one place. Surface-specific code stays in thin adapters.
-5. **One agent-agnostic client** that IT pushes to every employee's machine once, and that wires
-   itself into every agent installed there, desktop or CLI, without per-agent installs (§9.6).
+5. **Zero setup for users**: admins ship one generated plugin and connector through the Claude and
+   ChatGPT admin consoles, so every employee has OpenMetadata in claude.ai, Claude Desktop,
+   ChatGPT, Codex, and Claude Code with one Connect click (§9.9). An optional binary adds
+   per-turn injection on developer machines.
 6. An **answer harness** for business questions: approved concepts → data → profile → trust →
    query run as the user → an answer with citations, DQ issues, and open incidents, with the user's
    corrections saved as memories linked to the assets used (§7).
@@ -127,9 +129,9 @@ Six parts:
    persona context (plus memories and concept routing) and returns a ranked bundle within a token
    budget for one event. It does not build a second document.
 3. **Agent memory API** (§8): capture, feedback, and a file-style interface for SDK agents.
-4. **Distribution** (§9): `om-context`, one signed binary that wires itself into every agent
-   installed on a machine (§9.1, §9.5); persona-driven MCP `instructions` and resources; and the
-   enterprise rollout that makes it the default for every employee (§9.6).
+4. **Distribution** (§9): the remote connector, a plugin that OpenMetadata generates per
+   organization and admins ship through the Claude and ChatGPT admin consoles (§9.2–§9.4), and an
+   optional `om-context` binary for developer machines (§9.5).
 5. **Answer harness** (§7): a stateful session (`start_answer`, `validate_query`, `run_query` or `report_result`,
    `finish_answer`) that
    takes a business question through approved concepts, data, profile, trust checks, execution,
@@ -150,7 +152,7 @@ All of them, but **each at the event where it is cheap and precise**. The decidi
   prompt time.**
 - **Assets** are many and large. Injecting assets without a concrete target wastes the budget.
   Inject an asset's AI Context only when (a) the request routes to it through a term or metric,
-  (b) the prompt or an open file names it, or (c) the repository is bound to it (§9.3). **Default:
+  (b) the prompt or an open file names it, or (c) the repository is bound to it (§9.7). **Default:
   on, routed and bounded (top 3, summary projection).**
 - **Lineage, data quality, and tags** matter when the agent is about to read or change a specific
   table. **Default: at PreToolUse on SQL and dbt commands, for the tables touched.**
@@ -279,15 +281,18 @@ Rules:
 
 ### 5.4 How a persona change reaches Claude and Codex without reinstalling
 
-The client never bundles persona content. It asks the server:
+Neither the plugin nor the binary bundles persona content. It is resolved on the server at run
+time:
 
-- `GET /v1/context/session` returns the caller's resolved persona (id, name, entity version,
-  context `fingerprint`), the rendered instructions, and the skill list, with an ETag. The plugin
-  calls it at SessionStart and caches it on disk. An admin's rule or prompt change takes effect at
-  the next session.
-- The plugin's hooks are fixed and generic (they call `compile` and `capture`). Everything an admin
-  changes lives in the persona, so the plugin is installed once, through managed configuration
-  (§9.5), and is never edited per team.
+- Every connector call (`get_context`, `start_answer`) resolves the caller's context through the
+  §5.3 chain, and the connector's `instructions` are rendered from it when the host connects. A rule
+  or prompt change takes effect on the next call, with nothing to redeploy.
+- With `om-context` on the machine, the SessionStart hook also calls `GET /v1/context/session`,
+  which returns the resolved persona (id, name, entity version, context `fingerprint`), the rendered
+  instructions, and the skill list, with an ETag.
+- The plugin's skills, commands, and hooks are generic. Only skills exported from persona rules
+  (`exportAsSkill`) live in the plugin, so changing those regenerates the plugin, which reaches
+  users through re-sync or marketplace auto-update (§9.3, §9.4).
 - On chat surfaces, the MCP server builds `instructions` and the `get_context` tool description
   from the caller's persona at connection time. Org skills are regenerated when an
   `exportAsSkill` rule's matches change, and the admin page shows which skills need re-uploading
@@ -658,7 +663,7 @@ differs, and each surface gets the most deterministic channel it offers.
 | Surface | Channels the host controls | How OpenMetadata reaches it | How memories are written |
 |---|---|---|---|
 | Chat apps (claude.ai, Claude Desktop, ChatGPT; Codex cloud tasks) | Org-provisioned remote MCP connectors, MCP server `instructions`, MCP resources and prompts, org-provisioned skills, project instructions | The **remote MCP server** that admins enable as an org connector. Its `instructions` and an org skill tell the model to call `get_context` first; `get_context` is the compiler exposed as one tool. Resources (`om://context/session`, `om://entity/<fqn>`) can be attached by the user. | `remember` tool, prompted by the skill and the server instructions |
-| Coding harnesses (Claude Code, Codex CLI and IDE, Cursor, Gemini CLI) | Managed settings, hooks, AGENTS.md, skills, files on disk, MCP | `om-context` (§9.1), which installs hooks that call the compiler on every turn, with no model decision; files and AGENTS.md (§9.2) for harnesses without hooks; the same remote MCP server for drill-down | Stop hook → `capture`, plus `remember` |
+| Coding harnesses (Claude Code, Codex CLI and IDE, Cursor, Gemini CLI) | Managed settings, hooks, AGENTS.md, skills, files on disk, MCP | The OpenMetadata plugin (§9.2): skills, the connector, and hooks; with `om-context` on the machine (§9.5) the hooks inject compiled context on every turn with no model decision; files and AGENTS.md (§9.6) for agents without plugins | Stop hook → `capture`, plus `remember` |
 | SDK agents (Claude Agent SDK, Messages API, OpenAI Agents SDK, internal agents) | The system prompt and tool loop the developer owns | `POST /v1/context/compile` called by the app before each model call | `capture`, `feedback`, and `memoryfs` as the backend of a file-style memory tool |
 
 Chat apps have no hooks, so delivery there is tool-mediated, and that is the weakest link. Three
@@ -667,9 +672,9 @@ measures narrow the gap:
 1. **One context entry point.** `get_context(question, entities?)` returns a compiled bundle, so
    the model makes one decision instead of choosing among about 20 tools. The existing tools stay
    for drill-down.
-2. **Server `instructions` generated from the caller's persona context** (§9.4): hosts put them in the system prompt,
+2. **Server `instructions` generated from the caller's persona context** (§9.8): hosts put them in the system prompt,
    so the first instruction the model sees tells it to call `get_context` on any data question.
-3. **An org-provisioned skill** that admins upload once (generated by OpenMetadata, §9.5). It
+3. **An org-provisioned skill** that admins upload once (generated by OpenMetadata, §9.2). It
    carries the persona frame and the "call `get_context` first, `remember` corrections" procedure.
    It loads on matching tasks, independently of tool choice.
 
@@ -677,45 +682,151 @@ The remote MCP server is the transport common to every surface: chat apps, codin
 SDK agents all support remote MCP. The plugin and files add determinism where the surface allows it,
 and do not replace the MCP server.
 
-### 9.1 The `om-context` client
+### 9.1 Three deliverables, and what each is for
 
-One signed binary per OS and architecture, `om-context`, written in Go so it needs no Python, Node,
-or JVM on the machine. It contains no persona content and no per-agent code paths beyond small
-adapters; everything an admin changes comes from the server (§5.4). Subcommands:
+| Deliverable | What it is | Who needs it | Installed by |
+|---|---|---|---|
+| **1. Connector** | The remote MCP endpoint (`https://<openmetadata>/mcp`) with OAuth through the customer's SSO, the `get_context`, answer-session, and `remember` tools, and persona-generated `instructions` | Everyone, on every surface | Nobody installs it. Admins enable it in the vendor's admin console, or the plugin references it |
+| **2. Plugin** | A folder in the Claude and Codex plugin format: skills, the connector reference, slash commands, and hooks. Generated per organization by the OpenMetadata server | Every Claude and Codex user, chat and desktop included | Admins, once, in the Claude and ChatGPT admin consoles (§9.3, §9.4). Users do nothing |
+| **3. `om-context` binary** | A small signed program for what a plugin cannot do by itself on a machine: call the compile endpoint from a hook with the user's token, check SQL before a warehouse connector runs it, serve MCP over stdio, write context files | Developers on managed machines and CI. **Business users never need it** | MDM, as part of the developer machine baseline (§9.5) |
+
+The Go binary from earlier drafts is deliverable 3, and it is optional. The connector and the plugin
+carry the whole experience in claude.ai, Claude Desktop (chat and Cowork), ChatGPT, and the Codex
+app. The binary only adds per-turn data injection and SQL checks on developer machines.
+
+### 9.2 The plugin
+
+OpenMetadata generates the plugin for each organization, so it is never edited by hand and always
+points at the right server:
+
+```text
+openmetadata/                       # generated by GET /v1/context/plugin/{format}.zip
+  .claude-plugin/plugin.json        # Claude manifest
+  .codex-plugin/plugin.json         # Codex manifest (Agent Plugins schema)
+  .mcp.json                         # the remote connector: { "openmetadata": { "type": "http", "url": "https://om.acme.com/mcp" } }
+  skills/
+    openmetadata-data-answers/SKILL.md   # when a question is about company data: start_answer → … → finish_answer, cite, remember
+    <persona-skills>/SKILL.md            # from `exportAsSkill` rules (§5.3)
+  commands/
+    ask-data.md                     # /openmetadata:ask-data <question>
+    remember.md                     # /openmetadata:remember <correction>
+  hooks/hooks.json                  # SessionStart, UserPromptSubmit, PreToolUse, Stop (see below)
+```
+
+The server also serves it as a marketplace, `GET /v1/context/plugin/marketplace.json`, so any host
+that accepts a URL marketplace source can install and auto-update it straight from OpenMetadata.
+
+What each surface loads, per Claude's platform support table (Codex is similar for skills, MCP,
+and commands):
+
+| Component | Claude chat (web, desktop, mobile) | Cowork (desktop) | Claude Code | Codex app and CLI |
+|---|---|---|---|---|
+| Skills | Loads | Loads | Loads | Loads |
+| Remote connector (fixed URL) | Listed on the plugin's Connectors tab; the user connects once | Connect once | Loads | Loads |
+| Commands | Loads as a skill | Loads | Loads | Loads |
+| Hooks | Ignored | Loads | Loads | Loads when trusted or managed (see below) |
+| Executables in a top-level `bin/` | **Refuses the whole plugin** | **Refuses the whole plugin** | Loads | — |
+
+Two constraints follow:
+
+- **The plugin carries no binary.** A top-level `bin/` makes chat and Cowork refuse the plugin,
+  and organization sync rejects it. The plugin stays content only, so one plugin installs on every
+  surface.
+- **Hooks degrade without the binary.** Each hook runs `om-context hook <event>` when
+  `om-context` is on the PATH. When it is not (most business users), the hook injects a short fixed
+  instruction instead, for example "For any question about company data, call
+  `openmetadata.start_answer` first", so the model is still steered on every turn, and the data
+  arrives through the connector the user already authorized. Where a host lets a hook call an MCP
+  tool directly (Codex documents `mcp_tool` hook handlers in managed requirements), the hook calls
+  `get_context` through the connector and needs no binary at all.
+
+In chat, where hooks are ignored, steering comes from the skill, the commands, and the connector's
+`instructions` (§9.0).
+
+### 9.3 Shipping to Claude: claude.ai, Claude Desktop, Cowork, Claude Code
+
+**Admin, once (Team or Enterprise):**
+
+1. In OpenMetadata, **Settings → AI → Agent distribution → Claude** produces the plugin, either as
+   a Git repository the customer controls (OpenMetadata can push the generated plugin to it) or as
+   a zip.
+2. In Claude, **Organization settings → Plugins & skills**: add the repository (organization sync
+   reads it through the organization's GitHub or GitLab connection) or upload the zip, and set the
+   plugin to **Required** or **Installed by default**. Members then have it in chat and Cowork,
+   and in Claude Code as a synced plugin when they sign in with their claude.ai account.
+3. For Claude Code sessions that do not sync from a claude.ai account, paste the generated JSON
+   into **Organization settings → Claude Code → Managed settings** (server-managed settings, no
+   MDM needed), or push it through MDM:
+
+   ```json
+   {
+     "extraKnownMarketplaces": {
+       "openmetadata": { "source": { "source": "url", "url": "https://om.acme.com/api/v1/context/plugin/marketplace.json" }, "autoUpdate": true }
+     },
+     "enabledPlugins": { "openmetadata@openmetadata": true }
+   }
+   ```
+
+4. Optional, for Claude Desktop under MDM: allowlist the plugin's connector and, where local MCP
+   is not wanted, keep "Allow local MCP servers" off (`com.anthropic.claudefordesktop` profile on
+   macOS, `HKLM\SOFTWARE\Policies\Claude` on Windows).
+
+**User:** opens Claude. The plugin is already there. The first time a skill calls the connector,
+Claude shows **Connect**; the user clicks it, the customer's SSO completes silently in an existing
+session, and with admin pre-approval of the organization's connector (§11) no OpenMetadata consent
+page appears. That one click is the only setup a user does.
+
+**Updates:** a persona or prompt change needs no plugin update, because the plugin fetches persona
+context at run time (§5.4). A plugin update (new skill text, new command) is a push to the
+repository plus **Re-sync**, or automatic with auto-update on the URL marketplace.
+
+### 9.4 Shipping to ChatGPT and Codex
+
+**Admin, once (Business, Enterprise, Edu):**
+
+1. Add OpenMetadata as an app (custom MCP connector) for the workspace and enable it. Apps are off
+   by default on Enterprise and Edu, so this step is required there. Expose the read-only `search`
+   and `fetch` tools (§7.2) so company knowledge consults OpenMetadata without the user choosing it.
+2. Import the generated plugin from the customer's Git repository through workspace plugin
+   management, and set its default for each role to **Install**.
+3. For the Codex app and CLI: in the admin console's **Agent security**, add the OpenMetadata
+   server to the `mcp_servers` allowlist and, if marketplaces are restricted, allow the plugin's
+   source. Cloud-managed requirements reach the Codex CLI and desktop app when users sign in with
+   ChatGPT. Requirements restrict; they do not preinstall plugins, so the plugin reaches Codex
+   through the workspace plugin default, or through `managed_config.toml` defaults (MDM payload
+   under `com.openai.codex`, or an HTTPS endpoint the customer operates) on managed machines.
+4. Hooks: Codex treats plugin hooks as needing the user's trust. For deterministic hooks on
+   managed developer machines, deliver them as managed hooks (requirements plus MDM-distributed
+   hook scripts, `[features].hooks = true`) that call `om-context`.
+
+**User:** opens ChatGPT or Codex. The app is enabled and the plugin installed; the first call asks
+the user to connect once through SSO.
+
+### 9.5 The `om-context` binary (developer machines and CI)
+
+Written in Go so it needs no Python, Node, or JVM. One signed build per OS and architecture.
 
 | Command | Purpose |
 |---|---|
-| `om-context login` | Browser OAuth through the server's existing MCP OAuth and SSO flow (device-code flow on headless machines), or a personal access token. Tokens go in the OS keychain (macOS Keychain, Windows Credential Manager, libsecret), never in config files or repos |
-| `om-context install [--agents all\|<list>] [--system]` | Detects installed agents and writes each one's configuration (§9.6). `--system` writes the machine-wide, managed locations that users cannot override |
-| `om-context hook <event> --agent <name>` | Entry point every agent's hooks call. Reads the agent's hook JSON on stdin, calls `compile` or `capture`, and writes the agent's expected output (additional context, or a block decision). Fails open on timeout |
-| `om-context mcp` | A local stdio MCP server that proxies to the remote `/mcp` endpoint with the keychain token, for agents that only launch local (stdio) MCP servers |
-| `om-context sync` | Writes the `.openmetadata/` files, the AGENTS.md section, and the persona's skills (§9.2) |
-| `om-context doctor` | Shows, per detected agent, what is installed, which channels are active, the signed-in user, the resolved persona, and the server version |
-| `om-context uninstall` | Removes exactly what `install` wrote (it records a manifest of its edits) |
+| `om-context login` | Browser SSO through the server's MCP OAuth flow (device code on headless machines). Token in the OS keychain |
+| `om-context hook <event> --agent <name>` | What plugin and managed hooks call: reads the host's hook JSON, calls `compile` or `capture`, prints the host's expected output, fails open on timeout |
+| `om-context mcp` | Local stdio MCP proxy to `/mcp`, for agents that only start local MCP servers |
+| `om-context sync` | Writes the files of §9.6 |
+| `om-context install --system [--agents all]` | For agents without a plugin system (Cursor, VS Code, Gemini CLI, …): writes their MCP config, rules files, and hooks from adapter manifests the server serves. Not needed for Claude or Codex, which get the plugin |
+| `om-context doctor` | Shows per agent what is installed, the signed-in user, and the resolved persona |
 
-**Agent adapters are data, not code.** An adapter is a small manifest: where the agent keeps its
-user and managed configuration on each OS, its config format, its hook event names and I/O shape,
-how it loads skills and MCP servers, and its instruction-file name. The binary embeds the manifests
-it was built with and fetches newer ones from the server (`GET /v1/context/agents`), signed. Support
-for a new agent, or a vendor's changed config path, therefore ships with an OpenMetadata server
-upgrade or a manifest update, not with a new binary on every laptop.
+Channels: downloads from the OpenMetadata server itself (`/downloads/om-context/<os>-<arch>`,
+version-matched to the server, works air-gapped); signed and notarized `.pkg` and `.msi` for MDM;
+Homebrew, winget, `.deb`/`.rpm`; a container image, devcontainer feature, and GitHub Action for
+CI; every artifact with checksums, an SBOM, and provenance. In managed mode it does not
+self-update; MDM updates it.
 
-### 9.1a Distribution channels for the binary
+**What business users get without it:** everything in §7 (answer harness), memories, and persona
+context, through the connector and the plugin. **What developers add with it:** context injected
+into every turn without the model deciding, the SQL check before a warehouse connector runs
+(§7.2a), context files for the repository, and support for agents that have no plugin system.
 
-| Channel | Audience | Notes |
-|---|---|---|
-| **The OpenMetadata server itself**: `GET /downloads/om-context/<os>-<arch>` and an install script at `/downloads/om-context/install.sh` and `install.ps1` | Every deployment, including air-gapped ones | The binary version matches the server, and the script pre-fills the server URL. This is the default path shown in the UI |
-| macOS `.pkg` and Windows `.msi` with a post-install `om-context install --system` | IT, through MDM (Jamf, Intune, Kandji, Workspace ONE) | Notarized and signed (Apple Developer ID, Authenticode). The package takes the server URL and agent list as MDM-provided config |
-| Homebrew tap, winget, Scoop, `.deb`/`.rpm` repos | Individual developers and Linux fleets | Same signed artifacts |
-| `npx @openmetadata/context` and `uvx openmetadata-context` shims | Agents that start MCP servers through npx or uvx, and developers who expect that | The shims download and verify the matching binary; they contain no logic |
-| Container image and a devcontainer feature; a GitHub Action `setup-om-context` | Dev containers, CI, and cloud coding agents (Codex cloud, Claude Code on the web) | Uses a bot or workload token from the secret store |
-| `.mcpb` desktop extension bundle | Claude Desktop users who cannot use an org connector | Wraps `om-context mcp` |
-
-Every artifact is signed, published with checksums, an SBOM, and a provenance attestation.
-`om-context` checks the server's advertised version at login; in managed mode, updates come from
-the MDM channel only and self-update is off.
-
-### 9.2 Files for harnesses without hooks
+### 9.6 Files for agents without plugins or hooks
 
 `om-context sync` writes:
 
@@ -726,7 +837,7 @@ the MDM channel only and self-update is off.
   `.openmetadata/context/`. AGENTS.md is read by Codex, Cursor, Copilot, Gemini CLI, and, through a
   `CLAUDE.md` link, Claude Code.
 
-### 9.3 Repository bindings
+### 9.7 Repository bindings
 
 The compiler needs to know which assets a repository touches. In order of precedence:
 
@@ -736,7 +847,7 @@ The compiler needs to know which assets a repository touches. In order of preced
 3. A server-side `workspaceBinding` record (admin-managed) that lists repo URLs per binding, so a
    binding works without a committed file.
 
-### 9.4 MCP changes
+### 9.8 MCP server changes
 
 - Server `instructions` are generated from the caller's persona context: what OpenMetadata is, the persona frame, and
   when to call which tool. Hosts place them in the system prompt, so harnesses that only install the
@@ -749,55 +860,21 @@ The compiler needs to know which assets a repository touches. In order of preced
   definitions.
 - The `remember` tool (§8.2).
 
-### 9.5 Agent coverage
+### 9.9 Rollout checklist: default for every employee
 
-What `om-context install` wires for each kind of agent. The specific paths and admin controls
-come from the adapter manifests and must be checked against each vendor's current documentation
-before each release; they change often.
+| Step | Admin action | Covers |
+|---|---|---|
+| 1 | In OpenMetadata: enable MCP with SSO; define the organization default context (or keep the built-in one) and persona contexts; pre-approve the organization's connectors (§11) | Every surface |
+| 2 | In Claude: sync or upload the generated plugin and set it **Required**; paste the managed-settings JSON for Claude Code | claude.ai, Claude Desktop chat and Cowork, Claude Code |
+| 3 | In ChatGPT: enable the OpenMetadata app; import the plugin with default **Install**; allowlist the server for Codex | ChatGPT web and desktop, company knowledge, Codex app and CLI |
+| 4 | In MDM, developer machines only: the `om-context` package and `om-context login` at first use; managed hooks for Codex | Per-turn injection and SQL checks for developers; Cursor, VS Code, Gemini CLI |
+| 5 | In OpenMetadata, **Agents** page: check coverage (who connected, from which agent) | Verification |
 
-| Agent | MCP | Hooks (deterministic) | Instructions and skills | Managed (enterprise) location |
-|---|---|---|---|---|
-| Claude Code (CLI, IDE, desktop) | Remote `/mcp` | SessionStart, UserPromptSubmit, PreToolUse, Stop | Plugin skills, CLAUDE.md link to AGENTS.md | `managed-settings.json` |
-| Codex (CLI, IDE, desktop app) | Remote `/mcp` | `hooks.json` events | `.agents/skills`, AGENTS.md | `requirements.toml`, cloud-managed config, MDM preference domain |
-| Cursor, Windsurf, VS Code with Copilot, Gemini CLI, JetBrains AI | Remote `/mcp` or `om-context mcp` | Where the agent supports hooks | Rules files and AGENTS.md | The vendor's team or enterprise settings, where offered |
-| claude.ai, Claude Desktop chat, ChatGPT | Org connector to remote `/mcp` | None | Org skills, MCP `instructions` | The vendor's admin console |
-| Agents with only an MCP config file | `om-context mcp` | None | AGENTS.md if they read it | None |
+A business user's total setup is one **Connect** click. A developer's is one SSO sign-in.
 
-The binary is agent-agnostic because the contract it implements is: (1) MCP, which every agent
-supports; (2) one hook command whose adapter translates input and output; (3) plain files that any
-agent can read. An agent that supports only (1) still gets the persona instructions and
-`get_context`; each additional channel makes delivery more deterministic.
-
-### 9.6 Rolling it out as the default for every employee
-
-The aim: on day one, an employee opens any agent and it already has their persona's context and
-writes memories to OpenMetadata, with no action from them beyond SSO.
-
-1. **Prepare the server.** Turn on MCP with SSO-backed OAuth (no per-user tokens to distribute).
-   Define the organization default context (or accept the built-in one); it covers every employee
-   without a persona context. Add persona contexts for the groups that need their own; organization
-   guardrails and memory rules apply to them too.
-2. **Web and desktop chat apps.** In the Claude Team/Enterprise and ChatGPT Business/Enterprise
-   admin consoles, add the OpenMetadata remote MCP connector for the organization and upload the
-   generated org skill. Users authorize once through SSO.
-3. **Managed machines.** Push the signed `.pkg` or `.msi` through MDM with the server URL. Its
-   post-install step runs `om-context install --system --agents all`, which writes the managed,
-   user-unmodifiable configuration of every detected agent: plugin, hooks, MCP server, skills.
-   Where an agent's managed settings can restrict MCP servers to an allowlist, the admin can also
-   make OpenMetadata the approved data-context server. Agents installed later are picked up by a
-   scheduled `om-context install --system` that MDM runs daily.
-4. **First use.** The first hook or MCP call with no token opens the SSO login once, in the browser.
-   The token lands in the keychain. No secret ever goes through MDM.
-5. **Repos, containers, and cloud agents.** Commit `.openmetadata/binding.yaml` and the agents'
-   project settings (which reference the plugin) to data repositories. Dev containers use the
-   devcontainer feature; CI and cloud coding agents use the GitHub Action or container image with a
-   bot token.
-6. **Verify coverage.** The Agents page (§10) lists who connected from which agent and client
-   version, and the share of employees with at least one connected agent in the last 7 days.
-
-The admin UI's Distribution page generates every artifact this needs: the MDM package parameters,
-the connector URL and OAuth settings, the org skill, and per-agent snippets for agents that are not
-on managed machines.
+The vendor controls named here come from Claude's and OpenAI's admin documentation as of November
+2026. They change often; the Agent distribution page must be checked against them for each
+release.
 
 ## 10. Admin and Context Center UI
 
@@ -819,7 +896,7 @@ on managed machines.
   filterable by persona, concept, and table, with the corrections each produced.
 - **Organization default context**: the same editor (rules, prompt, delivery, guardrails, memory)
   for `defaultContext`, with "Restore built-in default", and a list of which personas override it.
-- **Settings → AI → Agent distribution**: the artifacts of §9.6 and the download links of §9.1a.
+- **Settings → AI → Agent distribution**: per vendor, the generated plugin (zip, Git push, or marketplace URL), the managed-settings JSON, the connector URL and OAuth settings, the binary downloads (§9.5), and the checklist of §9.9 with each step's status.
 
 **Context Center** additions:
 
@@ -842,6 +919,11 @@ How Context Center content is used, end to end:
 
 ## 11. Security
 
+- **Pre-approved connector clients**: today every MCP sign-in shows OpenMetadata's consent page
+  after the IdP round trip (ADR:2026-10-23-mcp-sso-asks-consent-after-the-idp-round-trip). Admins
+  may mark specific client registrations (the organization's Claude and ChatGPT connectors, matched
+  by registered redirect URI) as pre-approved, so their users skip that page. Dynamically
+  registered, unknown clients keep it. This revises that ADR and needs its own security review.
 - **Authentication**: OAuth or PAT per user. A bundle is compiled as the calling user, so it never
   contains anything the user cannot view in the UI.
 - **Prompt injection through stored text**: memory bodies, article text, and descriptions are
@@ -866,8 +948,9 @@ How Context Center content is used, end to end:
 
 ## 13. Open decisions
 
-1. Client language: Go static binary (no runtime required) or a Node package (reuses the TS SDK).
-   Recommendation: Go, with npx and uvx shims.
+1. Where `om-context` lives and in what language. Recommendation: Go, in its own repository with
+   its own release pipeline (GoReleaser, signing, notarization), since this repository has no Go
+   toolchain. The plugin generator stays in the server.
 2. Whether `Workspace` is a new `memoryScope` value or an `EntityScoped` memory attached to a new
    `workspaceBinding` entity. A new entity costs more, but gives bindings an owner and RBAC.
 3. Whether PreToolUse `deny` guardrails ship enabled by default, or as `warn` only until admins
@@ -896,10 +979,10 @@ Each phase ends in a state that can be shipped and tested.
 
 | Phase | Ships | Verified by |
 |---|---|---|
-| P0 | Context resolution chain (§5.3) with the built-in default and `contextHarnessConfiguration.defaultContext`; persona context `deliverAt` and `delivery` fields; `GET /v1/context/session`; the `contextHarnessConfiguration` setting; `POST /v1/context/compile` for `sessionStart` and `promptSubmit`; the `get_context` MCP tool and persona-generated MCP `instructions` (reaches chat apps first); `om-context` (login, install, hook, mcp, doctor) for Claude Code and Codex, served from the server's downloads endpoint | Compile ITs per source and RBAC case; a connector test from claude.ai and Claude Desktop; a hook test in Claude Code and Codex against a local server |
+| P0 | Context resolution chain (§5.3) with the built-in default and `contextHarnessConfiguration.defaultContext`; persona context `deliverAt` and `delivery` fields; `GET /v1/context/session`; the `contextHarnessConfiguration` setting; `POST /v1/context/compile` for `sessionStart` and `promptSubmit`; the `get_context` MCP tool and persona-generated MCP `instructions` (reaches chat apps first); the plugin generator (`/v1/context/plugin/{format}.zip`, `marketplace.json`) with the generic skill, commands, and degrading hooks; the Agent distribution page for Claude and ChatGPT | Compile ITs per source and RBAC case; the generated plugin installs in claude.ai chat, Cowork, Claude Code, and the Codex app (no `bin/`); a hook falls back to the fixed instruction without `om-context` |
 | P1 | `AgentCapture` source type and `sourceAgent`; persona `memoryCapture`; `capture`, `feedback`, and the `remember` tool; Stop hook; Context Center Agents tab | Capture ITs (dedup, review start state, visibility); outcome recount IT |
 | P2 | `preToolUse` with SQL table extraction, lineage, DQ, and persona guardrails; repo bindings and `om-context sync` files and AGENTS.md section | Guardrail ITs (warn, deny, RBAC); binding detection tests on a dbt fixture |
-| P3 | Persona context editor additions (deliver at, delivery, guardrails, memory, export as skill) with the turn preview; Agent distribution page; signed `.pkg`/`.msi`, Homebrew, winget, shims; adapter manifests for Cursor, VS Code, Gemini CLI; `memoryfs`; `Workspace` scope | Playwright for the editor and turn preview; install/uninstall tests per adapter on macOS, Windows, Linux; memoryfs contract tests |
+| P3 | Persona context editor additions (deliver at, delivery, guardrails, memory, export as skill) with the turn preview; pre-approved connector clients; `om-context` (login, hook, mcp, sync, doctor) with signed `.pkg`/`.msi`, Homebrew, winget, server downloads; adapter manifests for Cursor, VS Code, Gemini CLI; `memoryfs`; `Workspace` scope | Playwright for the editor and turn preview; install/uninstall tests per adapter on macOS, Windows, Linux; memoryfs contract tests |
 | P4 | Answer harness, part 1: `start_answer` (stages 1–5), `finish_answer` with server-built citations, answer traces, `answerHarness` config with calendar and trust policy, MCP Apps citation view | ITs: concept binding prefers approved terms and certified metrics; trust step reports failing tests and open incidents; citations list only plan items; a scripted run of the two example questions on sample data |
 | P5 | Answer harness, part 2: `validate_query` with `queryToken`; `report_result` and the PreToolUse check on host warehouse connectors; Collate: `run_query` through SQL Studio as the user (synchronous wait, progress); executor resolution; correction detection with `refines`, owner review tasks for disputes, test-questions runner in the UI | ITs: a query outside the plan is warned or denied per config; executor resolution per deployment and persona; a host-executed result is cited as self-reported; a correction produces a linked, unapproved memory and an owner task; Playwright for the test-questions runner |
 | P6 | Eval harness and default-budget tuning; Collate chat on the compiler | Eval report comparing policies |
