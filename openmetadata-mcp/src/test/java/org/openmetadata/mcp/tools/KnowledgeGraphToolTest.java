@@ -16,6 +16,9 @@ package org.openmetadata.mcp.tools;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -34,6 +37,7 @@ import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.SparqlQueryLimits;
 import org.openmetadata.service.rdf.explore.Direction;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.ExplorationState;
@@ -155,6 +159,8 @@ class KnowledgeGraphToolTest {
 
     assertThat(response.run()).isNotNull();
     assertThat(response.moreMatched()).isZero();
+    assertThat(response.termLookupSkipped()).isNull();
+    assertThat(JsonUtils.pojoToJson(response)).doesNotContain("termLookupSkipped");
     assertThat(response.nodes())
         .extracting(NodeCard::id, NodeCard::label, NodeCard::inGraph)
         .containsExactly(tuple(ORDERS, "orders", true), tuple(CUSTOMERS, "customers", true));
@@ -323,6 +329,21 @@ class KnowledgeGraphToolTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("'owner'")
         .hasMessageContaining("reachable");
+  }
+
+  @Test
+  void aFindThatCouldNotLookForOntologyTermsSaysSoBesideTheCatalogCards() throws IOException {
+    callersAreAdministrators(false);
+    doThrow(new SparqlQueryLimits.OutputLimitExceededException())
+        .when(repository)
+        .executeAssertedSparqlQuery(contains("skos:altLabel"), anyString());
+
+    final KnowledgeGraphTool.FindResponse response =
+        (KnowledgeGraphTool.FindResponse) call(Map.of("operation", "find", "question", "orders"));
+
+    assertThat(response.nodes()).extracting(NodeCard::id).containsExactly(ORDERS, CUSTOMERS);
+    assertThat(response.termLookupSkipped()).contains("maximum response size");
+    assertThat(JsonUtils.pojoToJson(response)).contains("\"termLookupSkipped\"");
   }
 
   @Test

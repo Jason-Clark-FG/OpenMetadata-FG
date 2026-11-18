@@ -75,19 +75,27 @@ operation, changing the card shape or the `notCovered` rule means amending this 
 Search indexes no ontology concept or property, and the catalog projection leaves them out, so
 `find` could not start from a business word. It now has a second source beside search.
 
-- **Ontology terms by label.** The release graphs (`graph/ontology/<ontologyId>`, which hold only
-  each ontology's active release) are read for classes (`owl:Class`, `skos:Concept`) and
-  properties (`owl:ObjectProperty`, `owl:DatatypeProperty`, `owl:AnnotationProperty`) whose
-  `rdfs:label` or `skos:altLabel` contains the trimmed question, ignoring case. It is a plain
-  substring match: no tokenizing, stemming, ranking beyond the order below, or synonyms beyond the
-  `skos:altLabel` a release writes, so "postal code" does not match a label written "postalCode".
-  A term whose IRI is not http(s) is left out, as no card can address it. A matched term is an
-  ordinary card under its own IRI, so `expand` continues from it.
-- **Binding.** The question is bound as a literal through Jena's `ParameterizedSparqlString`; only
-  constants are formatted into the text. The read takes the same admission guard, asserted-only
-  path and output bound as card reads.
-- **Order.** Each source gives at most `limit` nodes: terms by shortest matching label, then IRI;
-  hits in search order. They alternate, a term first, and when one source runs out the other fills
+- **Ontology terms by label, word for word.** The release graphs (`graph/ontology/<ontologyId>`,
+  which hold only each ontology's active release) are read for classes (`owl:Class`,
+  `skos:Concept`) and properties (`owl:ObjectProperty`, `owl:DatatypeProperty`,
+  `owl:AnnotationProperty`). Labels (`rdfs:label`, `skos:altLabel`) and the question are cut into
+  words the same way: camel case and anything but letters and digits split words, case is
+  ignored, a plural folds to its singular (`-ies` to `-y`, a final `s` but not `ss`), and words
+  under three characters or on a fixed list of common words are dropped. A term matches when
+  every word of one of its labels is in the question, or every word of the question is in the
+  label: "which tables hold subscriber postal codes" finds "Subscriber" and "postalCode", and
+  "Age" is not found by "average". A question with no words left looks for no terms. Up to 12
+  words are used. There are no synonyms beyond the `skos:altLabel` a release writes, and no
+  stemming beyond plurals. A term whose IRI is not http(s) is left out, as no card can address
+  it. A matched term is an ordinary card under its own IRI, so `expand` continues from it.
+- **Binding.** The graph read only narrows candidates to labels containing one of the words; each
+  word goes in as its own literal through Jena's `ParameterizedSparqlString`, the type list and
+  limits are constants, and no pattern is built from caller text (the word splitting runs in Java
+  with constant patterns). The read takes the same admission guard, asserted-only path and output
+  bound as card reads, and returns at most 500 candidate labels, ordered by term IRI.
+- **Order.** Each source gives at most `limit` nodes. Terms come most specific first: the match
+  that covers more of the question's words, then the label with fewer words outside the question,
+  then the term IRI. Hits come in search order. They alternate, a term first, and when one source runs out the other fills
   the rest. At most `limit` cards are read, then cut to the response budget as before.
   `moreMatched` counts the matched nodes of both sources left out; since each source is asked for
   `limit` nodes, it does not count matches beyond that. Alternating lets a term appear when the
@@ -96,8 +104,10 @@ Search indexes no ontology concept or property, and the catalog projection leave
   kinds of term; every other value is a catalog type. Only catalog types: no term lookup. Only
   ontology types: no catalog search.
 - **Failure.** A term lookup that times out or exceeds the output bound yields no terms and is
-  logged; the catalog half answers. No active release means no terms.
+  logged, and the find response carries `termLookupSkipped` with the reason; the field is present
+  only then. The catalog half answers. No active release means no terms.
 
-Known limits: the match reads every label of every active release (`CONTAINS` uses no index), and
-its cost on a very large imported ontology is unmeasured. A response does not say when the term
-lookup was skipped.
+Known limits: the candidate read scans every label of every active release (`CONTAINS` uses no
+index), and its cost on a very large imported ontology is unmeasured. When more than 500 labels
+contain a question word, the candidates past the cut, by term IRI, are not ranked, so a more
+specific term can be missed. The common-word list is English only.

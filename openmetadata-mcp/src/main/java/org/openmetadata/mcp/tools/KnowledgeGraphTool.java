@@ -13,6 +13,7 @@
 
 package org.openmetadata.mcp.tools;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.List;
@@ -100,8 +101,17 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     Operation operation();
   }
 
-  /** {@code moreMatched} counts matched nodes left out because their cards would not fit. */
-  public record FindResponse(UUID run, Operation operation, List<NodeCard> nodes, int moreMatched)
+  /**
+   * {@code moreMatched} counts matched nodes left out. {@code termLookupSkipped} is present only when
+   * ontology terms could not be looked for, so their absence proves nothing.
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record FindResponse(
+      UUID run,
+      Operation operation,
+      List<NodeCard> nodes,
+      int moreMatched,
+      String termLookupSkipped)
       implements Response {}
 
   /** {@code nextCursor} is null on the last page. */
@@ -165,7 +175,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
                     find.limit(),
                     ResponseBudget.defaultBudgetChars()),
                 catalogHits(authorizer, securityContext, find));
-    return new FindResponse(run.run(), Operation.FIND, found.nodes(), found.moreMatched());
+    return new FindResponse(
+        run.run(), Operation.FIND, found.nodes(), found.moreMatched(), found.termLookupSkipped());
   }
 
   private List<SearchHit> catalogHits(

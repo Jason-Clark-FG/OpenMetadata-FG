@@ -55,14 +55,15 @@ public final class KnowledgeGraphExplorer {
    * IRIs the graph holds them by. The two sources alternate, a term first, and either fills the
    * places the other leaves; hits of one entity (semantic search returns one per chunk) become one
    * card. At most {@code limit} cards are read and the leading ones that fit {@code maxChars} are
-   * returned; {@code moreMatched} counts the matched nodes left out.
+   * returned; {@code moreMatched} counts the matched nodes left out, and {@code termLookupSkipped}
+   * says why when the terms could not be looked for.
    */
   public FindResult find(
       final RunContext run, final FindRequest request, final List<SearchHit> hits) {
+    final TermLookup lookup =
+        terms.matching(request.question(), request.termKinds(), request.limit());
     final List<String> matched =
-        alternate(
-            terms.matching(request.question(), request.termKinds(), request.limit()),
-            hits.stream().map(nodeIris::of).distinct().toList());
+        alternate(lookup.terms(), hits.stream().map(nodeIris::of).distinct().toList());
     final List<NodeCard> read =
         cards.read(matched.subList(0, Math.min(request.limit(), matched.size())));
     final List<NodeCard> found = read.subList(0, PageBudget.cardsThatFit(read, request.maxChars()));
@@ -72,7 +73,7 @@ public final class KnowledgeGraphExplorer {
         new RunStep.Input(request.question(), List.of(), List.of(), null),
         found,
         List.of());
-    return new FindResult(found, matched.size() - found.size());
+    return new FindResult(found, matched.size() - found.size(), lookup.skipped());
   }
 
   private static List<String> alternate(final List<String> first, final List<String> second) {

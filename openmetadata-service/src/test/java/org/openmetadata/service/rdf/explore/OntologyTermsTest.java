@@ -29,17 +29,31 @@ class OntologyTermsTest {
   static final String SUBSCRIBER = "https://example.org/model/Subscriber";
   static final String SUBSCRIPTION_PLAN = "https://example.org/model/SubscriptionPlan";
   static final String POSTAL_CODE = "https://example.org/model/postalCode";
+  static final String POSTAL_CODE_CAMEL = "https://example.org/model/postalCodeCamel";
+  static final String POSTAL_CODE_SNAKE = "https://example.org/model/postalCodeSnake";
   static final String CLIENT = "https://example.org/model/Client";
+  static final String AGE = "https://example.org/model/Age";
   static final String RELEASE_TERMS =
       """
       <%s> a owl:Class ; rdfs:label "Subscriber" .
       <%s> a owl:Class , skos:Concept ; rdfs:label "Subscription plan" .
-      <%s> a owl:DatatypeProperty ; rdfs:label "postal code" ; rdfs:domain <%s> .
+      <%s> a owl:DatatypeProperty ; rdfs:label "Postal code" ; rdfs:domain <%s> .
+      <%s> a owl:DatatypeProperty ; rdfs:label "postalCode" .
+      <%s> a owl:DatatypeProperty ; rdfs:label "postal_code" .
       <%s> a owl:Class ; rdfs:label "Client" ; skos:altLabel "Account holder" .
+      <%s> a owl:Class ; rdfs:label "Age" .
       <urn:Subscriber> a owl:Class ; rdfs:label "Subscriber in a urn" .
       <https://example.org/model> a owl:Ontology ; rdfs:label "Subscriber model" .
       """
-          .formatted(SUBSCRIBER, SUBSCRIPTION_PLAN, POSTAL_CODE, SUBSCRIBER, CLIENT);
+          .formatted(
+              SUBSCRIBER,
+              SUBSCRIPTION_PLAN,
+              POSTAL_CODE,
+              SUBSCRIBER,
+              POSTAL_CODE_CAMEL,
+              POSTAL_CODE_SNAKE,
+              CLIENT,
+              AGE);
   static final String CATALOG =
       """
       e:table-subscribers a om:Table ; rdfs:label "subscribers" .
@@ -56,45 +70,75 @@ class OntologyTermsTest {
     return InMemoryGraph.ofNamedGraphs(graphs);
   }
 
-  private final OntologyTerms terms = new OntologyTerms(releaseAndCatalog());
+  private final InMemoryGraph graph = releaseAndCatalog();
+  private final OntologyTerms terms = new OntologyTerms(graph);
 
-  @Test
-  void aConceptOfAnActiveReleaseIsFoundByPartOfItsLabelIgnoringCase() {
-    assertThat(terms.matching("SUBSCRI", EVERY_KIND, 10))
-        .containsExactly(SUBSCRIBER, SUBSCRIPTION_PLAN);
+  private TermLookup lookup(final String question) {
+    return terms.matching(question, EVERY_KIND, 10);
   }
 
   @Test
-  void aPropertyIsFoundByItsLabel() {
-    assertThat(terms.matching("Postal Code", EVERY_KIND, 10)).containsExactly(POSTAL_CODE);
+  void termsWhoseLabelAppearsInAQuestionAreFoundTheMostSpecificFirst() {
+    assertThat(lookup("which tables hold subscriber postal codes").terms())
+        .containsExactly(POSTAL_CODE, POSTAL_CODE_CAMEL, POSTAL_CODE_SNAKE, SUBSCRIBER);
+  }
+
+  @Test
+  void aTermIsFoundWhenTheQuestionAppearsInItsLabel() {
+    assertThat(lookup("subscription").terms()).containsExactly(SUBSCRIPTION_PLAN);
+  }
+
+  @Test
+  void camelCaseSnakeCaseCapitalsAndPluralsDoNotDefeatTheMatch() {
+    assertThat(lookup("postal code").terms())
+        .containsExactly(POSTAL_CODE, POSTAL_CODE_CAMEL, POSTAL_CODE_SNAKE);
+    assertThat(lookup("Postal Codes").terms())
+        .containsExactly(POSTAL_CODE, POSTAL_CODE_CAMEL, POSTAL_CODE_SNAKE);
+  }
+
+  @Test
+  void aLabelIsNeverMatchedInsideAnUnrelatedWord() {
+    assertThat(lookup("average order value").terms()).isEmpty();
+  }
+
+  @Test
+  void aQuestionOfOnlyShortOrCommonWordsLooksForNothing() {
+    assertThat(lookup("what is the id of it").terms()).isEmpty();
+    assertThat(graph.queries()).isEmpty();
   }
 
   @Test
   void aConceptIsFoundByTheAlternativeLabelTheReleaseCarries() {
-    assertThat(terms.matching("account holder", EVERY_KIND, 10)).containsExactly(CLIENT);
+    assertThat(lookup("who is the account holder").terms()).containsExactly(CLIENT);
   }
 
   @Test
   void onlyTheRequestedKindsOfTermAreMatched() {
-    assertThat(terms.matching("s", EnumSet.of(OntologyTermKind.PROPERTY), 10))
+    assertThat(
+            terms
+                .matching("subscriber postal code", EnumSet.of(OntologyTermKind.PROPERTY), 10)
+                .terms())
+        .containsExactly(POSTAL_CODE, POSTAL_CODE_CAMEL, POSTAL_CODE_SNAKE);
+    assertThat(
+            terms
+                .matching("subscriber postal code", EnumSet.of(OntologyTermKind.CONCEPT), 10)
+                .terms())
+        .containsExactly(SUBSCRIBER);
+  }
+
+  @Test
+  void labelsOutsideTheReleaseGraphsTheOntologyItselfAndUrnTermsAreNotMatched() {
+    assertThat(lookup("subscriber").terms()).containsExactly(SUBSCRIBER);
+  }
+
+  @Test
+  void theLimitKeepsTheMostSpecificTerms() {
+    assertThat(terms.matching("subscriber postal codes", EVERY_KIND, 1).terms())
         .containsExactly(POSTAL_CODE);
-    assertThat(terms.matching("postal", EnumSet.of(OntologyTermKind.CONCEPT), 10)).isEmpty();
   }
 
   @Test
-  void labelsOutsideTheReleaseGraphsAndTheOntologyItselfAreNotMatched() {
-    assertThat(terms.matching("subscriber", EVERY_KIND, 10))
-        .containsExactly(SUBSCRIBER)
-        .doesNotContain("https://open-metadata.org/entity/glossaryTerm/subscriber");
-  }
-
-  @Test
-  void theShortestMatchingLabelComesFirstAndTheLimitHolds() {
-    assertThat(terms.matching("sub", EVERY_KIND, 1)).containsExactly(SUBSCRIBER);
-  }
-
-  @Test
-  void quotesBackslashesAndBracesInTheQuestionAreMatchedAsTextAndNeverAsQuery() {
+  void quotesBackslashesAndBracesInTheQuestionAreTextAndNeverQuery() {
     final OntologyTerms hostile =
         new OntologyTerms(
             InMemoryGraph.ofNamedGraphs(
@@ -104,11 +148,11 @@ class OntologyTermsTest {
                         + "<https://example.org/model/Odd> a owl:Class ;"
                         + " rdfs:label \"Odd \\\" \\\\ } term\" .")));
 
-    assertThat(hostile.matching("\" \\ }", EVERY_KIND, 10))
+    assertThat(hostile.matching("odd\" \\ } term", EVERY_KIND, 10).terms())
         .containsExactly("https://example.org/model/Odd");
-    assertThat(hostile.matching("x\" ) ) } UNION { ?term ?p ?o } #", EVERY_KIND, 10)).isEmpty();
-    assertThat(hostile.matching("\\", EVERY_KIND, 10))
-        .containsExactly("https://example.org/model/Odd");
+    assertThat(hostile.matching("x\" ) ) } UNION { ?term ?p ?o } #", EVERY_KIND, 10).terms())
+        .isEmpty();
+    assertThat(hostile.matching("\" \\ }", EVERY_KIND, 10).terms()).isEmpty();
   }
 
   @Test
@@ -116,6 +160,11 @@ class OntologyTermsTest {
     final OntologyTerms catalogOnly =
         new OntologyTerms(InMemoryGraph.ofNamedGraphs(Map.of(KNOWLEDGE, CATALOG)));
 
-    assertThat(catalogOnly.matching("subscriber", EVERY_KIND, 10)).isEmpty();
+    assertThat(catalogOnly.matching("subscriber", EVERY_KIND, 10).terms()).isEmpty();
+  }
+
+  @Test
+  void aLookupThatRanReportsNothingSkipped() {
+    assertThat(lookup("subscriber").skipped()).isNull();
   }
 }

@@ -98,6 +98,7 @@ class KnowledgeGraphExplorerTest {
             tableIri(hits.get(2)),
             tableIri(hits.get(3)));
     assertThat(found.moreMatched()).isEqualTo(1);
+    assertThat(found.termLookupSkipped()).isNull();
   }
 
   @Test
@@ -106,23 +107,25 @@ class KnowledgeGraphExplorerTest {
     final List<SearchHit> one = tables(1);
     final KnowledgeGraphExplorer explorer = explorer(OntologyTermsTest.releaseAndCatalog());
 
-    final FindResult alternated = explorer.find(run, everything("sub", 4), three);
-    final FindResult filled = explorer.find(run, everything("sub", 5), one);
+    final String question = "subscriber subscription plan";
+
+    final FindResult alternated = explorer.find(run, everything(question, 4), three);
+    final FindResult filled = explorer.find(run, everything(question, 5), one);
 
     assertThat(alternated.nodes())
         .extracting(NodeCard::id)
         .containsExactly(
-            OntologyTermsTest.SUBSCRIBER,
-            tableIri(three.get(0)),
             OntologyTermsTest.SUBSCRIPTION_PLAN,
+            tableIri(three.get(0)),
+            OntologyTermsTest.SUBSCRIBER,
             tableIri(three.get(1)));
     assertThat(alternated.moreMatched()).isEqualTo(1);
     assertThat(filled.nodes())
         .extracting(NodeCard::id)
         .containsExactly(
-            OntologyTermsTest.SUBSCRIBER,
+            OntologyTermsTest.SUBSCRIPTION_PLAN,
             tableIri(one.get(0)),
-            OntologyTermsTest.SUBSCRIPTION_PLAN);
+            OntologyTermsTest.SUBSCRIBER);
     assertThat(filled.moreMatched()).isZero();
   }
 
@@ -166,7 +169,7 @@ class KnowledgeGraphExplorerTest {
   }
 
   @Test
-  void aTermLookupTheGraphCannotAnswerInTimeOrInBoundsLeavesTheCatalogCards() {
+  void aTermLookupTheGraphCannotAnswerLeavesTheCatalogCardsAndSaysTermsWereNotLookedFor() {
     final List<SearchHit> hits = tables(2);
     final InMemoryGraph graph = OntologyTermsTest.releaseAndCatalog();
     final List<RuntimeException> failures =
@@ -182,9 +185,12 @@ class KnowledgeGraphExplorerTest {
             }
             return graph.select(query);
           };
-      assertThat(explorer(failingTermLookup).find(run, everything("subscriber", 5), hits).nodes())
+      final FindResult found =
+          explorer(failingTermLookup).find(run, everything("subscriber", 5), hits);
+      assertThat(found.nodes())
           .extracting(NodeCard::id)
           .containsExactly(tableIri(hits.get(0)), tableIri(hits.get(1)));
+      assertThat(found.termLookupSkipped()).contains(failure.getMessage());
     }
   }
 
