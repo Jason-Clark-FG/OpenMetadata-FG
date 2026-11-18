@@ -502,9 +502,12 @@ public class ContextMemorySearchVisibility {
   }
 
   /**
-   * The principals a {@code Shared} memory may name to reach this user: the user, their teams and
-   * their domains. Public and static so every rendering of the rule derives the same set — see the
-   * class doc on the two renderings.
+   * The principals a {@code Shared} memory may name to reach this user: the user, their teams,
+   * their domains and the personas they hold ({@link SubjectContext#heldPersonaIds}). Public and
+   * static so every rendering of the rule derives the same set — see the class doc on the two
+   * renderings. Membership is read from {@code user} on every query, never from the index, so a
+   * persona or team assignment change needs no reindex. {@code user} must carry {@code teams},
+   * {@code domains}, {@code personas} and {@code defaultPersona}, as the subject cache loads it.
    */
   public static List<String> sharedPrincipalIds(User user) {
     List<String> principalIds = new ArrayList<>();
@@ -515,6 +518,7 @@ public class ContextMemorySearchVisibility {
     for (EntityReference domain : listOrEmpty(user.getDomains())) {
       principalIds.add(domain.getId().toString());
     }
+    SubjectContext.heldPersonaIds(user).forEach(persona -> principalIds.add(persona.toString()));
     return principalIds;
   }
 }

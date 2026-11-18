@@ -32,6 +32,7 @@ import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.utils.ResultList;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.resources.context.ContextMemoryVisibility;
 import org.openmetadata.service.security.DefaultAuthorizer;
 import org.openmetadata.service.security.policyevaluator.SubjectContext;
 
@@ -99,7 +100,7 @@ class ContextFileVisibilityTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {Entity.TEAM, Entity.DOMAIN})
+  @ValueSource(strings = {Entity.TEAM, Entity.DOMAIN, Entity.PERSONA})
   void aSharedPrincipalMustMatchById(String principalType) {
     EntityReference principal =
         new EntityReference().withId(UUID.randomUUID()).withType(principalType).withName(BOB);
@@ -114,14 +115,19 @@ class ContextFileVisibilityTest {
     try (MockedStatic<Entity> entities = Mockito.mockStatic(Entity.class)) {
       entities
           .when(
-              () -> Entity.getEntityByName(Entity.USER, BOB, "teams,domains", Include.NON_DELETED))
+              () ->
+                  Entity.getEntityByName(
+                      Entity.USER,
+                      BOB,
+                      ContextMemoryVisibility.SHARING_FIELDS,
+                      Include.NON_DELETED))
           .thenReturn(caller);
       assertFalse(ContextFileVisibility.isVisibleToUser(file, BOB, false));
 
-      if (Entity.TEAM.equals(principalType)) {
-        caller.withTeams(List.of(principal));
-      } else {
-        caller.withDomains(List.of(principal));
+      switch (principalType) {
+        case Entity.TEAM -> caller.withTeams(List.of(principal));
+        case Entity.DOMAIN -> caller.withDomains(List.of(principal));
+        default -> caller.withPersonas(List.of(principal));
       }
       assertTrue(ContextFileVisibility.isVisibleToUser(file, BOB, false));
     }
@@ -198,7 +204,12 @@ class ContextFileVisibilityTest {
           .thenReturn(new SubjectContext(new User().withName(BOB), null, null));
       entities
           .when(
-              () -> Entity.getEntityByName(Entity.USER, BOB, "teams,domains", Include.NON_DELETED))
+              () ->
+                  Entity.getEntityByName(
+                      Entity.USER,
+                      BOB,
+                      ContextMemoryVisibility.SHARING_FIELDS,
+                      Include.NON_DELETED))
           .thenReturn(new User().withId(UUID.randomUUID()).withName(BOB).withTeams(List.of(team)));
 
       assertEquals(shared, ContextFileVisibility.filterVisible(shared, caller));

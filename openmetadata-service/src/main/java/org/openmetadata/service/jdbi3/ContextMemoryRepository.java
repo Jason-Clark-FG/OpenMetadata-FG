@@ -573,7 +573,7 @@ public class ContextMemoryRepository extends EntityRepository<ContextMemory> {
       Set.of(Entity.CONTEXT_FILE, Entity.PAGE);
 
   private static final Set<String> ALLOWED_SHARED_PRINCIPAL_TYPES =
-      Set.of(Entity.USER, Entity.TEAM, Entity.DOMAIN);
+      Set.of(Entity.USER, Entity.TEAM, Entity.DOMAIN, Entity.PERSONA);
 
   @Override
   public void prepare(ContextMemory entity, boolean update) {

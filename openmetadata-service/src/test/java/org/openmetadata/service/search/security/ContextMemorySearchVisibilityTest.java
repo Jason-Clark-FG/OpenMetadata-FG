@@ -390,6 +390,28 @@ class ContextMemorySearchVisibilityTest {
   }
 
   @Test
+  void sharedPrincipalIdsIncludeEveryPersonaTheUserHolds() {
+    UUID assigned = UUID.randomUUID();
+    UUID inherited = UUID.randomUUID();
+    UUID byDefault = UUID.randomUUID();
+    User user =
+        new User()
+            .withId(USER_ID)
+            .withName("alice")
+            .withIsAdmin(false)
+            .withPersonas(List.of(ref(assigned, Entity.PERSONA, "analyst")))
+            .withInheritedPersonas(List.of(ref(inherited, Entity.PERSONA, "steward")))
+            .withDefaultPersona(ref(byDefault, Entity.PERSONA, "viewer"));
+
+    assertEquals(
+        Set.of(USER_ID.toString(), assigned.toString(), inherited.toString(), byDefault.toString()),
+        Set.copyOf(ContextMemorySearchVisibility.sharedPrincipalIds(user)));
+    String json = buildElasticJson(new SubjectContext(user, null));
+    assertTrue(json.contains(assigned.toString()), "the search filter admits the assigned persona");
+    assertTrue(json.contains(byDefault.toString()), "the search filter admits the default persona");
+  }
+
+  @Test
   void outerClauseUsesShouldOnlySoMinimumShouldMatchDefaultsToOne() {
     // The filter excludes invisible memories only because the outer bool is should-only, which
     // makes the engine default minimum_should_match=1. A stray must/filter sibling would flip that

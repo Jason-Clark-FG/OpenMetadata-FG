@@ -78,7 +78,10 @@ class ContextMemoryVisibilityTest {
         .when(
             () ->
                 Entity.getEntityByName(
-                    eq(Entity.USER), any(String.class), eq("teams,domains"), any()))
+                    eq(Entity.USER),
+                    any(String.class),
+                    eq(ContextMemoryVisibility.SHARING_FIELDS),
+                    any()))
         .thenAnswer(
             inv -> new User().withId(userId(inv.getArgument(1))).withName(inv.getArgument(1)));
   }
@@ -210,6 +213,50 @@ class ContextMemoryVisibilityTest {
   }
 
   @Test
+  void testSharedMemory_visibleToEveryHolderOfAListedPersona() {
+    EntityReference analyst = ref(Entity.PERSONA, "analyst", "analyst");
+    EntityReference steward = ref(Entity.PERSONA, "steward", "steward");
+    EntityReference viewer = ref(Entity.PERSONA, "viewer", "viewer");
+    resolvesTo(new User().withId(userId(BOB)).withName(BOB).withPersonas(List.of(analyst)));
+    resolvesTo(
+        new User()
+            .withId(userId("carol"))
+            .withName("carol")
+            .withInheritedPersonas(List.of(analyst)));
+    resolvesTo(new User().withId(userId("dave")).withName("dave").withDefaultPersona(analyst));
+    resolvesTo(
+        new User()
+            .withId(userId("erin"))
+            .withName("erin")
+            .withPersonas(List.of(steward))
+            .withInheritedPersonas(List.of(viewer))
+            .withDefaultPersona(viewer));
+
+    assertTrue(
+        ContextMemoryVisibility.isVisibleToUser(sharedWith(analyst), BOB, false),
+        "a persona assigned to the user");
+    assertTrue(
+        ContextMemoryVisibility.isVisibleToUser(sharedWith(analyst), "carol", false),
+        "a persona inherited from one of the user's teams");
+    assertTrue(
+        ContextMemoryVisibility.isVisibleToUser(sharedWith(analyst), "dave", false),
+        "the user's default persona");
+    assertFalse(
+        ContextMemoryVisibility.isVisibleToUser(sharedWith(analyst), "erin", false),
+        "a user holding only other personas");
+  }
+
+  @Test
+  void testSharedMemory_aPersonaGrantNeedsVisibilityShared() {
+    EntityReference analyst = ref(Entity.PERSONA, "analyst", "analyst");
+    resolvesTo(new User().withId(userId(BOB)).withName(BOB).withPersonas(List.of(analyst)));
+    ContextMemory madePrivate = sharedWith(analyst);
+    madePrivate.getShareConfig().setVisibility(MemoryVisibility.PRIVATE);
+
+    assertFalse(ContextMemoryVisibility.isVisibleToUser(madePrivate, BOB, false));
+  }
+
+  @Test
   void testSharedMemory_aPrincipalOfTheSameNameIsNotTheListedPrincipal() {
     EntityReference team = ref(Entity.TEAM, "legal", "legal");
     userBelongsTo(BOB, List.of(team), List.of(ref(Entity.DOMAIN, "legal", "emea.legal")));
@@ -233,7 +280,10 @@ class ContextMemoryVisibilityTest {
   @Test
   void testSharedMemory_hiddenFromAUserThatCannotBeResolved() {
     entityStaticMock
-        .when(() -> Entity.getEntityByName(eq(Entity.USER), eq(BOB), eq("teams,domains"), any()))
+        .when(
+            () ->
+                Entity.getEntityByName(
+                    eq(Entity.USER), eq(BOB), eq(ContextMemoryVisibility.SHARING_FIELDS), any()))
         .thenThrow(new IllegalStateException("no such user"));
 
     assertFalse(ContextMemoryVisibility.isVisibleToUser(sharedWith(principalRef(BOB)), BOB, false));
@@ -769,13 +819,30 @@ class ContextMemoryVisibilityTest {
       String userName, List<EntityReference> teams, List<EntityReference> domains) {
     entityStaticMock
         .when(
-            () -> Entity.getEntityByName(eq(Entity.USER), eq(userName), eq("teams,domains"), any()))
+            () ->
+                Entity.getEntityByName(
+                    eq(Entity.USER),
+                    eq(userName),
+                    eq(ContextMemoryVisibility.SHARING_FIELDS),
+                    any()))
         .thenReturn(
             new User()
                 .withId(userId(userName))
                 .withName(userName)
                 .withTeams(teams)
                 .withDomains(domains));
+  }
+
+  private void resolvesTo(User user) {
+    entityStaticMock
+        .when(
+            () ->
+                Entity.getEntityByName(
+                    eq(Entity.USER),
+                    eq(user.getName()),
+                    eq(ContextMemoryVisibility.SHARING_FIELDS),
+                    any()))
+        .thenReturn(user);
   }
 
   private EntityReference principalRef(String userName) {

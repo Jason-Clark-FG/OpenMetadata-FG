@@ -20,7 +20,12 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.entity.policies.Policy;
@@ -75,10 +80,24 @@ public record SubjectContext(User user, String impersonatedBy, String requestedP
   }
 
   public boolean hasPersona(UUID personaId) {
-    return listOrEmpty(user.getPersonas()).stream().anyMatch(ref -> personaId.equals(ref.getId()))
-        || listOrEmpty(user.getInheritedPersonas()).stream()
-            .anyMatch(ref -> personaId.equals(ref.getId()))
-        || (user.getDefaultPersona() != null && personaId.equals(user.getDefaultPersona().getId()));
+    return heldPersonaIds(user).contains(personaId);
+  }
+
+  /**
+   * The personas {@code user} holds: assigned directly, inherited from a team's default persona, or
+   * their default persona. A user loaded with {@code defaultPersona} carries the system default
+   * persona there when they chose none, so it counts too. Sharing with a persona reaches exactly
+   * these users.
+   */
+  public static Set<UUID> heldPersonaIds(User user) {
+    return Stream.of(
+            listOrEmpty(user.getPersonas()).stream(),
+            listOrEmpty(user.getInheritedPersonas()).stream(),
+            Stream.ofNullable(user.getDefaultPersona()))
+        .flatMap(Function.identity())
+        .map(EntityReference::getId)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   private EntityReference findRequestedPersona() {

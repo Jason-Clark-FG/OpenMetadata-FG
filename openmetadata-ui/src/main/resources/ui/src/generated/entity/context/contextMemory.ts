@@ -292,7 +292,10 @@ export interface FieldChange {
  *
  * Root memory in an append-style memory thread.
  *
- * Principal receiving access. Supported principal types are user, team, and domain.
+ * Principal receiving access. Supported principal types are user, team, domain, and
+ * persona. A persona reaches the users it is assigned to, the members of a team whose
+ * default persona it is, and the users whose default persona it is. The system default
+ * persona is the default persona of every user who has not chosen one.
  *
  * The Context Center entity (file or page) this memory was extracted from.
  *
@@ -534,7 +537,10 @@ export interface ShareConfig {
  */
 export interface SharedPrincipal {
     /**
-     * Principal receiving access. Supported principal types are user, team, and domain.
+     * Principal receiving access. Supported principal types are user, team, domain, and
+     * persona. A persona reaches the users it is assigned to, the members of a team whose
+     * default persona it is, and the users whose default persona it is. The system default
+     * persona is the default persona of every user who has not chosen one.
      */
     principal?: EntityReference;
     /**

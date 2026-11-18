@@ -75,6 +75,9 @@ public final class ContextMemoryVisibility {
   /** The field selection that already asks for every allowed field, owners included. */
   private static final String ALL_FIELDS = "*";
 
+  /** The user fields that decide which sharing principals reach them. */
+  public static final String SHARING_FIELDS = "teams,domains,personas,defaultPersona";
+
   /** Relationship fields the decision reads. */
   private static final List<String> DECISION_FIELDS =
       List.of(Entity.FIELD_OWNERS, ContextMemoryRepository.FIELD_PRIMARY_ENTITY);
@@ -508,12 +511,12 @@ public final class ContextMemoryVisibility {
 
   /**
    * Whether {@code userName} is named by a sharing list, directly or through a team or domain they
-   * belong to. Public because Context Center shares files by the same vocabulary, and one matcher
-   * is what keeps the two from drifting apart.
+   * belong to or a persona they hold. Public because Context Center shares files by the same
+   * vocabulary, and one matcher is what keeps the two from drifting apart.
    *
-   * <p>Principals are matched by id, as search matches them. Users, teams and domains are named
-   * independently of each other, so a name does not say which of them was shared with: a user who
-   * signs up under a team's name is not a member of that team.
+   * <p>Principals are matched by id, as search matches them. Users, teams, domains and personas are
+   * named independently of each other, so a name does not say which of them was shared with: a
+   * user who signs up under a team's name is not a member of that team.
    */
   public static boolean isSharedWith(List<MemorySharedPrincipal> sharedWith, String userName) {
     return isSharedWith(sharedWith, () -> resolvePrincipalIdentifiers(userName));
@@ -543,15 +546,16 @@ public final class ContextMemoryVisibility {
   }
 
   /**
-   * The ids a sharing list may name to reach {@code userName}: their own, their teams' and their
-   * domains'. A user that cannot be resolved is shared nothing.
+   * The ids a sharing list may name to reach {@code userName}: their own, their teams', their
+   * domains' and their personas'. Read from the database on every call, so a membership change
+   * applies to the next read. A user that cannot be resolved is shared nothing.
    */
   static Set<String> resolvePrincipalIdentifiers(String userName) {
     Set<String> ids = Set.of();
     if (!nullOrEmpty(userName)) {
       try {
         User user =
-            Entity.getEntityByName(Entity.USER, userName, "teams,domains", Include.NON_DELETED);
+            Entity.getEntityByName(Entity.USER, userName, SHARING_FIELDS, Include.NON_DELETED);
         ids = Set.copyOf(ContextMemorySearchVisibility.sharedPrincipalIds(user));
       } catch (RuntimeException e) {
         LOG.debug("Could not resolve shared principal ids for user '{}'", userName, e);
