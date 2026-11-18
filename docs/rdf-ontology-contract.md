@@ -315,6 +315,24 @@ extension data from older writers, and refreshes the ontology in the serving
 dataset. Query extensions using the fixed key/value vocabulary above. The rebuild
 uses the configured dataset strategy and durable live-write recovery process.
 
+## Self-description for agents
+
+Every predicate the projection stores carries an `rdfs:comment` written for a model reading it
+cold: what is on the other side of the edge or in the value, and when it matters. Every class the
+projection types nodes with is declared with a comment. `rdfs:domain` and `rdfs:range` are asserted
+only where they hold for every use; a predicate shared by several entity types says so in its
+comment and leaves its domain open. Fallback `om:<field>` literals take their wording from the
+field's JSON Schema description, and say when the value is JSON text rather than a graph edge.
+
+Read one entry instead of the whole file with the MCP tool `ontology_describe` and `term`, a
+prefixed name such as `om:Table` or a full IRI. A class comes back with every property whose declared
+domain is the class or one of its superclasses, in full, and with every shared property recorded for
+it by label and comment; a property comes back on its own. A shared property is one with an open
+domain: `schema:domainIncludes` records each class the projection writes it on, as an annotation that
+entails nothing, so `om:hasColumn` and `om:downstream` appear in the entry for `om:Table`. Like the
+full ontology, a term read needs no permission. The largest class entry, `om:Table`, is about 53 KB of
+Turtle against the 80,000-byte default response budget; the full file is about 349 KB. See ADR:2026-11-18-ontology-terms-describe-themselves-and-read-one-at-a-time.
+
 ## Regression coverage
 
 `RdfColumnLineageTraversalTest` builds a graph of about 5,000 column mappings through the two
@@ -332,6 +350,13 @@ issue #34307), and requires explicit annotations for unprojected
 terms. A Java syntax-tree scan additionally checks constant predicates in
 conditional mapper branches. The tests never derive the writer's predicate list
 from the ontology itself.
+
+`RdfOntologyDescriptionContractTest` fails when a stored predicate or a projected class has no
+comment, when a projected subject falls outside a declared domain or, for a shared predicate,
+outside its recorded `schema:domainIncludes` classes, and when a value contradicts a declared range:
+a literal under a class range, or a datatype other than a declared `xsd:` range.
+Terms whose descriptions belong to branches still in flight are listed there as temporary
+exemptions.
 
 When adding a projection, update the ontology and extend the structured fixture
 if needed. New schema fields are sampled automatically. Unregistered writer
