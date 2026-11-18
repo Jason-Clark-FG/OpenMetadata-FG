@@ -21,7 +21,7 @@ the design doc is amended in the same PR series (§10, step 0).
 | Events | 4 (no PostToolUse); budgets 2,000 / 1,500 / 800 | 5 events: SessionStart 6,000, UserPromptSubmit 4,000, PreToolUse 2,000, PostToolUse 1,000, Stop 1,000; per-turn budget 20,000 | Add `PostToolUse` (DQ issues, freshness on query output). Validation: per-turn budget ≥ sum of enabled event budgets |
 | Sources | Rules only (entity type + query filter) | Explicitly picked glossary terms, metrics, articles, plus asset rules | `sources.glossaryTerms`, `metrics`, `articles` as reference lists, compiled like `alwaysInContext` items, plus `assetRules` (existing rule shape) |
 | Guardrails | tag/status → warn/deny/none | Server-registered guardrail ids with Off / Warn / Block; seeds: Prefer certified tables (Warn), Block deprecated assets (Block), PII columns need masking (Block), Flag open incidents (Warn), Query cost ceiling (Off) | Guardrail registry in the server (§2.3) |
-| Memory | `requireReview`, `defaultVisibility` (memory visibility enum) | Capture, link to assets, deduplicate; review AutoPublish / StewardReview / AuthorOnly; visibility Private / Persona / Organization | Mapping and two decisions in §2.4 (AutoPublish vs ADR:2026-10-09-data-consumers-create-context-memories; "Persona" visibility has no principal type today) |
+| Memory | `requireReview`, `defaultVisibility` (memory visibility enum) | Capture, link to assets, deduplicate; review AutoPublish / StewardReview / AuthorOnly; visibility Private / Persona / Organization | Mapping in §2.4. **AutoPublish is dropped** to keep ADR:2026-10-09-data-consumers-create-context-memories; review is Steward review or Author only. "Persona" visibility adds `persona` as a memory share principal |
 | Plugin contents | Skills, `.mcp.json`, hooks; no `bin/` | Adds instructions as `CLAUDE.md · AGENTS.md` and guardrails as `policy.json` | Claude plugins do not load `CLAUDE.md` or `policy.json` (§5.2). Instructions ship as an always-on skill plus MCP server `instructions`; `policy.json` is read by `om-context` and is informational elsewhere. The UI labels stay; the file list in the panel is corrected |
 | Preview | `GET .../preview?event=` | "The preview reflects unsaved draft state" | `POST .../preview` with an optional draft body (§3) |
 
@@ -52,7 +52,7 @@ HarnessSpec
   instructions: { company?: markdown, persona?: markdown }  # company only on Default; persona only on Persona
   skills:  [{ name, enabled }]
   guardrails: [{ id, level: Off | Warn | Block }]
-  memory: { capture, linkAssets, dedup, review: AutoPublish | StewardReview | AuthorOnly,
+  memory: { capture, linkAssets, dedup, review: StewardReview | AuthorOnly,
             visibility: Private | Persona | Organization }
   answerHarness: { … }                                     # design doc §7.3; not edited by this UI yet
 ```
@@ -75,13 +75,19 @@ Postgres, idempotent, Java data migration because FQN hashes are computed in Jav
    `published` spec carries the rules (as `assetRules`, including glossary, metric, and page rules
    as they are), the prompt (as `instructions.persona`), `characterBudget`, `cacheTtlMinutes`, and
    `enabled`. Status `Published`, so behavior does not change on upgrade.
-3. Leave `persona.contextDefinition` in place for one release, read-only, and serve the existing
-   `/v1/personas/{id}/aiContext*` endpoints from the harness (compatibility shim, deprecation
-   notice in the API docs). Remove both in the release after.
+3. Remove `persona.contextDefinition` from the schema and its stored JSON in the same migration,
+   and remove the `/v1/personas/{id}/aiContext*`, `/v1/personas/aiContext/status`, and
+   `/v1/personas/{id|name}/context` endpoints in the same release. No compatibility layer: the UI
+   moves to `/v1/agentHarness` in the same release, and the MCP `get_persona_context` tool reads the
+   resolved harness.
 
 Guard test: a migration IT that seeds personas with contexts on the old schema, runs the migration
-twice (idempotent), and asserts harnesses, compiled output, and the old endpoints' responses are
-unchanged.
+twice (idempotent), and asserts the harnesses and that each persona's compiled context is
+unchanged when read through the harness.
+
+Before removing the endpoints, search the Collate repository for callers of the removed REST paths,
+`PersonaContextDefinition`, and `persona.getContextDefinition()`, and land the Collate change with
+this PR (the PR's Compatibility check builds Collate against it).
 
 ### 2.3 Guardrail and skill registries
 
@@ -100,11 +106,11 @@ unchanged.
 | Capture | `capture` endpoint and `remember` tool accept writes for members |
 | Link to assets used | `primaryEntity` and `relatedEntities` from the answer plan (design doc §7.5) |
 | Deduplicate | Run `SemanticMemoryDuplicateFinder` before insert (already default; the toggle allows turning it off for testing only) |
-| Review: StewardReview | Memory starts unapproved; existing review flow (today's behavior) |
+| Review: StewardReview (default) | Memory starts unapproved; existing review flow (today's behavior) |
 | Review: AuthorOnly | Memory stays `Private` to its author; no review, never shared |
-| Review: AutoPublish | Memory approved on capture. **Conflicts with ADR:2026-10-09-data-consumers-create-context-memories** (a non-admin's memory starts unapproved and only a review approves it). Decision needed: either allow AutoPublish only with Private visibility, or revise the ADR |
+| Review: AutoPublish | **Not offered.** ADR:2026-10-09-data-consumers-create-context-memories stands: a non-admin's memory starts unapproved and only a review approves it. The UI's Review control has two options, Steward review and Author only |
 | Visibility: Private | `shareConfig.visibility = Private` |
-| Visibility: Persona | No persona principal type in `sharedPrincipal` today (user, team, domain). Options: add `persona` as a principal type with visibility checks in `ContextMemorySearchVisibility`, or resolve to the persona's teams. Recommendation: add the principal type |
+| Visibility: Persona | `shareConfig.visibility = Shared` with a `sharedWith` entry whose principal is the persona. New: `persona` becomes a supported principal type in `contextMemory.sharedPrincipal` (today user, team, domain); `ContextMemoryVisibility`, `ContextMemorySearchVisibility` (search filter), and share validation accept it, and the persona's assigned users read the memory |
 | Visibility: Organization | `Public` |
 
 ## 3. Server API
@@ -132,7 +138,12 @@ today).
 
 Compile path changes (design doc §6): the turn compiler reads the **resolved published** harness;
 `PersonaContextBuilder` and `PersonaContextCache` are keyed by harness id and spec hash instead of
-persona id. The Collate chat path reads through the same cache.
+persona id.
+
+The Collate chat path is out of scope: it keeps its own architecture and decides separately whether
+to adopt the harness. Whatever server-side Java API it calls today for a persona's compiled context
+(`PersonaContextCache.getForCaller(persona, …)` and the persona prompt) keeps its signature and
+returns the same content, now read from that persona's published harness.
 
 ## 4. MCP
 
@@ -154,8 +165,13 @@ persona id. The Collate chat path reads through the same cache.
 | Codex & Claude Code | `curl -fsSL https://<om>/downloads/om-context/install.sh \| sh -s -- --codex --claude-code --with-hooks`, and an MDM snippet (managed settings JSON for Claude Code; `managed_config.toml` payload for Codex) | Server URL, marketplace URL |
 
 Generation is deterministic: the same published inputs produce byte-identical archives (sorted
-entries, fixed timestamps), so "signed" and the version are stable. Signing uses a server-held key;
-the public key is published at `/downloads/om-context/signing-key`.
+entries, fixed timestamps), so "signed" and the version are stable.
+
+Signing uses a **per-deployment key**: an Ed25519 key pair generated on first use, the private key
+stored encrypted through the secrets manager like other server secrets, the public key served at
+`/v1/agentHarness/plugin/signing-key` and shown on the Surfaces tab. Rotation generates a new pair,
+re-signs on the next generation, and keeps the previous public key listed for one rotation so
+installed plugins can still be verified.
 
 ### 5.2 Corrections to the UI spec's plugin panel
 
@@ -283,7 +299,8 @@ What each test proves, by layer. New ITs and classes are recorded in
 | `HarnessPatchValidatorTest` | 400 for a patch touching an inherited path, a guardrail below minimum, an event budget above the default's, a per-turn budget below the enabled sum, non-positive integers; 200 for valid additions |
 | `PluginGeneratorTest` | Claude zip has the manifest, `.mcp.json` with the server URL, enabled skills only, hooks, `policy.json`, and **no top-level `bin/`**; two runs on the same inputs produce identical bytes; ChatGPT manifest validates against its JSON schema |
 | `GuardrailRegistryTest` | Seed ids and default levels match the UI spec |
-| `MemorySettingsMapperTest` | Each review and visibility value maps per §2.4 |
+| `MemorySettingsMapperTest` | Each review and visibility value maps per §2.4; AutoPublish is rejected |
+| `PluginSignerTest` | Signature verifies with the published key; rotation keeps the previous key verifiable |
 
 ### 7.2 Integration tests (`openmetadata-integration-tests`)
 
@@ -293,8 +310,9 @@ What each test proves, by layer. New ITs and classes are recorded in
 | `AgentHarnessAuthorizationIT` | Non-admin: read allowed per `ViewAll`, every write 403; admin can write; preview as another user is admin-only and never returns entities that user cannot see |
 | `AgentHarnessInheritanceIT` | Writes to inherited items rejected over REST, not only in the UI; guardrail minimum enforced; changing the default changes every persona's resolved harness after publish |
 | `AgentHarnessPreviewIT` | Preview with a draft body reflects it without persisting; SessionStart, UserPromptSubmit, PreToolUse payloads stay within their budgets; segments sum to `used` |
-| `AgentHarnessMigrationIT` | Personas with contexts become published persona harnesses; running the migration twice changes nothing; compiled output and the old `/personas/{id}/aiContext*` responses are unchanged |
-| `PersonaAIContextIT` (existing, 19 tests) | Still passes through the compatibility shim |
+| `AgentHarnessMigrationIT` | Personas with contexts become published persona harnesses with the same rules, prompt, budget, and TTL; `contextDefinition` is gone from persona JSON; running the migration twice changes nothing; each persona's compiled context is unchanged |
+| `PersonaAIContextIT` (existing, 19 tests) | Rewritten as harness tests: cases that still apply (caller visibility, budget truncation, search scope, membership authorization) move to `AgentHarnessResourceIT` and `AgentHarnessPreviewIT`; endpoint-shape cases are deleted with the endpoints |
+| `PersonaMemoryVisibilityIT` | A memory shared with a persona is visible to its members in get, list, and search, and invisible to others; removing a user from the persona removes access |
 | `AgentHarnessPluginIT` | `target=claude` zip, `chatgpt` manifest, `cli` command; `marketplace.json` lists the plugin; published-only inputs (a draft never leaks into the plugin) |
 | `McpHarnessInstructionsIT` | MCP `instructions` contain the company instructions and the caller's persona prompt; a user without a persona harness gets the default's only |
 | `AgentHarnessSurfacesIT` | A session from a known client marks its surface Connected; none marks Not connected |
@@ -361,10 +379,11 @@ Each PR ends in a state that is tested and shippable behind the flag.
 
 | # | PR | Done when |
 |---|---|---|
-| 0 | Amend the design doc per §1; add an ADR: "Agent harness is an entity; persona harnesses extend the default" | Doc and ADR reviewed |
+| 0 | Amend the design doc per §1; add an ADR: "Agent harness is an entity; persona harnesses extend the default", recording §12 | Doc and ADR reviewed |
 | 1 | Spec: `agentHarness.json`, `HarnessSpec`, guardrail and skill types; `make generate` | Generated Java, Python, TS compile |
 | 2 | Server: repository, resource, resolver, patch validator, registries, permissions, seeded default | §7.1 unit tests; `AgentHarnessResourceIT`, `AuthorizationIT`, `InheritanceIT` |
-| 3 | Migration and compatibility shim | `AgentHarnessMigrationIT`; `PersonaAIContextIT` green |
+| 3 | Migration; removal of `persona.contextDefinition` and the persona AI context endpoints; MCP `get_persona_context` on the harness; Collate change for removed APIs | `AgentHarnessMigrationIT`; rewritten persona context cases green; Compatibility check green |
+| 3a | `persona` memory share principal | `PersonaMemoryVisibilityIT` |
 | 4 | Compile cache keyed by harness; preview endpoint; MCP instructions | `AgentHarnessPreviewIT`, `McpHarnessInstructionsIT`, existing `AIContext*IT` green |
 | 5 | Plugin generator, marketplace, surfaces | `PluginGeneratorTest`, `AgentHarnessPluginIT`, `SurfacesIT`; real-host check of the Claude zip |
 | 6 | UI: routes, redirects, sidebar, REST client, list page | Jest for list and router; Playwright navigation |
@@ -375,8 +394,14 @@ Each PR ends in a state that is tested and shippable behind the flag.
 
 ## 11. Open decisions
 
-1. AutoPublish review mode against ADR:2026-10-09-data-consumers-create-context-memories (§2.4).
-2. "Persona" memory visibility: new `persona` principal type (recommended) or resolve to teams.
-3. Compatibility shim lifetime for `/v1/personas/{id}/aiContext*` (recommended: one release).
-4. Whether the Collate chat path reads the harness from day one or after track B.
-5. Plugin signing key management: per deployment key (recommended) or a Collate-wide key.
+None open. The decisions taken on 2026-11-18 are in §12.
+
+## 12. Decisions
+
+| # | Decision | Effect in this plan |
+|---|---|---|
+| 1 | Keep ADR:2026-10-09-data-consumers-create-context-memories | No AutoPublish review mode; agent memories start unapproved (§2.4) |
+| 2 | Add `persona` as a memory share principal | "Persona" visibility shares with the persona's members (§2.4, PR 3a) |
+| 3 | No compatibility layer; migrate in one release | `contextDefinition` and the persona AI context endpoints are removed with the migration (§2.2, PR 3) |
+| 4 | Collate chat is out of scope | It keeps its own architecture; the server-side Java API it uses for persona context returns the same content (§3) |
+| 5 | Per-deployment signing key | Ed25519 pair per deployment, private key in the secrets manager, rotation keeps the previous public key (§5.1) |
