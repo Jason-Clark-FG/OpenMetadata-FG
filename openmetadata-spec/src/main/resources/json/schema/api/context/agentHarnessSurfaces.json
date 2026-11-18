@@ -1,0 +1,83 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/agentHarnessSurfaces.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarnessSurfaces",
+  "description": "The AI surfaces an agent harness reaches, and whether each has called OpenMetadata lately, returned by `GET /v1/agentHarness/surfaces`.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AgentHarnessSurfaces",
+  "definitions": {
+    "surfaceId": {
+      "javaType": "org.openmetadata.schema.api.context.AgentHarnessSurfaceId",
+      "description": "An AI surface that can connect to OpenMetadata.",
+      "type": "string",
+      "enum": ["claudeChat", "claudeDesktop", "cowork", "claudeCode", "codex", "chatGpt"],
+      "javaEnums": [
+        { "name": "CLAUDE_CHAT" },
+        { "name": "CLAUDE_DESKTOP" },
+        { "name": "COWORK" },
+        { "name": "CLAUDE_CODE" },
+        { "name": "CODEX" },
+        { "name": "CHAT_GPT" }
+      ]
+    },
+    "surfaceStatus": {
+      "javaType": "org.openmetadata.schema.api.context.AgentHarnessSurfaceStatus",
+      "description": "Connected when the surface called an MCP tool in the last 7 days. The surface names itself in its User-Agent, so this is a usage signal and not attestation.",
+      "type": "string",
+      "enum": ["Connected", "NotConnected"],
+      "javaEnums": [
+        { "name": "CONNECTED" },
+        { "name": "NOT_CONNECTED" }
+      ]
+    },
+    "surface": {
+      "javaType": "org.openmetadata.schema.api.context.AgentHarnessSurface",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/surfaceId"
+        },
+        "name": {
+          "description": "Display name of the surface.",
+          "type": "string"
+        },
+        "skills": {
+          "description": "The surface loads the plugin's skill.",
+          "type": "boolean"
+        },
+        "connector": {
+          "description": "The surface connects to the OpenMetadata MCP server.",
+          "type": "boolean"
+        },
+        "hooks": {
+          "description": "The surface runs the plugin's hooks, which deliver the harness at each event.",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/surfaceStatus"
+        },
+        "lastSeenAt": {
+          "description": "Time of the surface's latest MCP tool call in the last 7 days (epoch millis, UTC). Absent when there was none.",
+          "$ref": "../../type/basic.json#/definitions/timestamp"
+        },
+        "lastPluginVersion": {
+          "description": "Plugin version the surface last reported. Absent when the surface does not report one.",
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "skills", "connector", "hooks", "status"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "surfaces": {
+      "description": "One entry per surface.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/surface"
+      }
+    }
+  },
+  "required": ["surfaces"],
+  "additionalProperties": false
+}

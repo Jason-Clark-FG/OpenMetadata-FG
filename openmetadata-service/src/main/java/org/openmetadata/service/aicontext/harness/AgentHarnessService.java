@@ -29,11 +29,13 @@ import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
 import org.openmetadata.schema.api.context.AgentHarnessStatus;
+import org.openmetadata.schema.api.context.AgentHarnessSurfaces;
 import org.openmetadata.schema.api.context.CompileAgentContext;
 import org.openmetadata.schema.api.context.CompileEvent;
 import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.context.PreviewAgentHarness;
 import org.openmetadata.schema.api.context.ResolvedAgentHarness;
+import org.openmetadata.schema.entity.app.AppExtension;
 import org.openmetadata.schema.entity.context.AgentHarness;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
@@ -50,9 +52,11 @@ import org.openmetadata.schema.utils.ResultList;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.PersonaContextBuilder;
 import org.openmetadata.service.aicontext.PersonaContextCache;
+import org.openmetadata.service.apps.bundles.mcp.McpAppConstants;
 import org.openmetadata.service.exception.PreconditionFailedException;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository.DraftSlot;
+import org.openmetadata.service.jdbi3.CollectionDAO;
 import org.openmetadata.service.jdbi3.ListFilter;
 import org.openmetadata.service.jdbi3.PersonaRepository;
 import org.openmetadata.service.util.EntityUtil.Fields;
@@ -128,6 +132,23 @@ public final class AgentHarnessService {
   /** Agent host settings that enforce the published default's MCP access. */
   public AgentHarnessManagedSettings managedSettings(final String serverUrl) {
     return ManagedSettingsBuilder.build(harnesses.getDefault().getToolAccess(), serverUrl);
+  }
+
+  /** Which AI surfaces called an MCP tool in the last 7 days. */
+  public AgentHarnessSurfaces surfaces() {
+    final CollectionDAO.AppExtensionTimeSeries usage =
+        Entity.getCollectionDAO().appExtensionTimeSeriesDao();
+    return SurfaceStatusReader.read(
+        System.currentTimeMillis(),
+        (pattern, since) -> {
+          final Long latest =
+              usage.latestTimestampByClientName(
+                  McpAppConstants.MCP_APP_NAME,
+                  AppExtension.ExtensionType.LIMITS.toString(),
+                  since,
+                  pattern);
+          return latest == null ? -1L : latest;
+        });
   }
 
   public AgentHarnessState defaultState() {

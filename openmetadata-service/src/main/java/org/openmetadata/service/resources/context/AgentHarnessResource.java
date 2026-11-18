@@ -47,6 +47,7 @@ import org.openmetadata.schema.api.context.AgentHarnessManagedSettings;
 import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
+import org.openmetadata.schema.api.context.AgentHarnessSurfaces;
 import org.openmetadata.schema.api.context.CompileAgentContext;
 import org.openmetadata.schema.api.context.CompileEvent;
 import org.openmetadata.schema.api.context.CompiledAgentContext;
@@ -59,6 +60,7 @@ import org.openmetadata.schema.type.EntityHistory;
 import org.openmetadata.schema.type.MetadataOperation;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.ResultList;
+import org.openmetadata.schema.utils.VersionUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.OpenMetadataApplicationConfig;
 import org.openmetadata.service.aicontext.PersonaContextBuilder;
@@ -67,6 +69,7 @@ import org.openmetadata.service.aicontext.harness.AgentHarnessCompiler;
 import org.openmetadata.service.aicontext.harness.AgentHarnessService;
 import org.openmetadata.service.aicontext.harness.GuardrailRegistry;
 import org.openmetadata.service.aicontext.harness.HarnessContexts;
+import org.openmetadata.service.aicontext.harness.PluginBuilder;
 import org.openmetadata.service.aicontext.harness.SkillRegistry;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository;
 import org.openmetadata.service.jdbi3.PersonaRepository;
@@ -95,6 +98,8 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
   public static final String COLLECTION_PATH = "/v1/agentHarness";
   private static final String UUID_PATTERN = "{id:[0-9a-fA-F\\-]{36}}";
   private static final String MCP_PATH = "/mcp";
+  private static final String PLUGIN_TARGET_CLAUDE = "claude";
+  private static final String VERSION_RESOURCE = "/catalog/VERSION";
 
   private final AgentHarnessService service;
 
@@ -135,6 +140,41 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
       @Context final UriInfo uriInfo, @Context final SecurityContext securityContext) {
     authorizer.authorizeAdmin(securityContext);
     return service.managedSettings(mcpServerUrl(uriInfo));
+  }
+
+  @GET
+  @Path("/plugin")
+  @Produces("application/zip")
+  @Operation(
+      operationId = "getAgentHarnessPlugin",
+      summary = "Download the OpenMetadata plugin for an AI agent host",
+      description =
+          "A zip of the skill, MCP connector and hooks, built per request from the server URL and "
+              + "version. It holds no harness content and no secrets.")
+  public Response getPlugin(
+      @Context final UriInfo uriInfo,
+      @Context final SecurityContext securityContext,
+      @QueryParam("target") @DefaultValue("claude") final String target) {
+    authorizer.authorizeAdmin(securityContext);
+    if (!PLUGIN_TARGET_CLAUDE.equals(target)) {
+      throw new ClientErrorException("Unsupported plugin target: " + target, 400);
+    }
+    final String version = VersionUtils.getOpenMetadataServerVersion(VERSION_RESOURCE).getVersion();
+    return Response.ok(PluginBuilder.build(mcpServerUrl(uriInfo), version))
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            "attachment; filename=\"" + PluginBuilder.PLUGIN_NAME + ".zip\"")
+        .build();
+  }
+
+  @GET
+  @Path("/surfaces")
+  @Operation(
+      operationId = "getAgentHarnessSurfaces",
+      summary = "AI surfaces, the channels each supports, and whether each has connected")
+  public AgentHarnessSurfaces getSurfaces(@Context final SecurityContext securityContext) {
+    authorizer.authorizeAdmin(securityContext);
+    return service.surfaces();
   }
 
   @POST

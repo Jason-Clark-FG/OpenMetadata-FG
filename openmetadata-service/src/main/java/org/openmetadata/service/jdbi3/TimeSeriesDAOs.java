@@ -1762,6 +1762,21 @@ public interface TimeSeriesDAOs {
         @Bind("endTime") long endTime,
         @Bind("extension") String extension);
 
+    /** Latest call recorded after {@code since} whose client label matches the SQL LIKE pattern. */
+    @ConnectionAwareSqlQuery(
+        value =
+            "SELECT MAX(timestamp) FROM apps_extension_time_series WHERE appName = :appName AND extension = :extension AND timestamp > :since AND JSON_UNQUOTE(JSON_EXTRACT(json, '$.clientName')) LIKE :pattern",
+        connectionType = MYSQL)
+    @ConnectionAwareSqlQuery(
+        value =
+            "SELECT MAX(timestamp) FROM apps_extension_time_series WHERE appName = :appName AND extension = :extension AND timestamp > :since AND json->>'clientName' ILIKE :pattern",
+        connectionType = POSTGRES)
+    Long latestTimestampByClientName(
+        @Bind("appName") String appName,
+        @Bind("extension") String extension,
+        @Bind("since") long since,
+        @Bind("pattern") String pattern);
+
     default List<String> listAppExtensionAfterTime(
         String appId, int limit, int offset, long startTime, String extension) {
       return listAppExtensionAfterTime(appId, limit, offset, startTime, extension, null);
