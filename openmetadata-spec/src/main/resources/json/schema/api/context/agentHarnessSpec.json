@@ -44,6 +44,10 @@
       },
       "default": []
     },
+    "toolAccess": {
+      "description": "Which MCP servers and tools agents may call. A persona harness can only make the default's decisions stricter.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/toolAccess"
+    },
     "memory": {
       "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
       "$ref": "../../entity/context/agentHarness.json#/definitions/memorySettings"

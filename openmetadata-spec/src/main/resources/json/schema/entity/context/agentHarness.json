@@ -98,6 +98,74 @@
       "required": ["id", "level"],
       "additionalProperties": false
     },
+    "toolAccessDefault": {
+      "javaType": "org.openmetadata.schema.entity.context.ToolAccessDefault",
+      "description": "What happens to a call to an MCP server that no entry lists.",
+      "type": "string",
+      "enum": ["Allow", "Deny"],
+      "javaEnums": [
+        { "name": "ALLOW" },
+        { "name": "DENY" }
+      ]
+    },
+    "toolAccessLevel": {
+      "javaType": "org.openmetadata.schema.entity.context.ToolAccessLevel",
+      "description": "What happens to a call an entry matches, from least to most strict. Allow lets it run, Warn lets it run with a warning in the context, Block denies it.",
+      "type": "string",
+      "enum": ["Allow", "Warn", "Block"],
+      "javaEnums": [
+        { "name": "ALLOW" },
+        { "name": "WARN" },
+        { "name": "BLOCK" }
+      ]
+    },
+    "toolAccessServer": {
+      "javaType": "org.openmetadata.schema.entity.context.ToolAccessServer",
+      "description": "Access to one MCP server, or to some of its tools.",
+      "type": "object",
+      "properties": {
+        "match": {
+          "description": "MCP server name as the agent host reports it, the `<server>` in a tool name `mcp__<server>__<tool>`. Matched without regard to case.",
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "description": "What happens to a matching call.",
+          "$ref": "#/definitions/toolAccessLevel"
+        },
+        "tools": {
+          "description": "Tool names the entry applies to. Absent or empty means every tool of the server.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "required": ["match", "level"],
+      "additionalProperties": false
+    },
+    "toolAccess": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessToolAccess",
+      "description": "Which MCP servers and tools an agent may call. The first entry that matches a call decides; a call no entry matches gets `default`. A persona harness can only make the default's decisions stricter: each call gets the stricter of the default's decision and the persona's.",
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "Decision for calls no entry matches.",
+          "$ref": "#/definitions/toolAccessDefault"
+        },
+        "servers": {
+          "description": "Entries in the order they are matched.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/toolAccessServer"
+          },
+          "default": []
+        }
+      },
+      "required": ["default"],
+      "additionalProperties": false
+    },
     "memoryReview": {
       "javaType": "org.openmetadata.schema.entity.context.AgentMemoryReview",
       "description": "Who approves a memory an agent captured. StewardReview follows the deployment's memory lifecycle. AuthorOnly keeps the memory private to its author.",
@@ -225,6 +293,10 @@
         "$ref": "#/definitions/guardrailSetting"
       },
       "default": []
+    },
+    "toolAccess": {
+      "description": "Which MCP servers and tools agents may call. Absent means every call is allowed.",
+      "$ref": "#/definitions/toolAccess"
     },
     "memory": {
       "description": "Agent memory settings. Absent on a persona harness that uses the default's.",

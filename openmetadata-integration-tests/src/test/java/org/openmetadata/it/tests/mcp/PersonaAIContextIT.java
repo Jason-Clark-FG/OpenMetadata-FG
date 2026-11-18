@@ -54,11 +54,13 @@ import org.openmetadata.schema.type.api.BulkOperationResult;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.type.personaContext.ContextSection;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.harness.HarnessResolver;
 import org.openmetadata.service.jdbi3.PersonaRepository;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PersonaAIContextIT extends McpTestBase {
   private static final String ACTIVE_PERSONA_HEADER = "X-OpenMetadata-Persona";
+  private static final String PERSONA_RULE = HarnessResolver.PERSONA_RULE_PREFIX;
   private static Persona persona;
   private static Table table;
   private static Metric metric;
@@ -183,7 +185,7 @@ class PersonaAIContextIT extends McpTestBase {
                   assertThat(context.path("rules").toString())
                       .contains(table.getFullyQualifiedName());
                   assertThat(context.path("searchScope").path("rules").findValuesAsText("ruleName"))
-                      .containsExactly("Healthy scope");
+                      .containsExactly(PERSONA_RULE + "Healthy scope");
                   JsonNode unscoped =
                       searchMetadataWithPersona(owned, memberToken, table, excluded, true);
                   assertThat(resultFqns(unscoped))
@@ -197,12 +199,6 @@ class PersonaAIContextIT extends McpTestBase {
         HttpResponse<String> markdown = getResponse(path + "/context", authToken);
         assertThat(markdown.statusCode()).isEqualTo(200);
         assertThat(markdown.body()).contains(table.getFullyQualifiedName());
-        JsonNode mcp =
-            executeMcp(
-                McpTestUtils.createToolCallRequest(
-                    "get_persona_context", Map.of("personaName", owned.getFullyQualifiedName())),
-                authToken);
-        assertThat(mcp.toString()).contains(table.getFullyQualifiedName());
       }
     } finally {
       deleteResponse(path + "?hardDelete=true", authToken);
@@ -360,7 +356,8 @@ class PersonaAIContextIT extends McpTestBase {
       addRule(
           "personas/" + owned.getId() + "/aiContext/rules",
           scopedFqnRule("Preloaded tables", table.getFullyQualifiedName())
-              .withFilteredInSearch(false));
+              .withFilteredInSearch(false)
+              .withAlwaysInContext(true));
       String warmed = getResponse(path + "?refresh=true", authToken).body();
       assertThat(warmed).contains(table.getFullyQualifiedName());
       String deniedToken = tokenFor(denied);
@@ -372,9 +369,10 @@ class PersonaAIContextIT extends McpTestBase {
       }
       JsonNode mcp =
           executeMcp(
-              McpTestUtils.createToolCallRequest(
-                  "get_persona_context", Map.of("personaName", owned.getFullyQualifiedName())),
-              deniedToken);
+              McpTestUtils.createToolCallRequest("get_context", Map.of()),
+              deniedToken,
+              owned.getFullyQualifiedName());
+      assertThat(mcp.path("result").path("isError").asBoolean(false)).isFalse();
       assertThat(mcp.toString()).doesNotContain(table.getFullyQualifiedName());
       assertThat(getResponse(path, authToken).body()).contains(table.getFullyQualifiedName());
     } finally {
@@ -467,12 +465,10 @@ class PersonaAIContextIT extends McpTestBase {
 
     JsonNode mcp =
         executeMcp(
-            McpTestUtils.createToolCallRequest(
-                "get_persona_context",
-                Map.of("personaName", persona.getFullyQualifiedName(), "format", "json")),
-            directMemberToken);
+            McpTestUtils.createToolCallRequest("get_context", Map.of()),
+            directMemberToken,
+            persona.getFullyQualifiedName());
     assertThat(mcp.path("result").path("isError").asBoolean(false)).isFalse();
-    assertThat(mcp.toString()).contains(persona.getFullyQualifiedName());
 
     HttpResponse<String> deleted =
         deleteResponse(contextPath() + "/rules/" + createdRule.getId(), authToken);
@@ -506,7 +502,7 @@ class PersonaAIContextIT extends McpTestBase {
       assertThat(searchScope.get("entityTypes").toString()).contains(Entity.TABLE);
       assertThat(searchScope.get("queryFilter").asText()).contains("entityType");
       assertThat(searchScope.get("rules").get(0).get("ruleName").asText())
-          .isEqualTo(requested.getName());
+          .isEqualTo(PERSONA_RULE + requested.getName());
 
       // The whole point of the mode: the rule selects the table for search without spending any of
       // the context budget preloading it.
@@ -633,18 +629,6 @@ class PersonaAIContextIT extends McpTestBase {
       // Consumers read the markdown as reference data, never as instructions.
       assertThat(getResponse(documentPath + "?refresh=true", authToken).body())
           .doesNotContain(prompt);
-
-      // MCP clients get the prompt on part 1 under its own key, outside the paged document.
-      JsonNode toolResult =
-          executeMcp(
-                  McpTestUtils.createToolCallRequest(
-                      "get_persona_context", Map.of("personaName", owned.getFullyQualifiedName())),
-                  authToken)
-              .path("result");
-      JsonNode page =
-          OBJECT_MAPPER.readTree(toolResult.path("content").get(0).path("text").asText());
-      assertThat(page.path("instructions").asText()).isEqualTo(prompt);
-      assertThat(page.path("content").asText()).doesNotContain(prompt);
 
       put(ownedContextPath, settings(false), PersonaContextDefinition.class);
       JsonNode disabled =
@@ -891,12 +875,17 @@ class PersonaAIContextIT extends McpTestBase {
     assertThat(getResponse(personaContextPath + "&refresh=true", botToken).statusCode())
         .isEqualTo(200);
 
-    JsonNode deniedMcp =
+    JsonNode nonMemberMcp =
         executeMcp(
-            McpTestUtils.createToolCallRequest(
-                "get_persona_context", Map.of("personaName", persona.getFullyQualifiedName())),
-            nonMemberToken);
-    assertThat(deniedMcp.toString()).contains("not assigned to persona");
+            McpTestUtils.createToolCallRequest("get_context", Map.of()),
+            nonMemberToken,
+            persona.getFullyQualifiedName());
+    JsonNode compiled =
+        OBJECT_MAPPER.readTree(
+            nonMemberMcp.path("result").path("content").get(0).path("text").asText());
+    assertThat(compiled.path("harness").path("default").path("name").asText())
+        .isEqualTo("CompanyDefault");
+    assertThat(compiled.path("harness").has("persona")).isFalse();
   }
 
   @Test

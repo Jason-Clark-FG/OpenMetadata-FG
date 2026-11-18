@@ -41,6 +41,7 @@ public final class HarnessSpecs {
             .withEvents(harness.getEvents())
             .withSkills(harness.getSkills())
             .withGuardrails(harness.getGuardrails())
+            .withToolAccess(harness.getToolAccess())
             .withMemory(harness.getMemory()),
         AgentHarnessSpec.class);
   }
@@ -54,7 +55,19 @@ public final class HarnessSpecs {
         .withEvents(copy.getEvents())
         .withSkills(copy.getSkills())
         .withGuardrails(copy.getGuardrails())
+        .withToolAccess(copy.getToolAccess())
         .withMemory(copy.getMemory());
+  }
+
+  /** A copy of the harness as it would be if {@code spec} were published and it were enabled. */
+  public static AgentHarness asPublished(final AgentHarness harness, final AgentHarnessSpec spec) {
+    final AgentHarness copy = JsonUtils.deepCopy(harness, AgentHarness.class);
+    apply(spec, copy);
+    return copy.withEnabled(true)
+        .withPublishedAt(
+            harness.getPublishedAt() == null
+                ? System.currentTimeMillis()
+                : harness.getPublishedAt());
   }
 
   /** The company default as a new deployment starts with it: no rules and no instructions. */
@@ -72,6 +85,7 @@ public final class HarnessSpecs {
         .withEvents(new ArrayList<>(HarnessEvents.fallbacks()))
         .withSkills(new ArrayList<>(SkillRegistry.fallbacks()))
         .withGuardrails(new ArrayList<>(GuardrailRegistry.seedLevels()))
+        .withToolAccess(ToolAccessPolicy.allowAll())
         .withMemory(memoryFallback());
   }
 

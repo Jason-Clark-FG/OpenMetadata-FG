@@ -89,8 +89,11 @@ public class DefaultToolContext {
           tool = new GetEntityTool();
           result = tool.execute(authorizer, securityContext, params);
           break;
-        case "get_persona_context":
-          result = new GetPersonaContextTool().execute(authorizer, securityContext, params);
+        case "get_context":
+          result = new GetContextTool().execute(authorizer, securityContext, params);
+          break;
+        case "harness_hook":
+          result = new HarnessHookTool().execute(authorizer, securityContext, params);
           break;
         case "get_user_context":
           result = new GetUserContextTool().execute(authorizer, securityContext, params);

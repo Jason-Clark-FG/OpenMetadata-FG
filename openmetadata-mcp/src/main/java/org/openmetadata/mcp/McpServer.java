@@ -167,6 +167,15 @@ public class McpServer implements McpServerProvider {
     return (context, tool) -> refusalReason(tool, config.get()).isEmpty();
   }
 
+  static final String INSTRUCTIONS =
+      "OpenMetadata is this organization's catalog of data assets, glossary terms and metrics,"
+          + " and the context layer for agents that work with its data. At the start of every"
+          + " task, call get_context: it returns the company's instructions for agents, guidance"
+          + " for the signed-in user's persona, the skills you may use and the knowledge to keep"
+          + " in context. Use search_metadata and get_entity_details before you write SQL or"
+          + " answer questions about data, cite the assets, terms and metrics you use by their"
+          + " fully qualified names, and follow any guardrail decision OpenMetadata returns.";
+
   static McpStatelessSyncServer buildServer(
       McpStatelessServerTransport transport,
       McpSchema.ServerCapabilities capabilities,
@@ -174,6 +183,7 @@ public class McpServer implements McpServerProvider {
     return io.modelcontextprotocol.server.McpServer.sync(transport)
         .serverInfo(serverInfo(mcpConfig.get()))
         .capabilities(capabilities)
+        .instructions(INSTRUCTIONS)
         // SDK 2.x checks tools/call arguments against the tool schema by default. Kept off: the
         // tools accept looser shapes on purpose, see
         // ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk.

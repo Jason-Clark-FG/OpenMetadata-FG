@@ -28,6 +28,7 @@ import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
+import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.GuardrailLevel;
 import org.openmetadata.schema.entity.context.HookEvent;
 import org.openmetadata.schema.type.PersonaContextDefinition;
@@ -132,6 +133,7 @@ public final class HarnessResolver {
             .withEvents(events(defaults, persona))
             .withSkills(skills(defaults, persona))
             .withGuardrails(guardrails(defaults, persona))
+            .withToolAccess(defaults.getToolAccess())
             .withMemory(HarnessSpecs.defaultMemory(defaults))
             .withMemoryInherited(false);
     if (persona != null) {
@@ -149,7 +151,23 @@ public final class HarnessResolver {
         .withPerTurnTokenBudget(
             Math.min(view.getPerTurnTokenBudget(), persona.getPerTurnTokenBudget()))
         .withMemory(persona.getMemory() == null ? view.getMemory() : persona.getMemory())
-        .withMemoryInherited(persona.getMemory() == null);
+        .withMemoryInherited(persona.getMemory() == null)
+        .withInheritedToolAccess(view.getToolAccess())
+        .withToolAccess(persona.getToolAccess());
+  }
+
+  /**
+   * The MCP access layers that apply to one caller: the default's, then the persona's when its
+   * harness applies. Each call gets the stricter decision of the layers.
+   */
+  public static List<AgentHarnessToolAccess> toolAccessLayers(
+      final AgentHarness defaultHarness, final AgentHarness personaHarness) {
+    final List<AgentHarnessToolAccess> layers = new ArrayList<>();
+    layers.add(defaultHarness.getToolAccess());
+    if (applies(personaHarness)) {
+      layers.add(personaHarness.getToolAccess());
+    }
+    return layers;
   }
 
   private static List<ResolvedContextRule> rules(

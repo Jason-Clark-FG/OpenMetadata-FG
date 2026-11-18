@@ -1,0 +1,33 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/previewAgentHarness.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PreviewAgentHarness",
+  "description": "Request body of `POST /v1/agentHarness/{id}/preview`: what the calling administrator's agent would receive at one event if the harness had these settings. The event is a query parameter.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.PreviewAgentHarness",
+  "properties": {
+    "spec": {
+      "description": "Settings to preview. Absent means the harness's draft, or its published settings when it has no draft.",
+      "$ref": "agentHarnessSpec.json"
+    },
+    "prompt": {
+      "description": "The user's prompt, for UserPromptSubmit.",
+      "type": "string"
+    },
+    "toolName": {
+      "description": "Name of the tool call, for PreToolUse and PostToolUse.",
+      "type": "string"
+    },
+    "toolInput": {
+      "description": "Input of the tool call, for PreToolUse.",
+      "type": "object",
+      "existingJavaType": "com.fasterxml.jackson.databind.JsonNode",
+      "additionalProperties": true
+    },
+    "toolOutput": {
+      "description": "Output of the tool call, for PostToolUse. Any JSON value.",
+      "existingJavaType": "com.fasterxml.jackson.databind.JsonNode"
+    }
+  },
+  "additionalProperties": false
+}

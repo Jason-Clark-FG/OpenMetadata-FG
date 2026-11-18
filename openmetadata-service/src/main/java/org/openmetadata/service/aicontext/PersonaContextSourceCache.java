@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.openmetadata.schema.entity.teams.Persona;
+import org.openmetadata.schema.type.PersonaContextDefinition;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.search.SearchResultListMapper;
@@ -105,11 +106,11 @@ final class PersonaContextSourceCache {
     validations.asMap().keySet().removeIf(key -> key.scope().personaId().equals(personaId));
   }
 
-  Scope scope(Persona persona) {
+  Scope scope(Persona persona, PersonaContextDefinition definition) {
     return new Scope(
         persona.getId(),
         generations.get(persona.getId(), ignored -> UUID.randomUUID()),
-        PersonaContextHash.definitionHash(PersonaContextBuilder.definitionOf(persona)));
+        PersonaContextHash.definitionHash(definition));
   }
 
   private static <K, V> Cache<K, V> weightedCache(int maximumWeight) {

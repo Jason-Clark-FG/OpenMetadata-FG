@@ -146,6 +146,7 @@ public class PersonaContextBuilder {
   };
 
   private final Persona persona;
+  private final PersonaContextDefinition definition;
   private final SearchRepository searchRepository;
   private Authorizer authorizer;
   private PersonaContextSourceCache sourceCache;
@@ -156,8 +157,19 @@ public class PersonaContextBuilder {
     this(persona, Entity.getSearchRepository());
   }
 
+  /** Builds {@code definition} for the persona, such as the merged agent harness context. */
+  public PersonaContextBuilder(Persona persona, PersonaContextDefinition definition) {
+    this(persona, definition, Entity.getSearchRepository());
+  }
+
   PersonaContextBuilder(Persona persona, SearchRepository searchRepository) {
+    this(persona, definitionOf(persona), searchRepository);
+  }
+
+  PersonaContextBuilder(
+      Persona persona, PersonaContextDefinition definition, SearchRepository searchRepository) {
     this.persona = persona;
+    this.definition = definition;
     this.searchRepository = searchRepository;
   }
 
@@ -170,7 +182,7 @@ public class PersonaContextBuilder {
 
   PersonaContextBuilder withSourceCache(PersonaContextSourceCache sourceCache) {
     this.sourceCache = sourceCache;
-    this.sourceScope = sourceCache.scope(persona);
+    this.sourceScope = sourceCache.scope(persona, definition);
     return this;
   }
 
@@ -179,10 +191,11 @@ public class PersonaContextBuilder {
   }
 
   public MaterializedPersonaContext build() {
-    PersonaContextDefinition definition = definitionOf(persona);
     List<RuleMaterialization> selectedRules = selectRules(definition);
     Supplier<EnrichedSelection> enrich =
-        () -> new PersonaContextBuilder(persona, searchRepository).enrichSelection(selectedRules);
+        () ->
+            new PersonaContextBuilder(persona, definition, searchRepository)
+                .enrichSelection(selectedRules);
     EnrichedSelection source =
         sourceCache == null ? enrich.get() : sourceCache.enrich(sourceScope, selectedRules, enrich);
     List<RuleMaterialization> materializedRules = new ArrayList<>();
@@ -225,7 +238,7 @@ public class PersonaContextBuilder {
   }
 
   static PersonaContextDefinition definitionOf(Persona persona) {
-    return persona.getContextDefinition() == null
+    return persona == null || persona.getContextDefinition() == null
         ? new PersonaContextDefinition()
         : persona.getContextDefinition();
   }
@@ -306,7 +319,6 @@ public class PersonaContextBuilder {
   }
 
   public SearchScope buildSearchScope() {
-    PersonaContextDefinition definition = definitionOf(persona);
     List<ContextRule> validRules = new ArrayList<>();
     if (Boolean.TRUE.equals(definition.getEnabled())) {
       for (ContextRule rule : listOrEmpty(definition.getRules())) {
@@ -609,7 +621,7 @@ public class PersonaContextBuilder {
       int pageSize = Math.min(DATA_PRODUCT_ASSET_BATCH_SIZE, scanBudget.remaining);
       Supplier<ProductPage> load =
           () ->
-              new PersonaContextBuilder(persona, searchRepository)
+              new PersonaContextBuilder(persona, definition, searchRepository)
                   .loadDataProductPage(dataProductId, currentOffset, pageSize);
       ProductPage page =
           sourceCache == null
@@ -736,7 +748,7 @@ public class PersonaContextBuilder {
             rule.getEntityType(),
             stringValue(document.get("fullyQualifiedName")),
             () ->
-                new PersonaContextBuilder(persona, searchRepository)
+                new PersonaContextBuilder(persona, definition, searchRepository)
                     .loadKnowledgeSelection(rule, document));
   }
 

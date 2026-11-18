@@ -24,6 +24,10 @@
       "description": "The hook event to compile for.",
       "$ref": "#/definitions/compileEvent"
     },
+    "sessionId": {
+      "description": "The agent host's session id. Items sent once in a session are not sent again at UserPromptSubmit.",
+      "type": "string"
+    },
     "prompt": {
       "description": "The user's prompt, for UserPromptSubmit.",
       "type": "string"

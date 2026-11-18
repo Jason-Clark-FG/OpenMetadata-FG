@@ -44,7 +44,7 @@ class PersonaContextSourceCacheTest {
   @Test
   void dataProductSourcePagesRespectTheRequestedCandidateLimit() {
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
-    var scope = cache.scope(persona());
+    var scope = scopeOf(cache, persona());
     var larger = new PersonaContextBuilder.ProductPage(List.of(), 10, 1000);
     var smaller = new PersonaContextBuilder.ProductPage(List.of(), 5, 1000);
     assertEquals(larger, cache.productPage(scope, "product", 0, 10, () -> larger));
@@ -54,7 +54,7 @@ class PersonaContextSourceCacheTest {
   @Test
   void unapprovedOrMissingKnowledgeIsNotReloadedOnEveryRead() {
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
-    var scope = cache.scope(persona());
+    var scope = scopeOf(cache, persona());
     AtomicInteger loads = new AtomicInteger();
     for (int read = 0; read < 2; read++) {
       assertNull(
@@ -118,7 +118,7 @@ class PersonaContextSourceCacheTest {
     Persona persona = persona();
     ContextRule rule = persona.getContextDefinition().getRules().getFirst();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
-    var oldScope = cache.scope(persona);
+    var oldScope = scopeOf(cache, persona);
     CountDownLatch loading = new CountDownLatch(1);
     CountDownLatch finish = new CountDownLatch(1);
     try (var executor = Executors.newSingleThreadExecutor()) {
@@ -143,7 +143,7 @@ class PersonaContextSourceCacheTest {
       try {
         assertTrue(loading.await(5, TimeUnit.SECONDS));
         cache.invalidate(persona.getId());
-        var freshScope = cache.scope(persona);
+        var freshScope = scopeOf(cache, persona);
         // Caffeine may serialize distinct keys in the same hash bucket. Finish the old
         // load before reading the new generation, without moving it before invalidation.
         finish.countDown();
@@ -175,16 +175,21 @@ class PersonaContextSourceCacheTest {
     ContextRule rule = persona.getContextDefinition().getRules().getFirst();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     AtomicInteger validations = new AtomicInteger();
-    cache.validate(cache.scope(persona), rule, validations::incrementAndGet);
-    cache.validate(cache.scope(persona), rule, validations::incrementAndGet);
+    cache.validate(scopeOf(cache, persona), rule, validations::incrementAndGet);
+    cache.validate(scopeOf(cache, persona), rule, validations::incrementAndGet);
     assertEquals(1, validations.get());
     cache.invalidate(persona.getId());
-    cache.validate(cache.scope(persona), rule, validations::incrementAndGet);
+    cache.validate(scopeOf(cache, persona), rule, validations::incrementAndGet);
     assertEquals(2, validations.get());
   }
 
   private static SearchResultListMapper page(String description) {
     return new SearchResultListMapper(List.of(Map.of("description", description)), 1);
+  }
+
+  private static PersonaContextSourceCache.Scope scopeOf(
+      PersonaContextSourceCache cache, Persona persona) {
+    return cache.scope(persona, PersonaContextBuilder.definitionOf(persona));
   }
 
   private static Persona persona() {

@@ -1,0 +1,38 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/agentHarnessManagedSettings.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentHarnessManagedSettings",
+  "description": "Agent host settings that enforce the default harness's MCP access before any hook runs, returned by `GET /v1/agentHarness/managedSettings`. An administrator pastes them into the host's managed configuration.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AgentHarnessManagedSettings",
+  "properties": {
+    "serverName": {
+      "description": "Name the OpenMetadata MCP server must have in the agent host's configuration for these settings to keep it allowed.",
+      "type": "string"
+    },
+    "serverUrl": {
+      "description": "URL of the OpenMetadata MCP server.",
+      "type": "string"
+    },
+    "claudeCode": {
+      "description": "JSON for Claude Code managed settings: `deniedMcpServers` for blocked servers and, when the default denies unlisted servers, `allowedMcpServers` with `allowManagedMcpServersOnly`.",
+      "type": "object",
+      "existingJavaType": "com.fasterxml.jackson.databind.JsonNode",
+      "additionalProperties": true
+    },
+    "codexRequirementsToml": {
+      "description": "The `mcp_servers` allowlist for Codex `requirements.toml`. Empty when the default allows unlisted servers, because Codex has no denylist.",
+      "type": "string"
+    },
+    "notes": {
+      "description": "What the settings cannot express, such as entries limited to some tools, which only the hooks enforce.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": ["serverName", "serverUrl", "claudeCode", "codexRequirementsToml", "notes"],
+  "additionalProperties": false
+}

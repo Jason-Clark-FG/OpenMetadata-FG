@@ -24,6 +24,11 @@ export interface CompileAgentContext {
      */
     prompt?: string;
     /**
+     * The agent host's session id. Items sent once in a session are not sent again at
+     * UserPromptSubmit.
+     */
+    sessionId?: string;
+    /**
      * Input of the tool call as the agent host reports it, for PreToolUse.
      */
     toolInput?: { [key: string]: any };

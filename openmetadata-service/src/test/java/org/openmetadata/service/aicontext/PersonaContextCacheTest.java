@@ -121,7 +121,8 @@ class PersonaContextCacheTest {
     PersonaContextCache cache =
         new PersonaContextCache(provider, keys) {
           @Override
-          protected PersonaContextBuilder.MaterializedPersonaContext build(Persona ignored) {
+          protected PersonaContextBuilder.MaterializedPersonaContext build(
+              Persona ignored, PersonaContextDefinition definition) {
             return new PersonaContextBuilder.MaterializedPersonaContext(
                 new PersonaContext().withGeneratedAt(1L), "independent search scope");
           }
@@ -148,7 +149,8 @@ class PersonaContextCacheTest {
     PersonaContextCache cache =
         new PersonaContextCache(provider, keys) {
           @Override
-          protected PersonaContextBuilder.MaterializedPersonaContext build(Persona ignored) {
+          protected PersonaContextBuilder.MaterializedPersonaContext build(
+              Persona ignored, PersonaContextDefinition definition) {
             throw new IllegalStateException("materialization failed");
           }
         };
@@ -179,7 +181,8 @@ class PersonaContextCacheTest {
     PersonaContextCache cache =
         new PersonaContextCache(provider, keys, 1, 0) {
           @Override
-          protected PersonaContextBuilder.MaterializedPersonaContext build(Persona ignored) {
+          protected PersonaContextBuilder.MaterializedPersonaContext build(
+              Persona ignored, PersonaContextDefinition definition) {
             return materialized;
           }
         };
@@ -258,7 +261,8 @@ class PersonaContextCacheTest {
 
     return new PersonaContextCache(provider, keys) {
       @Override
-      protected PersonaContextBuilder.MaterializedPersonaContext build(Persona ignored) {
+      protected PersonaContextBuilder.MaterializedPersonaContext build(
+          Persona ignored, PersonaContextDefinition definition) {
         builds.incrementAndGet();
         return materialized;
       }

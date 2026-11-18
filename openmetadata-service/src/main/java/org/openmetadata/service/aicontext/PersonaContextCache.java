@@ -25,6 +25,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.entity.teams.Persona;
 import org.openmetadata.schema.type.PersonaContext;
@@ -72,6 +73,10 @@ public class PersonaContextCache implements Invalidatable {
           },
           new ThreadPoolExecutor.AbortPolicy());
   private static volatile PersonaContextCache instance;
+  // The agent harness installs the merged default + persona definition at startup. Until then, and
+  // in tests without a database, a persona's own stored definition is used.
+  private static volatile Function<Persona, PersonaContextDefinition> definitionSource =
+      PersonaContextBuilder::definitionOf;
   // Registered with CacheBundle instead of the instance itself: getInstance() swaps the singleton
   // whenever the cache provider changes, and a registration holding the old object would silently
   // stop invalidating anything. This delegate resolves the current instance on every call.
@@ -116,20 +121,32 @@ public class PersonaContextCache implements Invalidatable {
     return current;
   }
 
+  /** Sets where the definition a persona's context is built from comes from. */
+  public static void useDefinitionSource(Function<Persona, PersonaContextDefinition> source) {
+    definitionSource = source;
+  }
+
+  /** The definition a persona's context is built from, which also keys its cache entries. */
+  public static PersonaContextDefinition definitionOf(Persona persona) {
+    return definitionSource.apply(persona);
+  }
+
   /** The {@link Invalidatable} to register with {@code CacheBundle} for this cache. */
   public static Invalidatable invalidator() {
     return INVALIDATOR;
   }
 
   public SearchScope getSearchScope(Persona persona) {
-    return new PersonaContextBuilder(persona).withSourceCache(sources).buildSearchScope();
+    return new PersonaContextBuilder(persona, definitionOf(persona))
+        .withSourceCache(sources)
+        .buildSearchScope();
   }
 
   public CachedResult get(Persona persona, boolean refresh) {
     if (refresh) {
       sources.invalidate(persona.getId());
     }
-    PersonaContextDefinition definition = PersonaContextBuilder.definitionOf(persona);
+    PersonaContextDefinition definition = definitionOf(persona);
     String definitionHash = PersonaContextHash.definitionHash(definition);
     String localKey = localKey(persona.getId(), definitionHash);
     int ttlSeconds = PersonaContextBuilder.cacheTtlSeconds(definition);
@@ -162,7 +179,7 @@ public class PersonaContextCache implements Invalidatable {
     }
 
     if (!redisAvailable) {
-      PersonaContextBuilder.MaterializedPersonaContext built = build(persona);
+      PersonaContextBuilder.MaterializedPersonaContext built = build(persona, definition);
       cacheIfEligible(localKey, built, ttlSeconds, false, persona.getId(), definitionHash);
       markFresh(persona);
       return new CachedResult(built, CacheStatus.BYPASS);
@@ -180,7 +197,7 @@ public class PersonaContextCache implements Invalidatable {
       }
       ownsLock = provider.setIfAbsent(lockKey, lockOwner, BUILD_LEASE);
       if (!ownsLock) {
-        PersonaContextBuilder.MaterializedPersonaContext built = build(persona);
+        PersonaContextBuilder.MaterializedPersonaContext built = build(persona, definition);
         cacheIfEligible(localKey, built, ttlSeconds, false, persona.getId(), definitionHash);
         markFresh(persona);
         return new CachedResult(built, CacheStatus.BYPASS);
@@ -188,7 +205,7 @@ public class PersonaContextCache implements Invalidatable {
     }
 
     try {
-      PersonaContextBuilder.MaterializedPersonaContext built = build(persona);
+      PersonaContextBuilder.MaterializedPersonaContext built = build(persona, definition);
       cacheIfEligible(localKey, built, ttlSeconds, true, persona.getId(), definitionHash);
       markFresh(persona);
       return new CachedResult(built, refresh ? CacheStatus.BYPASS : CacheStatus.MISS);
@@ -203,8 +220,7 @@ public class PersonaContextCache implements Invalidatable {
     if (persona == null || persona.getId() == null) {
       return;
     }
-    String definitionHash =
-        PersonaContextHash.definitionHash(PersonaContextBuilder.definitionOf(persona));
+    String definitionHash = PersonaContextHash.definitionHash(definitionOf(persona));
     invalidate(persona.getId(), definitionHash);
     generationStates.remove(persona.getId());
   }
@@ -214,9 +230,8 @@ public class PersonaContextCache implements Invalidatable {
       return;
     }
     sources.invalidate(original.getId());
-    String oldHash =
-        PersonaContextHash.definitionHash(PersonaContextBuilder.definitionOf(original));
-    String newHash = PersonaContextHash.definitionHash(PersonaContextBuilder.definitionOf(updated));
+    String oldHash = PersonaContextHash.definitionHash(definitionOf(original));
+    String newHash = PersonaContextHash.definitionHash(definitionOf(updated));
     provider.del(
         keys.personaContextMarkdown(original.getId(), oldHash),
         keys.personaContextJson(original.getId(), oldHash),
@@ -287,7 +302,11 @@ public class PersonaContextCache implements Invalidatable {
   }
 
   public CacheSnapshot snapshot(Persona persona) {
-    PersonaContextDefinition definition = PersonaContextBuilder.definitionOf(persona);
+    return snapshot(persona, definitionOf(persona));
+  }
+
+  /** The cached state of a persona whose definition the caller already resolved. */
+  public CacheSnapshot snapshot(Persona persona, PersonaContextDefinition definition) {
     String definitionHash = PersonaContextHash.definitionHash(definition);
     String localKey = localKey(persona.getId(), definitionHash);
     PersonaContextBuilder.MaterializedPersonaContext value = getLocal(localKey);
@@ -347,8 +366,9 @@ public class PersonaContextCache implements Invalidatable {
     }
   }
 
-  protected PersonaContextBuilder.MaterializedPersonaContext build(Persona persona) {
-    return new PersonaContextBuilder(persona).withSourceCache(sources).build();
+  protected PersonaContextBuilder.MaterializedPersonaContext build(
+      Persona persona, PersonaContextDefinition definition) {
+    return new PersonaContextBuilder(persona, definition).withSourceCache(sources).build();
   }
 
   public CachedResult getForCaller(
@@ -356,7 +376,7 @@ public class PersonaContextCache implements Invalidatable {
     try {
       CachedResult result =
           new CachedResult(
-              new PersonaContextBuilder(persona)
+              new PersonaContextBuilder(persona, definitionOf(persona))
                   .withSourceCache(sources)
                   .withSecurity(authorizer, securityContext)
                   .build(),

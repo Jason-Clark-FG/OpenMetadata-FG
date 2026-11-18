@@ -25,9 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.entity.teams.Persona;
 import org.openmetadata.schema.type.personaContext.SearchScope;
 import org.openmetadata.schema.utils.JsonUtils;
-import org.openmetadata.service.aicontext.PersonaContextAccess;
+import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.PersonaContextCache;
-import org.openmetadata.service.exception.EntityNotFoundException;
+import org.openmetadata.service.aicontext.harness.HarnessContexts;
+import org.openmetadata.service.jdbi3.AgentHarnessRepository;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 @Slf4j
@@ -39,12 +40,12 @@ record PersonaSearchScope(String queryFilter, List<String> entityTypes) {
 
   static Optional<PersonaSearchScope> resolve(CatalogSecurityContext securityContext) {
     try {
-      Persona persona = PersonaContextAccess.activePersona(securityContext);
+      Persona persona =
+          new HarnessContexts(
+                  (AgentHarnessRepository) Entity.getEntityRepository(Entity.AGENT_HARNESS))
+              .documentPersona(securityContext);
       SearchScope compiled = PersonaContextCache.getInstance().getSearchScope(persona);
       return from(compiled);
-    } catch (EntityNotFoundException exception) {
-      LOG.debug("No active persona search scope is configured");
-      return Optional.empty();
     } catch (RuntimeException exception) {
       LOG.warn("Unable to apply the active persona's search scope", exception);
       return Optional.empty();

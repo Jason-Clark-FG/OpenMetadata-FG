@@ -159,6 +159,14 @@
     "memoryInherited": {
       "description": "True when a persona harness sets no memory settings and the default's apply.",
       "type": "boolean"
+    },
+    "toolAccess": {
+      "description": "The harness's own MCP access entries. On a persona harness the default's entries also apply, and each call gets the stricter decision.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/toolAccess"
+    },
+    "inheritedToolAccess": {
+      "description": "The default's MCP access, on a persona harness only. Read-only in the persona's editor.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/toolAccess"
     }
   },
   "required": ["kind", "rules", "characterBudget", "cacheTtlMinutes", "perTurnTokenBudget", "events", "skills", "guardrails", "memory", "memoryInherited"],

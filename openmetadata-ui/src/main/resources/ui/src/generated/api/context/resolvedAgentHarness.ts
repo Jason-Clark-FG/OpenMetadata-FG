@@ -38,6 +38,10 @@ export interface ResolvedAgentHarness {
      */
     guardrails: ResolvedGuardrail[];
     /**
+     * The default's MCP access, on a persona harness only. Read-only in the persona's editor.
+     */
+    inheritedToolAccess?: ToolAccess;
+    /**
      * Whether this is the company default or a persona harness.
      */
     kind: HarnessKind;
@@ -66,6 +70,11 @@ export interface ResolvedAgentHarness {
      * Every registered skill.
      */
     skills: ResolvedSkill[];
+    /**
+     * The harness's own MCP access entries. On a persona harness the default's entries also
+     * apply, and each call gets the stricter decision.
+     */
+    toolAccess?: ToolAccess;
 }
 
 /**
@@ -139,6 +148,69 @@ export interface ResolvedGuardrail {
 export enum GuardrailLevel {
     Block = "Block",
     Off = "Off",
+    Warn = "Warn",
+}
+
+/**
+ * The default's MCP access, on a persona harness only. Read-only in the persona's editor.
+ *
+ * Which MCP servers and tools an agent may call. The first entry that matches a call
+ * decides; a call no entry matches gets `default`. A persona harness can only make the
+ * default's decisions stricter: each call gets the stricter of the default's decision and
+ * the persona's.
+ *
+ * The harness's own MCP access entries. On a persona harness the default's entries also
+ * apply, and each call gets the stricter decision.
+ */
+export interface ToolAccess {
+    /**
+     * Decision for calls no entry matches.
+     */
+    default: ToolAccessDefault;
+    /**
+     * Entries in the order they are matched.
+     */
+    servers?: ToolAccessServer[];
+}
+
+/**
+ * Decision for calls no entry matches.
+ *
+ * What happens to a call to an MCP server that no entry lists.
+ */
+export enum ToolAccessDefault {
+    Allow = "Allow",
+    Deny = "Deny",
+}
+
+/**
+ * Access to one MCP server, or to some of its tools.
+ */
+export interface ToolAccessServer {
+    /**
+     * What happens to a matching call.
+     */
+    level: ToolAccessLevel;
+    /**
+     * MCP server name as the agent host reports it, the `<server>` in a tool name
+     * `mcp__<server>__<tool>`. Matched without regard to case.
+     */
+    match: string;
+    /**
+     * Tool names the entry applies to. Absent or empty means every tool of the server.
+     */
+    tools?: string[];
+}
+
+/**
+ * What happens to a matching call.
+ *
+ * What happens to a call an entry matches, from least to most strict. Allow lets it run,
+ * Warn lets it run with a warning in the context, Block denies it.
+ */
+export enum ToolAccessLevel {
+    Allow = "Allow",
+    Block = "Block",
     Warn = "Warn",
 }
 

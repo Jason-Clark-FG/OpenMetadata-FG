@@ -12,9 +12,12 @@
  */
 package org.openmetadata.service.resources.context;
 
+import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -38,26 +41,41 @@ import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.List;
 import java.util.UUID;
+import org.openmetadata.schema.api.configuration.MCPConfiguration;
+import org.openmetadata.schema.api.configuration.OpenMetadataBaseUrlConfiguration;
+import org.openmetadata.schema.api.context.AgentHarnessManagedSettings;
 import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
+import org.openmetadata.schema.api.context.CompileAgentContext;
+import org.openmetadata.schema.api.context.CompileEvent;
+import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.context.GuardrailDefinition;
+import org.openmetadata.schema.api.context.PreviewAgentHarness;
 import org.openmetadata.schema.api.context.SkillDefinition;
 import org.openmetadata.schema.entity.context.AgentHarness;
+import org.openmetadata.schema.settings.SettingsType;
 import org.openmetadata.schema.type.EntityHistory;
 import org.openmetadata.schema.type.MetadataOperation;
+import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.ResultList;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.OpenMetadataApplicationConfig;
+import org.openmetadata.service.aicontext.PersonaContextBuilder;
+import org.openmetadata.service.aicontext.PersonaContextCache;
+import org.openmetadata.service.aicontext.harness.AgentHarnessCompiler;
 import org.openmetadata.service.aicontext.harness.AgentHarnessService;
 import org.openmetadata.service.aicontext.harness.GuardrailRegistry;
+import org.openmetadata.service.aicontext.harness.HarnessContexts;
 import org.openmetadata.service.aicontext.harness.SkillRegistry;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository;
 import org.openmetadata.service.jdbi3.PersonaRepository;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.resources.Collection;
 import org.openmetadata.service.resources.EntityResource;
+import org.openmetadata.service.resources.settings.SettingsCache;
 import org.openmetadata.service.security.Authorizer;
+import org.openmetadata.service.security.auth.SecurityConfigurationManager;
 
 /**
  * Administrators' API for agent harnesses. The generic entity writes are not exposed, so every
@@ -76,6 +94,7 @@ import org.openmetadata.service.security.Authorizer;
 public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarnessRepository> {
   public static final String COLLECTION_PATH = "/v1/agentHarness";
   private static final String UUID_PATTERN = "{id:[0-9a-fA-F\\-]{36}}";
+  private static final String MCP_PATH = "/mcp";
 
   private final AgentHarnessService service;
 
@@ -83,12 +102,69 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
     super(Entity.AGENT_HARNESS, authorizer, limits);
     service =
         new AgentHarnessService(
-            repository, (PersonaRepository) Entity.getEntityRepository(Entity.PERSONA));
+            repository,
+            (PersonaRepository) Entity.getEntityRepository(Entity.PERSONA),
+            new AgentHarnessCompiler(repository, authorizer));
   }
 
   @Override
   public void initialize(final OpenMetadataApplicationConfig config) {
     service.seedDefault();
+    PersonaContextCache.useDefinitionSource(new HarnessContexts(repository)::definitionFor);
+  }
+
+  @POST
+  @Path("/compile")
+  @Operation(
+      operationId = "compileAgentContext",
+      summary = "Compile the context the caller's agent receives at a hook event",
+      description =
+          "For any signed-in user, about themselves. The harness comes from the caller's active "
+              + "persona and is never named in the request.")
+  public CompiledAgentContext compile(
+      @Context final SecurityContext securityContext, @NotNull final CompileAgentContext request) {
+    return service.compile(securityContext, request);
+  }
+
+  @GET
+  @Path("/managedSettings")
+  @Operation(
+      operationId = "getAgentHarnessManagedSettings",
+      summary = "Agent host settings that enforce the default harness's MCP access")
+  public AgentHarnessManagedSettings getManagedSettings(
+      @Context final UriInfo uriInfo, @Context final SecurityContext securityContext) {
+    authorizer.authorizeAdmin(securityContext);
+    return service.managedSettings(mcpServerUrl(uriInfo));
+  }
+
+  @POST
+  @Path("/" + UUID_PATTERN + "/preview")
+  @Operation(
+      operationId = "previewAgentHarness",
+      summary = "Preview what the calling administrator's agent would receive",
+      description =
+          "Compiles the request's settings, else the draft, else the published settings, without "
+              + "the cache.")
+  public CompiledAgentContext preview(
+      @Context final SecurityContext securityContext,
+      @PathParam("id") final UUID id,
+      @QueryParam("event") @DefaultValue("SessionStart") final String event,
+      final PreviewAgentHarness request) {
+    authorizer.authorizeAdmin(securityContext);
+    return service.preview(id, compileEvent(event), request, securityContext);
+  }
+
+  @POST
+  @Path("/" + UUID_PATTERN + "/rules/preview")
+  @Operation(
+      operationId = "previewAgentHarnessRule",
+      summary = "Preview the entities a context rule selects")
+  public PersonaContextBuilder.RulePreview previewRule(
+      @Context final SecurityContext securityContext,
+      @PathParam("id") final UUID id,
+      @NotNull @Valid final ContextRule rule) {
+    authorizer.authorizeAdmin(securityContext);
+    return service.previewRule(id, rule);
   }
 
   @Override
@@ -298,6 +374,31 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
     authorizer.authorizeAdmin(securityContext);
     return super.listEntityHistoryByTimestamp(
         uriInfo, securityContext, startTs, endTs, limit, before, after);
+  }
+
+  private static CompileEvent compileEvent(final String event) {
+    try {
+      return CompileEvent.fromValue(event);
+    } catch (IllegalArgumentException exception) {
+      throw new IllegalArgumentException(
+          "event must be SessionStart, UserPromptSubmit, PreToolUse or PostToolUse: " + event,
+          exception);
+    }
+  }
+
+  /** The MCP endpoint agents connect to: the MCP base URL, else the OpenMetadata URL. */
+  private static String mcpServerUrl(final UriInfo uriInfo) {
+    final MCPConfiguration mcp = SecurityConfigurationManager.getCurrentMcpConfig();
+    final String configured =
+        mcp != null && !nullOrEmpty(mcp.getBaseUrl())
+            ? mcp.getBaseUrl()
+            : SettingsCache.getSetting(
+                    SettingsType.OPEN_METADATA_BASE_URL_CONFIGURATION,
+                    OpenMetadataBaseUrlConfiguration.class)
+                .getOpenMetadataUrl();
+    final String base =
+        nullOrEmpty(configured) ? uriInfo.getBaseUri().resolve("/").toString() : configured;
+    return base.replaceAll("/+$", "") + MCP_PATH;
   }
 
   /** The draft revision an {@code If-Match} header names, quoted as an entity tag or not. */

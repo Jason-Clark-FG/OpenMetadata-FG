@@ -4007,6 +4007,10 @@ om:toColumnFqn a rdf:Property ;
     rdfs:label "toColumnFqn" ;
     rdfs:comment "Fully qualified name of the target column in a column-level lineage edge, written alongside the column IRI in om:toColumn for string matching." .
 
+om:toolAccess a rdf:Property ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "toolAccess" .
+
 om:totalSize a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "totalSize" .

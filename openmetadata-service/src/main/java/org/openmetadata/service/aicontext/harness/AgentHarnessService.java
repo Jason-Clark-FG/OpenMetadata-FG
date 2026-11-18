@@ -16,6 +16,7 @@ import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
 
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +24,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.openmetadata.schema.api.context.AgentHarnessManagedSettings;
 import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
 import org.openmetadata.schema.api.context.AgentHarnessStatus;
+import org.openmetadata.schema.api.context.CompileAgentContext;
+import org.openmetadata.schema.api.context.CompileEvent;
+import org.openmetadata.schema.api.context.CompiledAgentContext;
+import org.openmetadata.schema.api.context.PreviewAgentHarness;
 import org.openmetadata.schema.api.context.ResolvedAgentHarness;
 import org.openmetadata.schema.entity.context.AgentHarness;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
@@ -37,10 +43,12 @@ import org.openmetadata.schema.type.EntityHistory;
 import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.type.PersonaContext;
+import org.openmetadata.schema.type.PersonaContextDefinition;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.type.personaContext.PersonaContextCacheState;
 import org.openmetadata.schema.utils.ResultList;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.PersonaContextBuilder;
 import org.openmetadata.service.aicontext.PersonaContextCache;
 import org.openmetadata.service.exception.PreconditionFailedException;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository;
@@ -60,16 +68,66 @@ public final class AgentHarnessService {
 
   private final AgentHarnessRepository harnesses;
   private final PersonaRepository personas;
+  private final AgentHarnessCompiler compiler;
 
   public AgentHarnessService(
-      final AgentHarnessRepository harnesses, final PersonaRepository personas) {
+      final AgentHarnessRepository harnesses,
+      final PersonaRepository personas,
+      final AgentHarnessCompiler compiler) {
     this.harnesses = harnesses;
     this.personas = personas;
+    this.compiler = compiler;
   }
 
   /** Creates the company default once. A deployment that has it keeps its settings. */
   public void seedDefault() {
     harnesses.initializeEntity(HarnessSpecs.seedDefault(System.currentTimeMillis()));
+  }
+
+  /** What the caller's own agent receives at the request's event. */
+  public CompiledAgentContext compile(
+      final SecurityContext securityContext, final CompileAgentContext request) {
+    if (request == null || request.getEvent() == null) {
+      throw new IllegalArgumentException("A compile request needs an event");
+    }
+    return compiler.compile(securityContext, request);
+  }
+
+  /**
+   * What the calling administrator's agent would receive at {@code event} if the harness had the
+   * request's settings, or its draft, or its published settings, in that order.
+   */
+  public CompiledAgentContext preview(
+      final UUID harnessId,
+      final CompileEvent event,
+      final PreviewAgentHarness request,
+      final SecurityContext securityContext) {
+    final AgentHarness harness = harnesses.getById(harnessId);
+    final PreviewAgentHarness body = request == null ? new PreviewAgentHarness() : request;
+    final AgentHarnessSpec spec =
+        body.getSpec() == null ? shownSpec(harness) : validated(harness, body.getSpec());
+    return compiler.preview(
+        securityContext,
+        harness,
+        spec,
+        new CompileAgentContext()
+            .withEvent(event)
+            .withPrompt(body.getPrompt())
+            .withToolName(body.getToolName())
+            .withToolInput(body.getToolInput())
+            .withToolOutput(body.getToolOutput()));
+  }
+
+  /** The entities a rule would select, for the rule editor of a harness. */
+  public PersonaContextBuilder.RulePreview previewRule(
+      final UUID harnessId, final ContextRule rule) {
+    harnesses.getById(harnessId);
+    return PersonaContextBuilder.preview(rule);
+  }
+
+  /** Agent host settings that enforce the published default's MCP access. */
+  public AgentHarnessManagedSettings managedSettings(final String serverUrl) {
+    return ManagedSettingsBuilder.build(harnesses.getDefault().getToolAccess(), serverUrl);
   }
 
   public AgentHarnessState defaultState() {
@@ -134,13 +192,34 @@ public final class AgentHarnessService {
     }
     final AgentHarnessSpec spec = validated(harness, slot.draft());
     harnesses.publish(harness, spec, revision, publishedBy);
+    rebuildContext(harness);
     return state(harnesses.getById(harnessId));
   }
 
   public AgentHarnessState setEnabled(
       final UUID harnessId, final boolean enabled, final String updatedBy) {
-    harnesses.setEnabled(harnesses.getById(harnessId), enabled, updatedBy);
+    final AgentHarness harness = harnesses.getById(harnessId);
+    harnesses.setEnabled(harness, enabled, updatedBy);
+    rebuildContext(harness);
     return state(harnesses.getById(harnessId));
+  }
+
+  /**
+   * The context cache is keyed by the merged definition, so a publish already misses every entry
+   * it changes. A persona's document is rebuilt in the background so its list figures stay
+   * current; a default publish changes every persona, and each one is rebuilt when next read.
+   */
+  private void rebuildContext(final AgentHarness harness) {
+    if (!isDefault(harness)) {
+      PersonaContextCache.getInstance()
+          .refreshAsync(
+              personas.get(
+                  null,
+                  harness.getPersona().getId(),
+                  personas.getFields("contextDefinition"),
+                  Include.NON_DELETED,
+                  false));
+    }
   }
 
   public EntityHistory versions(final UUID harnessId) {
@@ -177,6 +256,11 @@ public final class AgentHarnessService {
     return before != null
         ? personas.listBefore(uriInfo, fields, filter, limit, ListCursors.unseal(before))
         : personas.listAfter(uriInfo, fields, filter, limit, ListCursors.unseal(after));
+  }
+
+  private AgentHarnessSpec shownSpec(final AgentHarness harness) {
+    final DraftSlot slot = harnesses.readDraft(harness.getId());
+    return slot.hasDraft() ? slot.draft() : HarnessSpecs.specOf(harness);
   }
 
   private AgentHarnessState state(final AgentHarness harness) {
@@ -234,14 +318,17 @@ public final class AgentHarnessService {
     if (harness != null) {
       summary.withHarnessId(harness.getId()).withEnabled(harness.getEnabled());
     }
-    return withCacheFigures(summary, persona);
+    return withCacheFigures(
+        summary, persona, HarnessContexts.merged(defaultHarness, harness, persona));
   }
 
   // The list reads the context cache and never compiles, so a long list stays cheap.
   private static AgentHarnessPersonaSummary withCacheFigures(
-      final AgentHarnessPersonaSummary summary, final Persona persona) {
+      final AgentHarnessPersonaSummary summary,
+      final Persona persona,
+      final PersonaContextDefinition definition) {
     final PersonaContextCache.CacheSnapshot snapshot =
-        PersonaContextCache.getInstance().snapshot(persona);
+        PersonaContextCache.getInstance().snapshot(persona, definition);
     summary
         .withCacheState(
             snapshot.state() == null ? PersonaContextCacheState.STALE : snapshot.state())

@@ -70,6 +70,7 @@ public final class HarnessDraftValidator {
     requireOwnRuleIds(spec, publishedDefault);
     requireEventBudgetsWithinDefault(spec, publishedDefault);
     requireGuardrailsAtLeastDefault(spec, publishedDefault);
+    ToolAccessPolicy.requireNoLooserThan(spec.getToolAccess(), publishedDefault.getToolAccess());
     requirePerTurnCoversEvents(HarnessResolver.display(publishedDefault, spec));
     return spec;
   }
@@ -106,6 +107,7 @@ public final class HarnessDraftValidator {
     validateEvents(spec.getEvents());
     validateSkills(spec.getSkills());
     validateGuardrails(spec.getGuardrails());
+    ToolAccessPolicy.requireValid(spec.getToolAccess());
     validateMemory(spec.getMemory());
   }
 
