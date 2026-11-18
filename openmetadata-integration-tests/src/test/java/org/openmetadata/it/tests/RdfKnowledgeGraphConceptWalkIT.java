@@ -108,27 +108,27 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
   }
 
   @Test
-  void findStartsFromTheConceptsNameAndSeesItsBindingComeAndGo(final TestNamespace ns)
+  void findStartsFromAQuestionNamingTheConceptAndSeesItsBindingComeAndGo(final TestNamespace ns)
       throws Exception {
     final Walk walk = boundWalk(ns);
 
-    awaitTermFound(
-        walk.concept().getName(), walk.conceptIri(), card -> assertConceptCard(card, 1L));
+    final String question = "which tables hold " + walk.concept().getName() + " records";
+    awaitTermFound(question, walk.conceptIri(), card -> assertConceptCard(card, 1L));
     unbind(walk.concept(), walk.table(), 1L);
     awaitTermFound(
-        walk.concept().getName(),
+        question,
         walk.conceptIri(),
         card -> assertThat(reachable(card, BOUND_ASSET, OUTGOING)).isEmpty());
   }
 
   @Test
-  void findStartsFromAPropertysLabelAndReachesTheColumnItIsBoundTo(final TestNamespace ns)
-      throws Exception {
+  void findStartsFromAQuestionNamingThePropertyAndReachesTheColumnItIsBoundTo(
+      final TestNamespace ns) throws Exception {
     final Walk walk = boundWalk(ns);
 
     final JsonNode found =
         awaitTermFound(
-            walk.property().getDisplayName(),
+            "which column holds the " + walk.property().getDisplayName(),
             walk.propertyIri(),
             card -> assertReachable(card, BOUND_COLUMN, OUTGOING, 1L));
     final JsonNode column =
