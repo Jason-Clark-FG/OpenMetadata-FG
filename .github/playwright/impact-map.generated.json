@@ -2111,7 +2111,6 @@
         "playwright/e2e/Features/LineagePipelineAnnotator.spec.ts",
         "playwright/e2e/Features/Pagination.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
         "playwright/e2e/Features/RestoreEntityInheritedFields.spec.ts",
         "playwright/e2e/Features/SearchSeparation/Database.spec.ts",
         "playwright/e2e/Features/SearchSeparation/DatabaseSchema.spec.ts",
@@ -2341,7 +2340,6 @@
         "playwright/e2e/Features/Permissions/DomainPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/EntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
         "playwright/e2e/Features/ProfileGovernance.spec.ts",
@@ -2539,12 +2537,13 @@
       ],
       "specs": [
         "playwright/e2e/Features/AIMode/AppModeSidebarPersonaCustomization.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/ContextCenterDocument.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/RoleFixtureSessions.spec.ts",
         "playwright/e2e/Flow/PersonaFlow.spec.ts",
@@ -2718,6 +2717,11 @@
         "playwright/e2e/Features/AIMode/AppModeSidebarPersonaCustomization.spec.ts",
         "playwright/e2e/Features/AIMode/HomePageCustomizeExit.spec.ts",
         "playwright/e2e/Features/AIMode/PersonaSettings.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeAiPersonaLandsAtRoot.spec.ts",
         "playwright/e2e/Features/AppMode/AppModePrecedence.spec.ts",
         "playwright/e2e/Features/CuratedAssets.spec.ts",
@@ -2730,11 +2734,6 @@
         "playwright/e2e/Features/LandingPageWidgets/DomainDataProductsWidgets.spec.ts",
         "playwright/e2e/Features/LandingPageWidgets/DomainWidgetFilter.spec.ts",
         "playwright/e2e/Features/NavigationBlocker.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
@@ -2872,7 +2871,6 @@
         "playwright/e2e/Features/CustomizeNavigationNewItems.spec.ts",
         "playwright/e2e/Features/DataProductPersonaCustomization.spec.ts",
         "playwright/e2e/Features/Glossary/GlossaryPersonaCustomization.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Flow/NotificationAlerts.spec.ts",
         "playwright/e2e/Pages/DescriptionVisibility.spec.ts",
         "playwright/e2e/Pages/Glossary.spec.ts",
@@ -2903,6 +2901,7 @@
         "playwright/e2e/Features/ActivityFeedTabBadge.spec.ts",
         "playwright/e2e/Features/ActivityStream.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeAiPersonaLandsAtRoot.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeAuthGating.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeCrossDevice.spec.ts",
@@ -2967,7 +2966,6 @@
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/TableQueriesTabPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
         "playwright/e2e/Features/QueryEntity.spec.ts",
@@ -3232,7 +3230,6 @@
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/TableQueriesTabPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
@@ -3358,9 +3355,8 @@
         "playwright/e2e/Features/AIMode/PersonaSettings.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
         "playwright/e2e/Features/AdvancedSearchSuggestions.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/CuratedAssets.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/Workflows/WorkflowCheckConditionNegation.spec.ts",
         "playwright/e2e/Flow/PersonaFlow.spec.ts",
         "playwright/e2e/Pages/CustomProperties.spec.ts",
@@ -3375,6 +3371,18 @@
       ],
       "specs": [
         "playwright/e2e/Pages/CustomProperties.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/playwright/utils/agentHarness.ts"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
       ]
     },
     {
@@ -3562,6 +3570,11 @@
         "playwright/e2e/Features/ActivityStream.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
         "playwright/e2e/Features/AdvancedSearchSuggestions.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/AgentLogStreamHandover.spec.ts",
         "playwright/e2e/Features/Announcements/AnnouncementEntity.spec.ts",
         "playwright/e2e/Features/Announcements/EntityHeaderAnnouncements.spec.ts",
@@ -3743,11 +3756,6 @@
         "playwright/e2e/Features/Permissions/EntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/TableQueriesTabPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
@@ -4237,6 +4245,10 @@
         "playwright/e2e/Features/ActivityStream.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
         "playwright/e2e/Features/AdvancedSearchSuggestions.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
         "playwright/e2e/Features/AgentLogStreamHandover.spec.ts",
         "playwright/e2e/Features/Announcements/AnnouncementEntity.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeAiPersonaLandsAtRoot.spec.ts",
@@ -4350,7 +4362,6 @@
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/TableQueriesTabPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
@@ -4874,18 +4885,6 @@
         "playwright/e2e/Flow/PersonaFlow.spec.ts",
         "playwright/e2e/Pages/DataContracts.spec.ts",
         "playwright/e2e/Pages/DescriptionVisibility.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/playwright/utils/personaAIContext.ts"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts"
       ]
     },
     {
@@ -5504,6 +5503,9 @@
         "playwright/e2e/Features/AIMode/ObservabilityPermissions.spec.ts",
         "playwright/e2e/Features/AIMode/PersonaSettings.spec.ts",
         "playwright/e2e/Features/AIMode/ProfileNotificationTab.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
         "playwright/e2e/Features/AppMode/AppModeSettings.spec.ts",
         "playwright/e2e/Features/BlockEditorMathEquations.spec.ts",
         "playwright/e2e/Features/ColumnBulkOperationsTagsGlossary.spec.ts",
@@ -5538,7 +5540,6 @@
         "playwright/e2e/Features/LandingPageWidgets/LandingPageTotalDataAssets.spec.ts",
         "playwright/e2e/Features/MetricBulkImportExportEdit.spec.ts",
         "playwright/e2e/Features/NestedColumnsExpandCollapse.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/ProfileGovernance.spec.ts",
@@ -6053,6 +6054,113 @@
     },
     {
       "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/CompiledContextRail/CompiledContextRail.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/ContextRuleCard/ContextRuleCard.component.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/ContextRuleEditor/ContextRuleEditor.component.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/ContextTab/ContextTab.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/GuardrailsTab/GuardrailsTab.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/HarnessSettingsBar/HarnessSettingsBar.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/InstructionsTab/InstructionsTab.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/McpAccessCard/McpAccessCard.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/MemoryTab/MemoryTab.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/NewPersonaHarnessModal/NewPersonaHarnessModal.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/PersonaHarnessTable/PersonaHarnessTable.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarnessList.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/PluginPanel/PluginPanel.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/SurfacesTab/SurfacesTab.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts"
+      ]
+    },
+    {
+      "sources": [
         "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/ArchiveView/ArchiveView.component.tsx"
       ],
       "specs": [
@@ -6195,53 +6303,6 @@
       "specs": [
         "playwright/e2e/Features/ContextCenterMemories.spec.ts",
         "playwright/e2e/Features/ContextCenterPermission.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/ContextPreviewModal/ContextPreviewModal.component.tsx"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/ContextRuleCard/ContextRuleCard.component.tsx"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/ContextRuleEditor/ContextRuleEditor.component.tsx"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/PersonaAIContext.component.tsx"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts"
-      ]
-    },
-    {
-      "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/VersionHistoryDrawer/VersionHistoryDrawer.component.tsx"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts"
       ]
     },
     {
@@ -9450,6 +9511,7 @@
         "playwright/e2e/Features/AIMode/PersonaSettings.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
         "playwright/e2e/Features/AdvancedSearchSuggestions.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/CuratedAssets.spec.ts",
         "playwright/e2e/Flow/PersonaFlow.spec.ts",
         "playwright/e2e/Pages/CustomProperties.spec.ts",
@@ -9729,6 +9791,7 @@
       "specs": [
         "playwright/e2e/Features/AIMode/AiObservabilityAlerts.spec.ts",
         "playwright/e2e/Features/AIMode/ConnectionServiceDetails.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/ContextCenterArchive.spec.ts",
         "playwright/e2e/Features/ContextCenterDocument.spec.ts",
         "playwright/e2e/Features/Dashboards.spec.ts",
@@ -9739,8 +9802,6 @@
         "playwright/e2e/Features/Glossary/GlossaryWorkflow.spec.ts",
         "playwright/e2e/Features/MetricCustomUnitFlow.spec.ts",
         "playwright/e2e/Features/MetricHierarchy.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/SampleDataTableOperations.spec.ts",
         "playwright/e2e/Flow/ApiServiceRest.spec.ts",
         "playwright/e2e/Flow/ExploreDiscovery.spec.ts",
@@ -9762,6 +9823,7 @@
       "specs": [
         "playwright/e2e/Features/AIMode/AiObservabilityAlerts.spec.ts",
         "playwright/e2e/Features/AIMode/ConnectionServiceDetails.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/ContextCenterArchive.spec.ts",
         "playwright/e2e/Features/ContextCenterDocument.spec.ts",
         "playwright/e2e/Features/Dashboards.spec.ts",
@@ -9772,8 +9834,6 @@
         "playwright/e2e/Features/Glossary/GlossaryWorkflow.spec.ts",
         "playwright/e2e/Features/MetricCustomUnitFlow.spec.ts",
         "playwright/e2e/Features/MetricHierarchy.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/SampleDataTableOperations.spec.ts",
         "playwright/e2e/Flow/ApiServiceRest.spec.ts",
         "playwright/e2e/Flow/ExploreDiscovery.spec.ts",
@@ -10105,7 +10165,6 @@
         "playwright/e2e/Features/IncidentManagerPagination.spec.ts",
         "playwright/e2e/Features/IngestionListNameSorting.spec.ts",
         "playwright/e2e/Features/Pagination.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
         "playwright/e2e/Features/QueryEntity.spec.ts",
         "playwright/e2e/Features/Table.spec.ts",
         "playwright/e2e/Features/Topic.spec.ts",
@@ -10136,7 +10195,6 @@
         "playwright/e2e/Features/IncidentManagerPagination.spec.ts",
         "playwright/e2e/Features/IngestionListNameSorting.spec.ts",
         "playwright/e2e/Features/Pagination.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
         "playwright/e2e/Features/QueryEntity.spec.ts",
         "playwright/e2e/Features/Table.spec.ts",
         "playwright/e2e/Features/Topic.spec.ts",
@@ -10239,6 +10297,7 @@
       ],
       "specs": [
         "playwright/e2e/Features/AIMode/PersonaSettings.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/CuratedAssets.spec.ts",
         "playwright/e2e/Pages/DataContracts.spec.ts",
         "playwright/e2e/Pages/DataContractsSemanticRules.spec.ts"
@@ -12180,9 +12239,7 @@
         "openmetadata-ui/src/main/resources/ui/src/enums/entity.enum.ts"
       ],
       "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts"
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
       ]
     },
     {
@@ -12192,6 +12249,18 @@
       "specs": [
         "playwright/e2e/Features/TableConstraint.spec.ts",
         "playwright/e2e/Pages/DataProducts.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/generated/api/context/agentHarnessState.ts"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
       ]
     },
     {
@@ -12685,6 +12754,11 @@
         "playwright/e2e/Features/ActivityStream.spec.ts",
         "playwright/e2e/Features/AdvancedSearch.spec.ts",
         "playwright/e2e/Features/AdvancedSearchSuggestions.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
         "playwright/e2e/Features/AgentLogStreamHandover.spec.ts",
         "playwright/e2e/Features/Announcements/AnnouncementEntity.spec.ts",
         "playwright/e2e/Features/Announcements/EntityHeaderAnnouncements.spec.ts",
@@ -12874,11 +12948,6 @@
         "playwright/e2e/Features/Permissions/GlossaryPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/ServiceEntityPermissions.spec.ts",
         "playwright/e2e/Features/Permissions/TableQueriesTabPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
         "playwright/e2e/Features/PersonaAppLayout.spec.ts",
         "playwright/e2e/Features/PersonaOverviewCardWidgets.spec.ts",
         "playwright/e2e/Features/PersonaSessionPersistence.spec.ts",
@@ -13448,16 +13517,6 @@
     },
     {
       "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/generated/type/personaContextDefinition.ts"
-      ],
-      "specs": [
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts"
-      ]
-    },
-    {
-      "sources": [
         "openmetadata-ui/src/main/resources/ui/src/generated/type/personaPreferences.ts"
       ],
       "specs": [
@@ -13591,10 +13650,23 @@
     },
     {
       "sources": [
-        "openmetadata-ui/src/main/resources/ui/src/pages/ContextCenterPage/ContextCenterAIContextPage/ContextCenterAIContextPage.tsx"
+        "openmetadata-ui/src/main/resources/ui/src/pages/ContextCenterPage/AgentHarnessPage/AgentHarnessEditorPage.tsx"
       ],
       "specs": [
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts"
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts"
+      ]
+    },
+    {
+      "sources": [
+        "openmetadata-ui/src/main/resources/ui/src/pages/ContextCenterPage/AgentHarnessPage/AgentHarnessListPage.tsx"
+      ],
+      "specs": [
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts"
       ]
     },
     {

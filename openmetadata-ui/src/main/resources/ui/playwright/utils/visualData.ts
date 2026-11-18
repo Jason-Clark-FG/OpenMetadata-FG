@@ -40,6 +40,10 @@ import workflowInstanceStates from '../fixtures/visual/workflow-instance-states.
 import workflowInstances from '../fixtures/visual/workflow-instances.json';
 import workflowTriggerFields from '../fixtures/visual/workflow-trigger-fields.json';
 import { test } from '../support/fixtures/base';
+import {
+  isVisualAgentHarnessPreview,
+  visualAgentHarnessResponse,
+} from './visualAgentHarness';
 
 interface FixtureEntity extends Record<string, unknown> {
   id: string;
@@ -418,7 +422,10 @@ export const installVisualData = async (
       !(
         path === 'analytics/web/events/collect' && request.method() === 'PUT'
       ) &&
-      !(request.method() === 'POST' && isolatedPosts.includes(path))
+      !(
+        request.method() === 'POST' &&
+        (isolatedPosts.includes(path) || isVisualAgentHarnessPreview(path))
+      )
     ) {
       await route.fulfill({
         status: 503,
@@ -1001,19 +1008,17 @@ export const installVisualData = async (
 
       return;
     }
-    if (path === 'personas/aiContext/status') {
-      await route.fulfill({
-        json: pageOf(
-          state === 'empty'
-            ? []
-            : fixtureResources.personas.map(({ id }) => ({
-                personaId: id,
-                cacheState: 'STALE',
-                entitiesIncluded: 0,
-                tokensEst: 0,
-              }))
-        ),
-      });
+    if (path.startsWith('agentHarness/')) {
+      const harness = visualAgentHarnessResponse(
+        path,
+        fixtureResources.personas,
+        state === 'empty'
+      );
+      if (harness === undefined) {
+        await failMissingVisualRead(route);
+      } else {
+        await route.fulfill({ json: harness });
+      }
 
       return;
     }
@@ -2064,7 +2069,6 @@ export const installVisualData = async (
           collection === 'dataQuality/testSuites' && childPath === 'testCases'
         ) &&
         !(collection === 'metrics' && childPath === 'hierarchy') &&
-        !(collection === 'personas' && childPath === 'aiContext') &&
         !(collection === 'apps' && childPath === 'status') &&
         !(collection === 'tables' && childPath === 'tableProfilerConfig') &&
         !(
@@ -2171,13 +2175,6 @@ export const installVisualData = async (
       if (collection === 'apps' && childPath === 'status') {
         // Installed applications have no execution history in this catalog.
         await route.fulfill({ json: pageOf([]) });
-
-        return;
-      }
-      if (collection === 'personas' && childPath === 'aiContext') {
-        await route.fulfill({
-          json: { enabled: false, rules: [], cacheState: 'STALE' },
-        });
 
         return;
       }
