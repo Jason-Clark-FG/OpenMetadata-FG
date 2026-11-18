@@ -271,6 +271,8 @@ class KnowledgeGraphToolTest {
     assertThat(answer.rows().rest()).contains("OFFSET " + answer.rows().returned());
     assertThat(JsonUtils.readTree(answer.result().body()).path("results").path("bindings").size())
         .isEqualTo(answer.rows().returned());
+    assertThat(JsonUtils.readTree(answer.result().body()).path("head").path("vars").toString())
+        .isEqualTo("[\"s\",\"p\",\"o\"]");
   }
 
   @Test

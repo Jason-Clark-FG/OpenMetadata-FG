@@ -15,6 +15,7 @@ package org.openmetadata.mcp.tools;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Optional;
 import java.util.function.Function;
@@ -29,6 +30,8 @@ import org.openmetadata.schema.utils.JsonUtils;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record QueryRows(int returned, int total, String rest) {
 
+  private static final String RESULTS = "results";
+  private static final String BINDINGS = "bindings";
   private static final String REST =
       "%d of %d rows are here. Run the query again with ORDER BY and OFFSET %d to read the next"
           + " ones, or select fewer variables or rows.";
@@ -71,13 +74,18 @@ public record QueryRows(int returned, int total, String rest) {
     return cut(result, parsed, low);
   }
 
+  /**
+   * The body with only the leading {@code returned} rows: every other field the store sent, in its
+   * order, shares the parsed nodes, so no step of the search copies the whole answer.
+   */
   private static Fitted cut(
       final SparqlQueryTool.Result result, final ParsedRows parsed, final int returned) {
-    final ObjectNode body = parsed.root().deepCopy();
-    final ArrayNode kept = ((ObjectNode) body.path("results")).putArray("bindings");
+    final ArrayNode kept = JsonNodeFactory.instance.arrayNode();
     for (int index = 0; index < returned; index++) {
       kept.add(parsed.bindings().get(index));
     }
+    final ObjectNode body =
+        replacing(parsed.root(), RESULTS, replacing(parsed.results(), BINDINGS, kept));
     final int total = parsed.bindings().size();
     return new Fitted(
         new SparqlQueryTool.Result(
@@ -91,18 +99,30 @@ public record QueryRows(int returned, int total, String rest) {
         new QueryRows(returned, total, REST.formatted(returned, total, returned)));
   }
 
+  private static ObjectNode replacing(
+      final ObjectNode node, final String name, final JsonNode replacement) {
+    final ObjectNode copy = JsonNodeFactory.instance.objectNode();
+    node.fields()
+        .forEachRemaining(
+            field ->
+                copy.set(
+                    field.getKey(), name.equals(field.getKey()) ? replacement : field.getValue()));
+    return copy;
+  }
+
   private static long sizeOf(final Object answer) {
     return JsonUtils.pojoToJson(answer).length();
   }
 
-  private record ParsedRows(ObjectNode root, ArrayNode bindings) {}
+  private record ParsedRows(ObjectNode root, ObjectNode results, ArrayNode bindings) {}
 
   private static Optional<ParsedRows> bindings(final String body) {
     try {
       final JsonNode root = JsonUtils.readTree(body);
       return root instanceof ObjectNode object
-              && object.path("results").path("bindings") instanceof ArrayNode rows
-          ? Optional.of(new ParsedRows(object, rows))
+              && object.path(RESULTS) instanceof ObjectNode results
+              && results.path(BINDINGS) instanceof ArrayNode rows
+          ? Optional.of(new ParsedRows(object, results, rows))
           : Optional.empty();
     } catch (RuntimeException unreadable) {
       return Optional.empty();
