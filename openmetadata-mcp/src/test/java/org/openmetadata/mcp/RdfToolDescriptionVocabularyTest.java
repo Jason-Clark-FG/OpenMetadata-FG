@@ -59,6 +59,7 @@ class RdfToolDescriptionVocabularyTest {
           "ontology_describe",
           "knowledge_graph");
   private static final int SPARQL_QUERY_DESCRIPTION_BUDGET = 3_000;
+  private static final int KNOWLEDGE_GRAPH_DESCRIPTION_BUDGET = 1_600;
   private static final Pattern OM_TERM = Pattern.compile("\\bom:([A-Za-z][A-Za-z0-9]*)");
   private static final Pattern COLUMN_LINEAGE_QUERY =
       Pattern.compile("SELECT DISTINCT \\?column.*?OFFSET 0");
@@ -108,6 +109,26 @@ class RdfToolDescriptionVocabularyTest {
   void sparqlQueryStaysWithinItsCharacterBudget() {
     assertThat(tools.get("sparql_query").description().length())
         .isLessThanOrEqualTo(SPARQL_QUERY_DESCRIPTION_BUDGET);
+  }
+
+  /** A host model that loaded no other tool learns the whole loop from this text, every request. */
+  @Test
+  void knowledgeGraphCanBeUsedFromItsDescriptionAloneWithinItsBudget() {
+    final McpSchema.Tool tool = tools.get("knowledge_graph");
+
+    assertThat(tool.description().length()).isLessThanOrEqualTo(KNOWLEDGE_GRAPH_DESCRIPTION_BUDGET);
+    assertThat(tool.description())
+        .contains("question in plain words", "'reachable'", "'values'", "expand", "SPARQL SELECT")
+        .contains("cite", "once", "'run'")
+        .doesNotContain("sparql_query");
+    assertThat(parameterDescription(tool, "question")).contains("plain words");
+    assertThat(parameterDescription(tool, "run")).contains("cite");
+    assertThat(parameterDescription(tool, "sparql")).doesNotContain("sparql_query");
+  }
+
+  private static String parameterDescription(final McpSchema.Tool tool, final String name) {
+    final Map<?, ?> properties = (Map<?, ?>) tool.inputSchema().get("properties");
+    return ((Map<?, ?>) properties.get(name)).get("description").toString();
   }
 
   @Test

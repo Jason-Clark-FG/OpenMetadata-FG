@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -171,3 +171,25 @@ words, plurals fold, words under three characters and common words drop).
   found. The merge with ontology terms, the `limit`, the budget and `moreMatched` are unchanged.
 
 Cost: up to nine searches per `find`. A generic word ("data") counts as much as a specific one.
+
+## Amendment 2026-11-18. A server can offer knowledge_graph alone
+
+A host that loads tools by searching their descriptions (Claude Desktop) picked five older tools
+for "customer lifetime value" and never loaded `knowledge_graph`, so the server could not offer
+the single entry point this tool exists to be.
+
+- **`mcpOfferedTools`** in the server YAML, from `MCP_OFFERED_TOOLS`: a comma-separated list of
+  tool names, blank by default. Blank offers every tool, exactly as before. Set, `tools/list`
+  lists only those tools and a `tools/call` of any other is answered with an error, status 400,
+  saying the tool "is not offered by this MCP server", so a client reads it as neither an unknown
+  tool nor a permission failure. Read-only mode and `disabledTools` still apply to what is offered.
+- **A deployment setting, not an admin one.** It is read once at start, where an admin setting in
+  the database is reloaded live and keeps names it does not know. A name the server does not
+  register (a typo, or `knowledge_graph` with `rdf.enabled` false) stops the start with
+  `InvalidMcpConfigurationException`, which `registerMCPServer` rethrows, instead of a server
+  that offers nothing.
+- **Instructions.** When the list is `knowledge_graph` alone, `initialize` carries a short text
+  (`knowledge-graph-instructions.txt`) with the loop: find in plain words, read the cards,
+  expand, query only for what cards cannot give, cite once.
+- **Description.** The tool description is written for a model that has no other tool, within
+  1,600 characters (it was 2,390, now 1,479); `RdfToolDescriptionVocabularyTest` holds both.

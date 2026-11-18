@@ -60,6 +60,7 @@ public class McpServer implements McpServerProvider {
   protected DefaultPromptsContext promptsContext;
   private Environment environment;
   private volatile String mcpBotName;
+  OfferedTools offeredTools = OfferedTools.ALL;
 
   // Default constructor for dynamic loading
   public McpServer() {
@@ -78,6 +79,10 @@ public class McpServer implements McpServerProvider {
       Authorizer authorizer,
       Limits limits,
       OpenMetadataApplicationConfig config) {
+    List<McpSchema.Tool> tools = getTools();
+    this.offeredTools =
+        OfferedTools.parse(
+            config.getMcpOfferedTools(), tools.stream().map(McpSchema.Tool::name).toList());
     this.jwtFilter =
         new JwtFilter(
             SecurityConfigurationManager.getCurrentAuthConfig(),
@@ -92,7 +97,7 @@ public class McpServer implements McpServerProvider {
     this.limits = limits;
     this.environment = environment;
     MutableServletContextHandler contextHandler = environment.getApplicationContext();
-    List<McpSchema.Tool> tools = getTools();
+    logOfferedTools(offeredTools);
     McpToolRegistry.setToolNames(tools.stream().map(McpSchema.Tool::name).toList());
     logToolGating(tools, SecurityConfigurationManager.getCurrentMcpConfig());
     SecurityConfigurationManager.getInstance()
@@ -168,23 +173,34 @@ public class McpServer implements McpServerProvider {
    * #executeTool} refuses them on each call. See ADR:2026-11-04-mcp-read-only-mode-hides-write-tools
    * and ADR:2026-11-05-mcp-admins-can-disable-single-tools.
    */
-  static McpSyncListFilter<McpSchema.Tool> toolFilter(Supplier<MCPConfiguration> config) {
-    return (context, tool) -> refusalReason(tool, config.get()).isEmpty();
+  static McpSyncListFilter<McpSchema.Tool> toolFilter(
+      Supplier<MCPConfiguration> config, OfferedTools offered) {
+    return (context, tool) ->
+        offered.offers(tool.name()) && refusalReason(tool, config.get()).isEmpty();
+  }
+
+  private static void logOfferedTools(OfferedTools offered) {
+    if (offered.isRestricted()) {
+      LOG.info("[MCP] This server offers only the tool(s) {}", offered.names());
+    }
   }
 
   static McpStatelessSyncServer buildServer(
       McpStatelessServerTransport transport,
       McpSchema.ServerCapabilities capabilities,
-      Supplier<MCPConfiguration> mcpConfig) {
-    return io.modelcontextprotocol.server.McpServer.sync(transport)
-        .serverInfo(serverInfo(mcpConfig.get()))
-        .capabilities(capabilities)
-        // SDK 2.x checks tools/call arguments against the tool schema by default. Kept off: the
-        // tools accept looser shapes on purpose, see
-        // ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk.
-        .validateToolInputs(false)
-        .addToolFilter(toolFilter(mcpConfig))
-        .build();
+      Supplier<MCPConfiguration> mcpConfig,
+      OfferedTools offered) {
+    var specification =
+        io.modelcontextprotocol.server.McpServer.sync(transport)
+            .serverInfo(serverInfo(mcpConfig.get()))
+            .capabilities(capabilities)
+            // SDK 2.x checks tools/call arguments against the tool schema by default. Kept off: the
+            // tools accept looser shapes on purpose, see
+            // ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk.
+            .validateToolInputs(false)
+            .addToolFilter(toolFilter(mcpConfig, offered));
+    offered.instructions().ifPresent(specification::instructions);
+    return specification.build();
   }
 
   // The name and version clients see in initialize come from the MCP settings, read at startup. A
@@ -306,7 +322,8 @@ public class McpServer implements McpServerProvider {
           buildServer(
               statelessOauthTransport,
               serverCapabilities,
-              SecurityConfigurationManager::getCurrentMcpConfig);
+              SecurityConfigurationManager::getCurrentMcpConfig,
+              offeredTools);
       addToolsToServer(server, tools);
       addPromptsToServer(server, prompts);
 
@@ -465,8 +482,13 @@ public class McpServer implements McpServerProvider {
     try {
       ImpersonationContext.setImpersonatedBy(attributedBot(securityContext));
       outcome =
-          refusalReason(tool, SecurityConfigurationManager.getCurrentMcpConfig())
-              .map(DefaultToolContext::forbidden)
+          offeredTools
+              .refusal(tool.name())
+              .map(DefaultToolContext::notOffered)
+              .or(
+                  () ->
+                      refusalReason(tool, SecurityConfigurationManager.getCurrentMcpConfig())
+                          .map(DefaultToolContext::forbidden))
               .orElseGet(
                   () ->
                       toolContext.callToolWithMetadata(
