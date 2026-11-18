@@ -7,8 +7,8 @@
 - **Superseded in part by:** `docs/plans/2026-11-18-agent-harness-implementation-plan.md` §1. The
   Agent Harness UI specification makes the harness its own entity, makes persona harnesses extend
   the company default, adds a PostToolUse event, and changes the default budgets and memory
-  settings. Where the two documents differ, the implementation plan wins until this document is
-  amended
+  settings. Where the two documents differ, the implementation plan and
+  ADR:2026-11-18-agent-harness-is-an-entity-and-persona-harnesses-extend-the-default win
 
 ## 1. Problem
 

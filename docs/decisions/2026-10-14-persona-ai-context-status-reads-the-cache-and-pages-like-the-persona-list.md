@@ -1,6 +1,6 @@
 # Persona AI context status reads the cache and pages like the persona list
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR:2026-11-18-agent-harness-is-an-entity-and-persona-harnesses-extend-the-default
 - **Revisions:** v1 2026-10-14 (initial)
 - **Deciders:** @Rohit0301
 - **Guard:** `PersonaAIContextIT.aiContextStatusPagesWithTheSameCursorAsThePersonaList`, `PersonaAIContextIT.aiContextStatusListsCachedStateForEveryPersonaAndIsAdminOnly`
