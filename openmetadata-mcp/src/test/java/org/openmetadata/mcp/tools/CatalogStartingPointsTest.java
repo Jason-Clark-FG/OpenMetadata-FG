@@ -169,48 +169,6 @@ class CatalogStartingPointsTest {
             "shop.orders.tax_paid");
   }
 
-  /**
-   * The certified customers mart and its column rank ahead of the deprecated look-alike and its
-   * column, which matched the words better: a deprecated asset, or a column of one, comes after
-   * every asset of its kind that is not.
-   */
-  @Test
-  void aDeprecatedAssetOrAColumnOfOneComesAfterEveryHitOfItsKindThatIsNot() throws Exception {
-    final UUID clean = UUID.randomUUID();
-    final UUID customers = UUID.randomUUID();
-    final RecordingHybrid hybrid =
-        new RecordingHybrid(
-            List.of(
-                columnHit(
-                    UUID.randomUUID(),
-                    "shop.customers_clean.customer_lifetime_value",
-                    clean,
-                    "shop.customers_clean"),
-                deprecated(hybridHit(clean, "table", "shop.customers_clean")),
-                hybridHit(customers, "table", "shop.customers"),
-                columnHit(
-                    UUID.randomUUID(),
-                    "shop.customers.lifetime_spend",
-                    customers,
-                    "shop.customers")));
-
-    final CatalogHits found =
-        new CatalogStartingPoints(
-                () -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
-            .search(
-                AUTHORIZER,
-                CALLER,
-                new KnowledgeGraphCall.Find("customer lifetime value", List.of(), 5));
-
-    assertThat(found.hits())
-        .extracting(SearchHit::fullyQualifiedName)
-        .containsExactly(
-            "shop.customers.lifetime_spend",
-            "shop.customers",
-            "shop.customers_clean",
-            "shop.customers_clean.customer_lifetime_value");
-  }
-
   private static Map<String, Object> deprecated(final Map<String, Object> hit) {
     final Map<String, Object> marked = new HashMap<>(hit);
     marked.put("entityStatus", "Deprecated");
@@ -366,70 +324,46 @@ class CatalogStartingPointsTest {
     return row;
   }
 
+  /**
+   * Trust is stated on the card, not in the rank: a Deprecated table the question matches best is
+   * returned first of its kind, on the hybrid path and with vector search off alike.
+   */
   @Test
-  void withVectorSearchOffADeprecatedTableTheWordsRankFirstComesAfterOneThatIsNot()
-      throws Exception {
+  void aDeprecatedTableThatMatchesBestIsReturnedFirstOfItsKind() throws Exception {
     final UUID clean = UUID.randomUUID();
     final UUID customers = UUID.randomUUID();
-    final UUID lookAlike = UUID.randomUUID();
-    final Map<String, Object> lookAlikeColumn =
-        keywordRow(lookAlike, "tableColumn", "shop.customers_clean.lifetime_value", null);
-    lookAlikeColumn.put("table", Map.of("id", clean.toString(), "type", "table"));
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                deprecated(hybridHit(clean, "table", "shop.customers_clean")),
+                hybridHit(customers, "table", "shop.customers")));
     final RecordingSearch words =
         new RecordingSearch(
             Map.of(
                 "results",
                 List.of(
-                    lookAlikeColumn,
                     keywordRow(clean, "table", "shop.customers_clean", "Deprecated"),
-                    keywordRow(customers, "table", "shop.customers", "Unprocessed"),
-                    keywordRow(UUID.randomUUID(), "tableColumn", "shop.customers.spend", null))));
+                    keywordRow(customers, "table", "shop.customers", "Unprocessed"))));
+    final KnowledgeGraphCall.Find find =
+        new KnowledgeGraphCall.Find("customers_clean", List.of("table"), 5);
 
-    final List<SearchHit> hits =
+    final List<SearchHit> byHybrid =
+        new CatalogStartingPoints(
+                () -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, find)
+            .hits();
+    final List<SearchHit> byWords =
         new CatalogStartingPoints(
                 () -> false, () -> semantic, () -> words, NO_HYBRID, EVERY_HIT_VISIBLE)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("customers", List.of(), 5))
+            .search(AUTHORIZER, CALLER, find)
             .hits();
 
-    assertThat(hits)
+    assertThat(byHybrid)
         .extracting(SearchHit::fullyQualifiedName)
-        .containsExactly(
-            "shop.customers.spend",
-            "shop.customers",
-            "shop.customers_clean",
-            "shop.customers_clean.lifetime_value");
-  }
-
-  @Test
-  void withoutHybridSearchADeprecatedMeaningHitComesAfterAWordHitOfItsKindThatIsNot()
-      throws Exception {
-    final UUID clean = UUID.randomUUID();
-    final UUID customers = UUID.randomUUID();
-    final RecordingSearch meaning =
-        new RecordingSearch(
-            Map.of(
-                "results",
-                List.of(
-                    Map.of(
-                        "parentId", clean.toString(),
-                        "entityType", "table",
-                        "fullyQualifiedName", "shop.customers_clean",
-                        "entityStatus", "Deprecated"))));
-    final RecordingSearch words =
-        new RecordingSearch(
-            Map.of(
-                "results",
-                List.of(keywordRow(customers, "table", "shop.customers", "Unprocessed"))));
-
-    final List<SearchHit> hits =
-        new CatalogStartingPoints(
-                () -> true, () -> meaning, () -> words, NO_HYBRID, EVERY_HIT_VISIBLE)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("customers", List.of(), 5))
-            .hits();
-
-    assertThat(hits)
+        .containsExactly("shop.customers_clean", "shop.customers");
+    assertThat(byWords)
         .extracting(SearchHit::fullyQualifiedName)
-        .containsExactly("shop.customers", "shop.customers_clean");
+        .containsExactly("shop.customers_clean", "shop.customers");
   }
 
   @Test
@@ -447,7 +381,7 @@ class CatalogStartingPointsTest {
     assertThat(keyword.calls.getFirst())
         .containsEntry("query", "orders")
         .containsEntry("size", 5)
-        .containsEntry("fields", "id,entityStatus,table")
+        .containsEntry("fields", "id")
         .doesNotContainKey("entityType");
   }
 

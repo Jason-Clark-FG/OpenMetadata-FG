@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -375,3 +375,14 @@ incidents (`om:latestResultStatus=Failed`, `om:hasOpenIncident`), that `expand` 
 side in one call (`om:testsEntity`, incoming, for a table's tests), and that a query's `rows` and
 `noRows` say what was left out and why an empty answer is not an absence.
 `RdfToolDescriptionVocabularyTest` and `McpOfferedToolsTest` hold both.
+
+## Amendment 2026-11-18. Trust is stated on the card, not in the rank
+
+The "Deprecated last" rule of v13 is removed on every path; `find` returns relevance order. On the
+play server it turned "ranked lower" into "not returned": `find` "customers_clean" (tables only,
+`limit` 20, `maxChars` 400,000) did not return `customers_clean`, the round-2 question about that
+table lost its card from the first `find` (3 of 3 runs had it before), and the rule was not even
+applied evenly. A question about a deprecated asset is when the catalog must show it, and round
+one showed no answer lost to a deprecated look-alike ranking first. The card says
+`status: Deprecated` in its facts; that is where trust is stated. Test cases stay searched by
+meaning (v13).

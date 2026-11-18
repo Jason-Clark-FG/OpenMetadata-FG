@@ -179,6 +179,32 @@ class KnowledgeGraphToolTest {
   }
 
   @Test
+  void aDeprecatedTableFindReturnsFirstSaysSoOnItsCard() throws IOException {
+    callersAreAdministrators(false);
+    final RdfRepository withDeprecated =
+        JenaBackedRepository.ofTurtle(
+            GRAPH + "<%s> om:entityStatus \"Deprecated\" .".formatted(ORDERS));
+    final KnowledgeGraphTool tool =
+        new KnowledgeGraphTool(
+            () -> withDeprecated,
+            () -> RdfProjectionState.READY,
+            (authorizer, caller, find) ->
+                CatalogHits.of(
+                    List.of(
+                        new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID),
+                        new SearchHit("table", "warehouse.shop.public.customers", CUSTOMERS_ID))),
+            () -> traces,
+            Clock.systemUTC());
+
+    final KnowledgeGraphTool.FindResponse found =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(GRANTED, CALLER, Map.of("operation", "find", "question", "orders"));
+
+    assertThat(found.nodes().getFirst().id()).isEqualTo(ORDERS);
+    assertThat(found.nodes().getFirst().facts().status()).isEqualTo("Deprecated");
+  }
+
+  @Test
   void aRunHandlePassedBackIsTheRunOfTheResponse() throws IOException {
     callersAreAdministrators(false);
     final UUID run = UUID.randomUUID();
