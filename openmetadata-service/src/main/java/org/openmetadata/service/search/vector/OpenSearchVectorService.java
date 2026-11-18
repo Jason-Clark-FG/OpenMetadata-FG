@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.EntityInterface;
@@ -1599,8 +1600,8 @@ public class OpenSearchVectorService implements VectorIndexService {
 
   /**
    * The words and the meaning of the question, each searched on its own and ranked over its whole
-   * scope, fused by {@code ranking}. The meaning leg asks only for the types that carry embeddings,
-   * and is not asked when none does.
+   * scope, fused by {@code ranking}. The meaning leg also asks for the types searched by meaning
+   * alone, only for those that carry embeddings, and is not asked when none does.
    */
   public List<Map<String, Object>> hybridSearch(
       final HybridSearchRequest request, final HybridRanking ranking) {
@@ -1612,12 +1613,15 @@ public class OpenSearchVectorService implements VectorIndexService {
               HybridSearchQuery.lexicalLeg(request.lexicalQuery(), scope, request.accessFilter()),
               request.size());
       final List<String> embedded =
-          request.entityTypes().stream().filter(AvailableEntityTypes::isVectorIndexable).toList();
+          Stream.concat(request.entityTypes().stream(), request.byMeaningOnly().stream())
+              .distinct()
+              .filter(AvailableEntityTypes::isVectorIndexable)
+              .toList();
       final List<Map<String, Object>> byMeaning =
           embedded.isEmpty()
               ? List.of()
               : leg(request.meaningIndex(), knnLeg(request, embedded), request.size());
-      return ranking.fuse(byWords, byMeaning, request.size());
+      return ranking.fuse(byWords, byMeaning, Set.copyOf(request.byMeaningOnly()), request.size());
     } catch (JsonProcessingException unreadable) {
       throw new HybridSearchException("The hybrid search response could not be read", unreadable);
     } catch (RuntimeException failed) {

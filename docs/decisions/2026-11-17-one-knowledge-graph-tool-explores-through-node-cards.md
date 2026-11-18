@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -338,3 +338,20 @@ exist.
   ontology's own `om:`, `dct:`, `prov:`, `skos:` and the rest) without declaring them gets their
   declarations, listed in `prefixesAdded`, only when the result parses. The completed text is what
   runs, through the same validation, so nothing a caller could not have written is accepted.
+
+## Amendment 2026-11-18. Find reflects trust and symptom questions
+
+- **Deprecated last.** Within each kind of hit, a Deprecated asset (`entityStatus`), or a column
+  of a Deprecated table among the hits, comes after every hit of that kind that is not. For
+  "customer lifetime value" the certified `customers` mart now leads the deprecated
+  `customers_clean`, and its columns lead that table's look-alike column. It applies to the hybrid
+  path, whose hits carry the status.
+- **Test cases by meaning.** With no types named, the meaning leg also searches test cases; the
+  word leg does not. A symptom ("order volume looked low", "the freshness check is failing")
+  matches a test case's description, while its name repeats words of its table and columns, which
+  those hits already carry. A type searched by meaning alone is ranked by its meaning rank in both
+  legs, as a type without embeddings is by its word rank. Incidents are not indexed: a test case
+  card offers `om:hasOpenIncident` with the incident's state. Governance frameworks and policies,
+  test suites, domains and glossaries stay out unless named. On the play server's data this puts a
+  freshness or volume test first for the symptom questions and no test case in the first five for
+  the three data questions.

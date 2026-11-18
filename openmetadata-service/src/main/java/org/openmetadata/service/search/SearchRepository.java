@@ -1094,6 +1094,7 @@ public class SearchRepository {
                     getIndexOrAliasName(GLOBAL_SEARCH_ALIAS),
                     vectorIndexService.getIndexAlias(),
                     hybridScope(entityTypes, entityIndexMap),
+                    meaningOnlyScope(entityTypes),
                     accessFilter(subjectContext),
                     size,
                     subjectContext),
@@ -1117,6 +1118,15 @@ public class SearchRepository {
             .sorted()
             .toList()
         : List.copyOf(asked);
+  }
+
+  /**
+   * The types a hybrid search asks for by meaning alone: test cases when the caller names no types.
+   * A symptom ("the freshness check is failing") is answered by a test case, which its description
+   * matches; its name repeats the words of its table and columns, which those hits already carry.
+   */
+  public static List<String> meaningOnlyScope(final List<String> asked) {
+    return asked.isEmpty() ? List.of(Entity.TEST_CASE) : List.of();
   }
 
   private static String wordQuery(final String question, final List<String> words, final int size) {

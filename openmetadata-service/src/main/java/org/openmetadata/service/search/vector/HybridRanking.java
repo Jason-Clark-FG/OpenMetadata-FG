@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.stream.IntStream;
 import org.openmetadata.service.search.vector.utils.AvailableEntityTypes;
@@ -27,7 +28,8 @@ import org.openmetadata.service.search.vector.utils.AvailableEntityTypes;
  * Reciprocal rank fusion of one question's word ranking and meaning ranking, each ranked over its
  * whole scope: an entity scores {@code weight / (rankConstant + rank)} in each leg it is ranked in.
  * A type that carries no embeddings cannot be ranked by meaning, so its word rank stands for both
- * legs. A column found by words is a word match for its table too. Hits name their entity in
+ * legs; a type searched by meaning alone is ranked by its meaning rank in both. A column found by
+ * words is a word match for its table too. Hits name their entity in
  * {@code parentId}; equal scores keep the order the entities were first ranked in, words first.
  */
 public record HybridRanking(double wordWeight, double meaningWeight, int rankConstant) {
@@ -43,6 +45,14 @@ public record HybridRanking(double wordWeight, double meaningWeight, int rankCon
       final List<Map<String, Object>> byWords,
       final List<Map<String, Object>> byMeaning,
       final int size) {
+    return fuse(byWords, byMeaning, Set.of(), size);
+  }
+
+  public List<Map<String, Object>> fuse(
+      final List<Map<String, Object>> byWords,
+      final List<Map<String, Object>> byMeaning,
+      final Set<String> byMeaningOnly,
+      final int size) {
     final Map<String, Map<String, Object>> entities = new LinkedHashMap<>();
     byWords.forEach(hit -> entities.putIfAbsent(entityOf(hit), hit));
     byMeaning.forEach(hit -> entities.putIfAbsent(entityOf(hit), hit));
@@ -53,7 +63,7 @@ public record HybridRanking(double wordWeight, double meaningWeight, int rankCon
         (entity, hit) ->
             scores.put(
                 entity,
-                share(wordWeight, wordRanks.get(entity))
+                share(wordWeight, wordRankOf(hit, entity, byMeaningOnly, wordRanks, meaningRanks))
                     + share(meaningWeight, meaningRankOf(hit, entity, wordRanks, meaningRanks))));
     return entities.keySet().stream()
         .sorted(Comparator.comparingDouble(scores::get).reversed())
@@ -64,6 +74,17 @@ public record HybridRanking(double wordWeight, double meaningWeight, int rankCon
 
   private double share(final double weight, final Integer rank) {
     return rank == null ? 0.0 : weight / (rankConstant + rank);
+  }
+
+  private static Integer wordRankOf(
+      final Map<String, Object> hit,
+      final String entity,
+      final Set<String> byMeaningOnly,
+      final Map<String, Integer> wordRanks,
+      final Map<String, Integer> meaningRanks) {
+    return byMeaningOnly.contains(Objects.toString(hit.get(ENTITY_TYPE), ""))
+        ? meaningRanks.get(entity)
+        : wordRanks.get(entity);
   }
 
   private static Integer meaningRankOf(

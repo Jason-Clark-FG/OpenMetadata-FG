@@ -61,4 +61,11 @@ class HybridSearchScopeTest {
     assertThat(SearchRepository.hybridScope(List.of("aiGovernancePolicy", "table"), shipped))
         .containsExactly("aiGovernancePolicy", "table");
   }
+
+  @Test
+  void withNoTypesAskedTestCasesAreSearchedByMeaningAlone() {
+    assertThat(SearchRepository.meaningOnlyScope(List.of())).containsExactly("testCase");
+    assertThat(SearchRepository.hybridScope(List.of(), shipped)).doesNotContain("testCase");
+    assertThat(SearchRepository.meaningOnlyScope(List.of("table"))).isEmpty();
+  }
 }

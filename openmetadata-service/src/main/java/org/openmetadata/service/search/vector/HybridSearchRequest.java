@@ -17,7 +17,8 @@ import org.openmetadata.service.security.policyevaluator.SubjectContext;
 
 /**
  * One hybrid search: the question, the word query the search settings build for it, the index or
- * alias each leg searches, the entity types both legs are held to, the caller's search access
+ * alias each leg searches, the entity types both legs are held to and those only the meaning leg
+ * searches, the caller's search access
  * filter (the clause keyword search adds for this caller; null when keyword search adds none), how
  * many entities to return, and the caller.
  */
@@ -27,11 +28,13 @@ public record HybridSearchRequest(
     String wordIndex,
     String meaningIndex,
     List<String> entityTypes,
+    List<String> byMeaningOnly,
     String accessFilter,
     int size,
     SubjectContext subjectContext) {
 
   public HybridSearchRequest {
     entityTypes = List.copyOf(entityTypes);
+    byMeaningOnly = List.copyOf(byMeaningOnly);
   }
 }

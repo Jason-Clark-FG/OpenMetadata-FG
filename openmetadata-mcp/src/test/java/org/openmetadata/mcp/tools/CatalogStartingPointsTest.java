@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -166,6 +167,54 @@ class CatalogStartingPointsTest {
             "shop.orders.subtotal",
             "shop.stg_orders",
             "shop.orders.tax_paid");
+  }
+
+  /**
+   * The certified customers mart and its column rank ahead of the deprecated look-alike and its
+   * column, which matched the words better: a deprecated asset, or a column of one, comes after
+   * every asset of its kind that is not.
+   */
+  @Test
+  void aDeprecatedAssetOrAColumnOfOneComesAfterEveryHitOfItsKindThatIsNot() throws Exception {
+    final UUID clean = UUID.randomUUID();
+    final UUID customers = UUID.randomUUID();
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                columnHit(
+                    UUID.randomUUID(),
+                    "shop.customers_clean.customer_lifetime_value",
+                    clean,
+                    "shop.customers_clean"),
+                deprecated(hybridHit(clean, "table", "shop.customers_clean")),
+                hybridHit(customers, "table", "shop.customers"),
+                columnHit(
+                    UUID.randomUUID(),
+                    "shop.customers.lifetime_spend",
+                    customers,
+                    "shop.customers")));
+
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+            .search(
+                AUTHORIZER,
+                CALLER,
+                new KnowledgeGraphCall.Find("customer lifetime value", List.of(), 5));
+
+    assertThat(found.hits())
+        .extracting(SearchHit::fullyQualifiedName)
+        .containsExactly(
+            "shop.customers.lifetime_spend",
+            "shop.customers",
+            "shop.customers_clean",
+            "shop.customers_clean.customer_lifetime_value");
+  }
+
+  private static Map<String, Object> deprecated(final Map<String, Object> hit) {
+    final Map<String, Object> marked = new HashMap<>(hit);
+    marked.put("entityStatus", "Deprecated");
+    return marked;
   }
 
   @Test

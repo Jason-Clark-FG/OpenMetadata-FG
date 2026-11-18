@@ -85,12 +85,18 @@ class OpenSearchHybridSearchTest {
 
   private static HybridSearchRequest request(
       final List<String> entityTypes, final String accessFilter) {
+    return request(entityTypes, List.of(), accessFilter);
+  }
+
+  private static HybridSearchRequest request(
+      final List<String> entityTypes, final List<String> byMeaningOnly, final String accessFilter) {
     return new HybridSearchRequest(
         "customer lifetime value",
         LEXICAL,
         "all",
         "dataAssetEmbeddings",
         entityTypes,
+        byMeaningOnly,
         accessFilter,
         5,
         null);
@@ -144,6 +150,19 @@ class OpenSearchHybridSearchTest {
       assertThat(body.path("query").has("hybrid")).isFalse();
       assertThat(body.path("size").asInt()).isGreaterThanOrEqualTo(5);
     }
+  }
+
+  @Test
+  void typesSearchedByMeaningAloneAreLeftOutOfTheWordLeg() throws IOException {
+    clusterAnswers(200, "{\"hits\":{\"hits\":[]}}");
+
+    service.hybridSearch(request(List.of("table"), List.of("testCase"), null), RANKING);
+
+    assertThat(sentBody(0).path("query").path("bool").path("filter").toString())
+        .contains("\"entityType\":[\"table\"]")
+        .doesNotContain("testCase");
+    assertThat(sentBody(1).path("query").path("knn").path("embedding").path("filter").toString())
+        .contains("\"entityType\":[\"table\",\"testCase\"]");
   }
 
   @Test

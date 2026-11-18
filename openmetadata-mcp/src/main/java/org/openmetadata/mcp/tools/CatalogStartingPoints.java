@@ -14,8 +14,11 @@
 package org.openmetadata.mcp.tools;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -68,6 +72,8 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String TABLE = "table";
   private static final String TYPE = "type";
   private static final String COLUMN_INDEX = "tableColumn";
+  private static final String ENTITY_STATUS = "entityStatus";
+  private static final String DEPRECATED = "Deprecated";
 
   private final BooleanSupplier vectorSearchEnabled;
   private final Supplier<McpTool> semanticSearch;
@@ -168,12 +174,45 @@ final class CatalogStartingPoints implements StartingPoints {
               find.limit() * KIND_POOL,
               securityContext);
       return hybrid.isPresent()
-          ? CatalogHits.of(byKind(viewable(authorizer, securityContext, hybrid.get())))
+          ? CatalogHits.of(
+              byKind(viewable(authorizer, securityContext, deprecatedLast(hybrid.get()))))
           : merged(authorizer, securityContext, find, words);
     } catch (HybridSearchException failed) {
       return CatalogHits.skipped(
           keywordHits(authorizer, securityContext, find, words), failed.getMessage());
     }
+  }
+
+  /**
+   * Within each kind, the hits that are not deprecated keep their order ahead of those that are: an
+   * asset whose {@code entityStatus} is Deprecated, or a column of such a table among the hits.
+   */
+  static List<Map<String, Object>> deprecatedLast(final List<Map<String, Object>> ranked) {
+    final Set<String> deprecatedIds =
+        ranked.stream()
+            .filter(row -> DEPRECATED.equals(row.get(ENTITY_STATUS)))
+            .map(row -> Objects.toString(row.get(PARENT_ID), ""))
+            .collect(Collectors.toSet());
+    final Predicate<Map<String, Object>> deprecated =
+        row ->
+            DEPRECATED.equals(row.get(ENTITY_STATUS))
+                || deprecatedIds.contains(Objects.toString(visibleAs(row).get(PARENT_ID), ""));
+    final Map<Object, Deque<Map<String, Object>>> byKind =
+        ranked.stream()
+            .collect(
+                Collectors.groupingBy(
+                    row -> Objects.toString(row.get(ENTITY_TYPE), ""),
+                    LinkedHashMap::new,
+                    Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        rows ->
+                            new ArrayDeque<>(
+                                rows.stream()
+                                    .sorted(Comparator.comparing(deprecated::test))
+                                    .toList()))));
+    return ranked.stream()
+        .map(row -> byKind.get(Objects.toString(row.get(ENTITY_TYPE), "")).poll())
+        .toList();
   }
 
   /**

@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.within;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /** How the word and meaning rankings of one question are fused into one. */
@@ -116,5 +117,16 @@ class HybridRankingTest {
     assertThat((double) fused.getFirst().get("_score")).isCloseTo(1.0 / 31, within(1e-12));
     assertThat(ids(RANKING.fuse(List.of(hit("t", "table")), List.of(hit("t", "table")), 10)))
         .containsExactly("t");
+  }
+
+  @Test
+  void aTypeSearchedByMeaningAloneIsRankedByItsMeaningInBothLegs() {
+    final List<Map<String, Object>> byWords =
+        List.of(hit("orders", "table"), column("customers.last_ordered_at", "customers"));
+    final List<Map<String, Object>> byMeaning =
+        List.of(hit("orders_row_count", "testCase"), hit("orders", "table"));
+
+    assertThat(ids(RANKING.fuse(byWords, byMeaning, Set.of("testCase"), 3)))
+        .containsExactly("orders_row_count", "orders", "customers.last_ordered_at");
   }
 }
