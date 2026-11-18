@@ -286,22 +286,11 @@ Rules:
 
 ### 5.4 How a persona change reaches Claude and Codex without reinstalling
 
-Neither the plugin nor the binary bundles persona content. It is resolved on the server at run
-time:
-
-- Every connector call (`get_context`, `start_answer`) resolves the caller's context through the
-  §5.3 chain, and the connector's `instructions` are rendered from it when the host connects. A rule
-  or prompt change takes effect on the next call, with nothing to redeploy.
-- With `om-context` on the machine, the SessionStart hook also calls `GET /v1/context/session`,
-  which returns the resolved persona (id, name, entity version, context `fingerprint`), the rendered
-  instructions, and the skill list, with an ETag.
-- The plugin's skills, commands, and hooks are generic. Only skills exported from persona rules
-  (`exportAsSkill`) live in the plugin, so changing those regenerates the plugin, which reaches
-  users through re-sync or marketplace auto-update (§9.3, §9.4).
-- On chat surfaces, the MCP server builds `instructions` and the `get_context` tool description
-  from the caller's persona at connection time. Org skills are regenerated when an
-  `exportAsSkill` rule's matches change, and the admin page shows which skills need re-uploading
-  where a vendor has no API for it.
+The plugin carries no harness content: no instructions, prompts, rules, skills derived from
+articles, or guardrail settings. Every one of them is resolved on the server, per caller, at the
+moment the agent asks, so an admin change in OpenMetadata takes effect on the next turn and nobody
+downloads anything. §9.10 lists exactly what is in the plugin and the rare cases that need a new
+copy.
 
 ## 6. Context compiler
 
@@ -737,13 +726,14 @@ Two constraints follow:
 - **The plugin carries no binary.** A top-level `bin/` makes chat and Cowork refuse the plugin,
   and organization sync rejects it. The plugin stays content only, so one plugin installs on every
   surface.
-- **Hooks degrade without the binary.** Each hook runs `om-context hook <event>` when
-  `om-context` is on the PATH. When it is not (most business users), the hook injects a short fixed
-  instruction instead, for example "For any question about company data, call
-  `openmetadata.start_answer` first", so the model is still steered on every turn, and the data
-  arrives through the connector the user already authorized. Where a host lets a hook call an MCP
-  tool directly (Codex documents `mcp_tool` hook handlers in managed requirements), the hook calls
-  `get_context` through the connector and needs no binary at all.
+- **Hooks call OpenMetadata through the connector, not a binary.** Claude Code supports
+  `mcp_tool` hook handlers: the hook calls a tool on an MCP server the user already connected,
+  using that connection's sign-in, and the tool's text is read as the hook's output. The plugin's
+  hooks call the connector's `harness_hook` tool with the host's own hook input (§9.10), so no
+  token, script, or binary is installed. One exception: `SessionStart` at launch fires before MCP
+  servers connect, so the session's opening context comes from the skill, the connector's
+  `instructions`, and the first `get_context` call instead. `om-context` remains for agents without
+  `mcp_tool` hooks.
 
 In chat, where hooks are ignored, steering comes from the skill, the commands, and the connector's
 `instructions` (§9.0).
@@ -880,6 +870,88 @@ A business user's total setup is one **Connect** click. A developer's is one SSO
 The vendor controls named here come from Claude's and OpenAI's admin documentation as of November
 2026. They change often; the Agent distribution page must be checked against them for each
 release.
+
+### 9.10 Set up once; every change is made in OpenMetadata
+
+**The principle.** The plugin is a fixed adapter, and all configuration lives in OpenMetadata. The
+adapter sends the same facts on every call; OpenMetadata maps them to a harness and returns what to
+inject or decide. Admins change the harness in OpenMetadata, and every agent follows on its next
+call.
+
+**What is in the plugin, and when someone needs a new copy.**
+
+| In the plugin | Changes when |
+|---|---|
+| `.mcp.json`: the OpenMetadata `/mcp` URL | The server URL changes |
+| `hooks/hooks.json`: which host events call `harness_hook`, with matchers | An OpenMetadata release adds an event or a matcher |
+| `skills/openmetadata/SKILL.md`: how to use OpenMetadata (call `get_context`, cite, follow decisions) | An OpenMetadata release changes the skill |
+| `.claude-plugin/plugin.json`: name and version | With either of the above |
+
+All three triggers are OpenMetadata releases or a URL change, never an admin edit. Even then,
+users take no action:
+- **Claude** org plugins are replaced by the admin, once, in Organization settings; members get the
+  new version.
+- **Claude Code** installs from a marketplace auto-update.
+- **Codex** gets it from the workspace plugin default.
+
+The Surfaces tab shows the plugin version each surface last reported, so an admin can see who runs
+an old copy.
+
+| Changed in OpenMetadata | Reaches agents |
+|---|---|
+| Company instructions, persona prompt, rules, picked terms, metrics, and articles | Next `get_context` call or hook event |
+| Event budgets, guardrail levels, MCP access (below) | Next hook event |
+| A user's team or persona assignment | Next call; nothing is cached on the device |
+| Enabling or disabling a harness | Next call |
+
+**The facts every call carries.** Nothing is configured on the device, and the model chooses none
+of them:
+
+| Fact | Source |
+|---|---|
+| Who the user is | The connector's OAuth sign-in (SSO), on every call |
+| Which host | The MCP client name the host sends |
+| Which event, session, and directory | The host's hook input: `hook_event_name`, `session_id`, `cwd` |
+| What the agent is about to do or just did | Hook input: `prompt`, `tool_name`, `tool_input`, tool output |
+
+The hook passes the host's input straight into the tool call, using `${path}` substitution in the
+`mcp_tool` handler. OpenMetadata then derives everything else from its own data:
+- the user's teams and personas give the harness (§5.3);
+- the directory and git remote give the repository binding (§9.7);
+- assets named in the tool input give the guardrails their targets.
+
+A user cannot pick a different harness by editing a file, because the server never trusts a harness
+name sent by the client.
+
+**MCP access is part of the harness.** An admin decides in OpenMetadata, per harness, which MCP
+servers and tools the agent may use:
+
+```text
+toolAccess:
+  default: Allow | Deny               # for servers not listed
+  servers:
+    - match: snowflake                # MCP server name as the host reports it
+      level: Allow | Warn | Block
+      tools: [run_query]              # optional: only these tools
+  inherit: stricter-only              # a persona harness can only tighten the default's list
+```
+
+Enforcement depends on the surface:
+
+| Surface | How | Strength |
+|---|---|---|
+| Claude Code, Cowork | A `PreToolUse` hook with matcher `mcp__.*` sends every MCP tool call to `harness_hook`, which returns `permissionDecision: deny` with the reason, or allow. Changing the list in OpenMetadata changes the next call | Dynamic, per persona. Hooks can be turned off by a user unless the admin sets `allowManagedHooksOnly` with the plugin hooks deployed as managed |
+| Claude Code, hard floor | OpenMetadata generates `allowedMcpServers` / `deniedMcpServers` for the organization's managed settings (server-managed in the Claude admin console, or MDM). The host enforces it before any hook | Static and organization-wide; an edit means re-pasting the generated JSON. Use it for the servers nobody may use |
+| Codex | `PreToolUse` hooks the same way, where hooks are enabled; the `mcp_servers` allowlist in `requirements.toml` as the floor | Same split |
+| claude.ai and ChatGPT chat | No hooks. Connectors are enabled per organization or role in the vendor's admin console. OpenMetadata shows which connectors its users call, and its own tools refuse work a guardrail blocks | Advisory for third-party connectors |
+
+Two behaviors need checking on each host release:
+- A `PreToolUse` `mcp_tool` hook whose answer cannot be read **blocks** the tool call in Claude
+  Code.
+- An error the tool reports (`isError`) does not block.
+
+`harness_hook` therefore reports its own failures as `isError` and so fails open. An admin who
+wants fail-closed sets the host's own floor instead.
 
 ## 10. Admin and Context Center UI
 

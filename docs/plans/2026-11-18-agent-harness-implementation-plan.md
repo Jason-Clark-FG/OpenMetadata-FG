@@ -72,6 +72,7 @@ AgentHarness                                  # entity = published harness
   events:     [{ id: HookEvent, enabled, tokenBudget }]
   skills:     [{ name, enabled }]
   guardrails: [{ id, level: Off | Warn | Block }]
+  toolAccess: { default: Allow | Deny, servers: [{ match, level: Allow | Warn | Block, tools? }] }
   memory:     { capture, linkAssets, dedup, review: StewardReview | AuthorOnly,
                 visibility: Private | Persona | Organization }
 
@@ -216,9 +217,33 @@ looser. Text is packed default-first; when the budget runs out, persona items ar
 inherited ones.
 
 `get_context` (MCP) and the `/{id}/context` persona route call the same compiler with
-SessionStart. The hooks in the plugin call it for every event.
+SessionStart.
+
+### 3.3 Hooks over MCP, and MCP access
+
+The plugin's hooks are `mcp_tool` handlers that call the connector's `harness_hook` tool, passing
+the host's hook input through `${path}` substitution: `hook_event_name`, `session_id`, `cwd`,
+`prompt`, `tool_name`, `tool_input`. The tool runs the compiler for the caller identified by the
+connector's sign-in and returns the host's hook output JSON (`additionalContext`, or
+`permissionDecision` with a reason at PreToolUse). The server never accepts a harness or persona
+name from the client.
+
+`toolAccess` (§2.1) is evaluated at PreToolUse when `tool_name` is `mcp__<server>__<tool>`: the
+first matching server entry decides, else `default`. A persona harness can only tighten the
+default's entries (clamped at resolution like guardrails). Plugin hooks match `mcp__.*` at
+PreToolUse so every MCP call is checked.
+
+`harness_hook` reports its own failures with `isError`, which the host treats as non-blocking
+(fail open). Hard enforcement is the host's floor: `GET /v1/agentHarness/managedSettings` returns
+the `allowedMcpServers` / `deniedMcpServers` JSON for Claude Code managed settings and the
+`mcp_servers` allowlist for Codex `requirements.toml`, built from the default harness's `Block`
+and `Allow` entries. The Surfaces tab shows it to copy.
+
+The design doc's §9.10 explains why this makes the plugin set-and-forget.
 
 ## 4. MCP
+
+- `harness_hook` tool (§3.3); its description tells the model it is for hooks, not for direct use.
 
 - Static server `instructions`, set once in `McpServer.buildServer`: OpenMetadata is the context
   layer; call `get_context` at the start of a task; cite what it returns. Per-caller content is
@@ -236,7 +261,7 @@ requires a re-upload.
 
 | Target | Artifact |
 |---|---|
-| Claude | `openmetadata-<host>.zip`: `.claude-plugin/plugin.json`, `.mcp.json` (the server's `/mcp` URL), `skills/openmetadata/SKILL.md` (how to use OpenMetadata: call `get_context`, cite, follow guardrail decisions), `hooks/hooks.json` (command hooks that `curl` the compile endpoint with `$OPENMETADATA_TOKEN` and exit 0 when it is unset or the call fails). No `bin/`. Hooks load in Claude Code and Cowork and are ignored in chat |
+| Claude | `openmetadata-<host>.zip`: `.claude-plugin/plugin.json`, `.mcp.json` (the server's `/mcp` URL), `skills/openmetadata/SKILL.md` (how to use OpenMetadata: call `get_context`, cite, follow guardrail decisions), `hooks/hooks.json` (`mcp_tool` hooks that call the connector's `harness_hook` tool with the host's hook input, so they use the connector's sign-in: no token, script, or binary). No `bin/`. Hooks load in Claude Code and Cowork and are ignored in chat |
 | ChatGPT | No file. The panel shows the connector URL and OAuth details to enter, and the Enterprise steps |
 | Codex & Claude Code | Copyable commands: `claude plugin install` from the zip, `codex mcp add openmetadata --url …`, and the managed-settings snippets for MDM. `install.sh` and `om-context` are track D |
 
@@ -302,7 +327,7 @@ src/components/ContextCenter/AgentHarness/
     ContextTab.tsx  SourceCard.tsx  SourcePickerDrawer.tsx
     DeliveryTab.tsx                              # 5 event rows
     InstructionsTab.tsx                          # company (locked on persona), persona prompt, skills
-    GuardrailsTab.tsx                            # Off/Warn/Block with minimum
+    GuardrailsTab.tsx                            # Off/Warn/Block with minimum; MCP access list
     MemoryTab.tsx
     SurfacesTab.tsx  PluginPanel.tsx  SurfaceMatrix.tsx
     CompiledContextRail.tsx                      # budget bar, Preview as pills, payload
@@ -382,7 +407,7 @@ What each test proves, by layer. New ITs and classes are recorded in
 |---|---|
 | `AgentHarnessResourceIT` | Default seeded once; create persona harness (409 on duplicate); draft writes leave the published harness and compile output unchanged; stale `If-Match` → 412; publish makes one version and changes compile output; restore a version into the draft; personas list pages and shows personas without a harness as `Inherited`; persona delete removes its harness |
 | `AgentHarnessAuthorizationIT` | Non-admin and bot tokens get 403 on every admin endpoint; any user can compile for themselves; compile never returns entities the caller cannot see |
-| `AgentHarnessCompileIT` | Default + persona merge; publishing the default changes a persona's compile output; PreToolUse on a deprecated table → deny; on a table with an open incident → warn; budgets respected per event; `get_context` over MCP returns the same text as SessionStart |
+| `AgentHarnessCompileIT` | Default + persona merge; publishing the default changes a persona's compile output; PreToolUse on a deprecated table → deny; on a table with an open incident → warn; budgets respected per event; `get_context` over MCP returns the same text as SessionStart; `harness_hook` returns valid hook JSON per event; an `mcp__x__y` call blocked by `toolAccess` → deny, and a persona cannot loosen the default's block; a client-sent persona name is ignored |
 | `AgentHarnessMigrationIT` | Personas with contexts become published persona harnesses with the same `context`; `contextDefinition` is gone from persona rows and versions; persona versions still read; rerun changes nothing; compiled context per persona unchanged |
 | `PersonaAIContextIT` (existing, 19 tests) | Cases that still apply (caller visibility, budget truncation, search scope, membership authorization) move to `AgentHarnessCompileIT`; endpoint-shape cases are deleted with the endpoints |
 | `PersonaMemoryVisibilityIT` | A memory shared with a persona is visible to direct, team-inherited, and default-persona members in get, list, and search, and invisible to others; removing a user from the persona removes access |
@@ -424,10 +449,12 @@ On a local stack (memory: a unique compose project, never `run_local_docker.sh`)
 1. Upgrade from a database that has persona AI contexts; confirm the migration and that the
    personas' compiled context is unchanged.
 2. In the UI: create a persona harness, add a rule, set a guardrail, publish, download the plugin.
-3. Claude Code: install the zip with `claude --plugin-dir`, set `OPENMETADATA_TOKEN`, start a
-   session, and check that SessionStart context arrives, a prompt naming a glossary term pulls its
-   definition, and a tool call naming a deprecated table is denied. Record the host's caps on hook
-   output and MCP instructions.
+3. Claude Code: install the zip with `claude --plugin-dir`, connect the connector once (`/mcp`),
+   and check that a prompt naming a glossary term pulls its definition, a tool call naming a
+   deprecated table is denied, and a call to an MCP server the harness blocks is denied. Then change
+   the persona prompt and an MCP access entry in the UI, publish, and confirm the next turn follows
+   **without reinstalling**. Record the host's caps (hook output is capped at 10,000 characters) and
+   what happens when OpenMetadata is unreachable.
 4. Claude Desktop or claude.ai with the connector: `get_context` returns the persona's context.
 5. Codex: `codex mcp add`; `get_context` works.
 
@@ -459,7 +486,7 @@ API and the UI ship together. Commits follow this order, and each ends with its 
 | 0 | Amend the design doc; ADR "Agent harness is an entity; persona harnesses extend the default", recording §0 and §12; supersede note on ADR:2026-10-14-persona-ai-context-status-reads-the-cache-and-pages-like-the-persona-list | Docs committed |
 | 1 | Spec: `agentHarness.json`, guardrail, skill, compile request and response types; `make generate` | Generated Java, Python, TS compile |
 | 2 | Tables, repository, resolver, draft validator, admin API, seeded default | §7.1 resolver and validator tests; `AgentHarnessResourceIT`, `AuthorizationIT` |
-| 3 | Compiler, guardrail evaluators, `get_context`, static MCP instructions, search scope on the merged definition | `CompileSelectorTest`, `GuardrailEvaluatorTest`, `AgentHarnessCompileIT` |
+| 3 | `toolAccess` in the schema, compiler, guardrail and tool-access evaluators, `get_context`, `harness_hook`, managed-settings generator, static MCP instructions, search scope on the merged definition | `CompileSelectorTest`, `GuardrailEvaluatorTest`, `AgentHarnessCompileIT` |
 | 4 | Migration, removal of `contextDefinition` and the persona AI context endpoints, caller moves | `AgentHarnessMigrationIT`; moved persona context cases green |
 | 5 | Plugin builder and surface status | `PluginBuilderTest`, `AgentHarnessPluginIT` |
 | 6 | `persona` memory share principal | `PersonaMemoryVisibilityIT` |
