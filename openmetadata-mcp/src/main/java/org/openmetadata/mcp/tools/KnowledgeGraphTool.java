@@ -274,11 +274,15 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   }
 
   /**
-   * The characters a find or an expand may fill: the caller's {@code maxChars} or {@link
-   * #DEFAULT_RESPONSE_CHARS}, never more than the server's own budget, less the envelope's room.
+   * The characters a find, an expand or a query may fill: the caller's {@code maxChars} when it is
+   * larger than {@link #DEFAULT_RESPONSE_CHARS}, else the default, never more than the server's own
+   * budget, less the envelope's room. A smaller size only ever bought a fragment.
    */
   static long budget(final KnowledgeGraphCall call) {
-    final long requested = call.maxChars() == null ? DEFAULT_RESPONSE_CHARS : call.maxChars();
+    final long requested =
+        call.maxChars() == null
+            ? DEFAULT_RESPONSE_CHARS
+            : Math.max(call.maxChars(), DEFAULT_RESPONSE_CHARS);
     return Math.min(requested, ResponseBudget.defaultBudgetChars()) - ENVELOPE_RESERVE;
   }
 

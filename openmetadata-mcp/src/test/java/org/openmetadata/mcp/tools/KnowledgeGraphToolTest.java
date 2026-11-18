@@ -231,6 +231,28 @@ class KnowledgeGraphToolTest {
     assertThat(found.rest()).isNull();
   }
 
+  /**
+   * In round 3 the model lowered maxChars to save its own context in 20 of 38 expands and then read
+   * 1 to 3 of 11 tests: a size below the default is read as the default.
+   */
+  @Test
+  void aRequestedSizeBelowTheDefaultIsReadAsTheDefault() {
+    final long standard =
+        KnowledgeGraphTool.budget(
+            KnowledgeGraphCall.parse(Map.of("operation", "find", "question", "q")));
+
+    assertThat(
+            KnowledgeGraphTool.budget(
+                KnowledgeGraphCall.parse(
+                    Map.of("operation", "find", "question", "q", "maxChars", 8_000))))
+        .isEqualTo(standard);
+    assertThat(
+            KnowledgeGraphTool.budget(
+                KnowledgeGraphCall.parse(
+                    Map.of("operation", "find", "question", "q", "maxChars", 60_000))))
+        .isGreaterThan(standard);
+  }
+
   @Test
   void aRunHandlePassedBackIsTheRunOfTheResponse() throws IOException {
     callersAreAdministrators(false);
@@ -628,8 +650,16 @@ class KnowledgeGraphToolTest {
                     "maxChars",
                     10_000_000));
 
-    assertThat(JsonUtils.pojoToJson(small).length()).isLessThanOrEqualTo(12_000);
-    assertThat(small.moreMatched()).isPositive();
+    final KnowledgeGraphTool.FindResponse standard =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(
+                GRANTED,
+                CALLER,
+                Map.of("operation", "find", "question", "wide tables", "limit", 10));
+
+    assertThat(small.nodes()).hasSameSizeAs(standard.nodes());
+    assertThat((long) JsonUtils.pojoToJson(small).length())
+        .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS);
     assertThat((long) JsonUtils.pojoToJson(beyond).length())
         .isLessThanOrEqualTo(ResponseBudget.defaultBudgetChars());
   }

@@ -1178,7 +1178,7 @@
           },
           "maxChars": {
             "type": "integer",
-            "description": "find, expand: the largest answer to send, in characters. Default 40,000, which Claude Code shows in full (it saves results over 50,000 to a file); ask for more only if your client shows larger results. The server caps it at its own limit."
+            "description": "find, expand, query: the largest answer to send, in characters, to ask for more than the default 40,000 when your client shows larger results (Claude Code saves results over 50,000 to a file). A smaller value is read as 40,000: it would only hide part of a listing. The server caps it at its own limit."
           },
           "cursor": {
             "type": "string",
