@@ -271,6 +271,29 @@ class KnowledgeGraphToolTest {
   }
 
   @Test
+  void aCiteRecordsWhatTheAnswerReliedOnAndTraceReportsItCited() throws IOException {
+    callersAreAdministrators(false);
+    final UUID run = call(Map.of("operation", "find", "question", "orders")).run();
+    final String unknown = E + "table/" + UUID.randomUUID();
+
+    final KnowledgeGraphTool.CiteResponse cited =
+        (KnowledgeGraphTool.CiteResponse)
+            call(
+                Map.of(
+                    "operation", "cite", "run", run.toString(), "nodes", List.of(ORDERS, unknown)));
+    final KnowledgeGraphTool.TraceResponse trace =
+        (KnowledgeGraphTool.TraceResponse)
+            call(Map.of("operation", "trace", "run", run.toString()));
+
+    assertThat(cited.cited().nodes()).containsExactly(ORDERS);
+    assertThat(cited.refused().nodes()).containsExactly(unknown);
+    assertThat(trace.nodes())
+        .extracting(TraceNode::id, TraceNode::state)
+        .contains(
+            tuple(ORDERS, ExplorationState.CITED), tuple(CUSTOMERS, ExplorationState.EXPLORED));
+  }
+
+  @Test
   void callersWithoutTheSparqlGrantAreRefusedBeforeTheGraphIsTouched() {
     final RdfRepository untouched = mock(RdfRepository.class);
     final KnowledgeGraphTool tool =

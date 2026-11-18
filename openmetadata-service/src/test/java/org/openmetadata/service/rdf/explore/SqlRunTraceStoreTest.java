@@ -41,10 +41,14 @@ class SqlRunTraceStoreTest {
         Operation.FIND,
         NOW.toEpochMilli(),
         "analyst",
-        new RunStep.Input(question, List.of(), List.of(), null),
+        RunStep.Input.find(question),
         List.of(
             new RunStep.Node(
-                "https://open-metadata.org/entity/table/1", "orders", "table", List.of())),
+                "https://open-metadata.org/entity/table/1",
+                "orders",
+                "table",
+                "warehouse.shop.public.orders",
+                List.of())),
         List.of());
   }
 
@@ -58,6 +62,33 @@ class SqlRunTraceStoreTest {
     assertThat(store.steps(run))
         .extracting(step -> step.input().question())
         .containsExactly("first", "second");
+  }
+
+  @Test
+  void aStepStoredBeforeExpandInputsAndQualifiedNamesWereRecordedStillReadsBack() {
+    final SqlRunTraceStore store = storeAt(rows, NOW);
+    rows.insert(
+        run.toString(),
+        NOW.toEpochMilli(),
+        """
+        {"operation":"expand","at":1763373600000,"principal":"analyst",
+         "input":{"nodes":["https://open-metadata.org/entity/table/1"],
+                  "relationships":["om:upstream"]},
+         "nodes":[{"id":"https://open-metadata.org/entity/table/2","label":"raw",
+                   "entityType":"table","offers":[{"r":"om:upstream","d":"incoming","c":1}]}],
+         "edges":[{"node":"https://open-metadata.org/entity/table/1","relationship":"om:upstream",
+                   "direction":"outgoing","other":"https://open-metadata.org/entity/table/2"}]}
+        """);
+
+    assertThat(store.steps(run))
+        .singleElement()
+        .satisfies(
+            step -> {
+              assertThat(step.input().relationships()).containsExactly("om:upstream");
+              assertThat(step.input().direction()).isNull();
+              assertThat(step.nodes().getFirst().fullyQualifiedName()).isNull();
+              assertThat(step.edges()).hasSize(1);
+            });
   }
 
   @Test

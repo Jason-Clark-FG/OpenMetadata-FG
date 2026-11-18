@@ -22,7 +22,8 @@ public enum Operation {
   FIND,
   EXPAND,
   QUERY,
-  TRACE;
+  TRACE,
+  CITE;
 
   @JsonValue
   public String value() {

@@ -13,8 +13,10 @@
 package org.openmetadata.service.rdf.explore;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.jena.vocabulary.OWL2;
@@ -49,6 +51,13 @@ public enum OntologyTermKind {
 
   List<String> typeIris() {
     return typeIris;
+  }
+
+  /** The kind of term a node declared with these RDF types is, if it is one. */
+  static Optional<OntologyTermKind> declaredBy(final Collection<String> typeIris) {
+    return Arrays.stream(values())
+        .filter(kind -> kind.typeIris.stream().anyMatch(typeIris::contains))
+        .findFirst();
   }
 
   public static boolean isTermType(final String entityType) {

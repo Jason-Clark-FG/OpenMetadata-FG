@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -140,3 +140,17 @@ Measured on tables with 30 stored, described relationships: one card went from 1
 characters; a 10-card `find` from 125,347 to 63,396 (6 cards fitted the 80,000-character budget,
 now all 10); a 20-card `expand` from 252,336 to 121,235 (6 cards fitted, now 12). The stored find
 step stayed at 15,318.
+
+## Amendment 2026-11-18. Cite, term kinds and labels for unnamed nodes
+
+- **`cite`**, a fifth operation: `run`, `nodes` (card ids, at most 50) and optional `edges`
+  (`{node, relationship, other}`, at most 50). Call it once, when the answer is ready. Only nodes
+  the run served and edges its expansions returned (named from either end) are accepted; the
+  rest come back under `refused`, and a cite that accepts nothing records nothing. The response is
+  `{run, operation, cited: {nodes, relationships}, refused: {nodes, relationships}}`. `edges` is
+  its own parameter because `relationships` is a list of names for `expand`.
+- **Kinds.** An ontology term's card has `entityType` `ontologyConcept` or `ontologyProperty`,
+  from its declared types; catalog entities keep the type in their IRI.
+- **Labels.** A node with no label, display name or qualified name (a table constraint, lineage
+  details, a constraint member) is labelled with its om: class and the value that tells it apart:
+  `TableConstraint PRIMARY_KEY`, `LineageDetails Manual`.

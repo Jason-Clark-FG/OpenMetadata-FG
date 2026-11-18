@@ -1,7 +1,7 @@
 # Knowledge-graph runs are traced in SQL for a day
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (what grounded an answer: cite, expand inputs, query nodes)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `SqlRunTraceStoreTest`, `KnowledgeGraphExplorerTest`,
   `OntologySqlMigrationParityTest#upgradeCreatesTheExplorationRunTraceTable`,
@@ -51,3 +51,18 @@ oldest steps. **Known gap:** the trace has no owner check. Any caller with `Exec
 run handle can read it, including the SPARQL text of the run's `query` steps. Access rules for
 exploration are deferred; adding one means amending this record.
 Moving the trace to another store, or changing the retention, means a new record.
+
+## Amendment 2026-11-18. The trace says what grounded an answer
+
+- **States.** Nodes and edges are `offered`, `explored` or `cited`. A `cite` step marks the nodes
+  and the edges it accepted, and the offer rows those edges belong to, `cited`, with the step as
+  `citedStep`.
+- **Steps.** An expand step's input keeps `direction` (`outgoing`, `incoming` or `both`), `limit`
+  and `offset`. A query step keeps its text and the IRIs its result bindings named, at most 100,
+  as the step's nodes; a body that is not complete result JSON names none. A cite step keeps the
+  accepted nodes as its input and the accepted edges.
+- **Rows.** A trace node carries `fullyQualifiedName` when its card had one. An offer row carries
+  `exploredStep`, the step whose expansion first followed it; an expanded edge's is its own step.
+- **Stored shape.** Stored nodes gain `fullyQualifiedName`; values and descriptions are never
+  stored. Rows written before this read back as before, without direction, limit, offset or
+  qualified names; nothing is migrated.

@@ -23,8 +23,20 @@ final class RunSteps {
 
   static List<RunStep.Node> served(final List<NodeCard> cards) {
     return cards.stream()
-        .map(card -> new RunStep.Node(card.id(), card.label(), card.entityType(), offersOf(card)))
+        .map(
+            card ->
+                new RunStep.Node(
+                    card.id(),
+                    card.label(),
+                    card.entityType(),
+                    card.fullyQualifiedName(),
+                    offersOf(card)))
         .toList();
+  }
+
+  /** A node a query's rows named, known only by its IRI. */
+  static RunStep.Node queried(final String iri) {
+    return new RunStep.Node(iri, null, null, null, List.of());
   }
 
   static List<RunStep.Edge> expanded(final ExpandPage page) {

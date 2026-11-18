@@ -16,6 +16,7 @@ package org.openmetadata.service.rdf.explore;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -26,6 +27,8 @@ import java.util.stream.Stream;
  * graph reader carries the caller's admission slot.
  */
 public final class KnowledgeGraphExplorer {
+
+  private static final String BOTH_DIRECTIONS = "both";
 
   private final OntologyVocabulary vocabulary;
   private final NodeCardReader cards;
@@ -73,8 +76,8 @@ public final class KnowledgeGraphExplorer {
     record(
         run,
         Operation.FIND,
-        new RunStep.Input(request.question(), List.of(), List.of(), null),
-        found,
+        RunStep.Input.find(request.question()),
+        RunSteps.served(found),
         List.of());
     return new FindResult(
         found, descriptions.describeCards(found), matched.size() - found.size(), lookup.skipped());
@@ -97,23 +100,44 @@ public final class KnowledgeGraphExplorer {
     record(
         run,
         Operation.EXPAND,
-        new RunStep.Input(
-            null,
+        RunStep.Input.expand(
             request.nodes(),
             request.relationships().stream().map(vocabulary::compact).toList(),
-            null),
-        page.nodes(),
+            direction(request.directions()),
+            request.limit(),
+            request.offset()),
+        RunSteps.served(page.nodes()),
         RunSteps.expanded(page));
     return page;
   }
 
-  public void recordQuery(final RunContext run, final String sparql) {
+  /** A query step keeps its text and the nodes its rows named, so the trace can draw them. */
+  public void recordQuery(final RunContext run, final String sparql, final String resultBody) {
     record(
         run,
         Operation.QUERY,
-        new RunStep.Input(null, List.of(), List.of(), sparql),
-        List.of(),
+        RunStep.Input.query(sparql),
+        QueriedNodes.of(resultBody).stream().map(RunSteps::queried).toList(),
         List.of());
+  }
+
+  /**
+   * Records what an answer relied on. Only nodes the run served and edges its expansions returned
+   * are accepted; the rest come back refused. Nothing is recorded when nothing is accepted.
+   */
+  public CiteResult cite(final RunContext run, final Citation citation) {
+    final Citations.Checked checked =
+        Citations.check(
+            trace(run.run()), citation, name -> vocabulary.compact(vocabulary.expand(name)));
+    if (checked.citesAnything()) {
+      record(
+          run,
+          Operation.CITE,
+          RunStep.Input.cite(checked.result().cited().nodes()),
+          List.of(),
+          checked.edges());
+    }
+    return checked.result();
   }
 
   public RunTrace trace(final UUID run) {
@@ -130,11 +154,13 @@ public final class KnowledgeGraphExplorer {
       final RunContext run,
       final Operation operation,
       final RunStep.Input input,
-      final List<NodeCard> served,
+      final List<RunStep.Node> served,
       final List<RunStep.Edge> edges) {
     traces.append(
-        run.run(),
-        new RunStep(
-            operation, clock.millis(), run.principal(), input, RunSteps.served(served), edges));
+        run.run(), new RunStep(operation, clock.millis(), run.principal(), input, served, edges));
+  }
+
+  private static String direction(final Set<Direction> directions) {
+    return directions.size() == 1 ? directions.iterator().next().value() : BOTH_DIRECTIONS;
   }
 }

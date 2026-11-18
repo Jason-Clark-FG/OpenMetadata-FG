@@ -14,17 +14,17 @@
 package org.openmetadata.service.rdf.explore;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
  * Folds the recorded steps of a run into one subgraph. A node is listed once, at the step that
  * first returned it; an offered relationship becomes explored once an expansion from its node
- * followed it in the same direction.
+ * followed it in the same direction, at the step recorded as {@code exploredStep}. A cite step
+ * marks the nodes and edges it accepted, and the offers those edges belong to, as cited.
  */
 final class RunTraceFolder {
 
@@ -32,13 +32,16 @@ final class RunTraceFolder {
   private final Map<RelationshipKey, RunStep.Edge> offers = new LinkedHashMap<>();
   private final Map<RelationshipKey, Integer> offeredAt = new LinkedHashMap<>();
   private final Map<RunStep.Edge, Integer> explored = new LinkedHashMap<>();
-  private final Set<RelationshipKey> opened = new HashSet<>();
+  private final Map<RelationshipKey, Integer> openedAt = new HashMap<>();
+  private final Map<String, Integer> citedNodes = new HashMap<>();
+  private final Map<RunStep.Edge, Integer> citedEdges = new HashMap<>();
+  private final Map<RelationshipKey, Integer> citedOffers = new HashMap<>();
   private final List<TraceStep> steps = new ArrayList<>();
 
   static RunTrace fold(final UUID run, final List<RunStep> recorded) {
     final RunTraceFolder folder = new RunTraceFolder();
     recorded.forEach(folder::add);
-    return new RunTrace(run, List.copyOf(folder.nodes.values()), folder.edges(), folder.steps);
+    return new RunTrace(run, folder.nodes(), folder.edges(), folder.steps);
   }
 
   private void add(final RunStep step) {
@@ -50,8 +53,22 @@ final class RunTraceFolder {
             step.at(),
             step.input(),
             step.nodes().stream().map(RunStep.Node::id).toList()));
-    step.nodes().forEach(node -> addNode(node, sequence));
-    step.edges().forEach(edge -> addEdge(edge, sequence));
+    if (step.operation() == Operation.CITE) {
+      cite(step, sequence);
+    } else {
+      step.nodes().forEach(node -> addNode(node, sequence));
+      step.edges().forEach(edge -> addEdge(edge, sequence));
+    }
+  }
+
+  private void cite(final RunStep step, final int sequence) {
+    step.input().nodes().forEach(node -> citedNodes.putIfAbsent(node, sequence));
+    step.edges()
+        .forEach(
+            edge -> {
+              citedEdges.putIfAbsent(edge, sequence);
+              citedOffers.putIfAbsent(RelationshipKey.of(edge), sequence);
+            });
   }
 
   private void addNode(final RunStep.Node node, final int sequence) {
@@ -70,32 +87,70 @@ final class RunTraceFolder {
       offers.put(key, edge);
       offeredAt.putIfAbsent(key, sequence);
     } else {
-      opened.add(key);
+      openedAt.putIfAbsent(key, sequence);
       explored.putIfAbsent(edge, sequence);
     }
+  }
+
+  private List<TraceNode> nodes() {
+    return nodes.values().stream().map(this::withCitation).toList();
+  }
+
+  private TraceNode withCitation(final TraceNode node) {
+    final Integer cited = citedNodes.get(node.id());
+    return cited == null
+        ? node
+        : new TraceNode(
+            node.id(),
+            node.label(),
+            node.entityType(),
+            node.fullyQualifiedName(),
+            ExplorationState.CITED,
+            node.firstStep(),
+            cited);
   }
 
   private List<TraceEdge> edges() {
     final List<TraceEdge> edges = new ArrayList<>();
     offers.forEach((key, edge) -> edges.add(offer(key, edge)));
-    explored.forEach(
-        (edge, sequence) -> edges.add(traceEdge(edge, ExplorationState.EXPLORED, sequence)));
+    explored.forEach((edge, sequence) -> edges.add(exploredEdge(edge, sequence)));
     return edges;
   }
 
   private TraceEdge offer(final RelationshipKey key, final RunStep.Edge edge) {
+    final Integer followed = openedAt.get(key);
+    final Integer cited = citedOffers.get(key);
     final ExplorationState state =
-        opened.contains(key) ? ExplorationState.EXPLORED : ExplorationState.OFFERED;
-    return traceEdge(edge, state, offeredAt.get(key));
+        cited != null
+            ? ExplorationState.CITED
+            : followed == null ? ExplorationState.OFFERED : ExplorationState.EXPLORED;
+    return traceEdge(edge, state, offeredAt.get(key), followed, cited);
+  }
+
+  private TraceEdge exploredEdge(final RunStep.Edge edge, final int sequence) {
+    final Integer cited = citedEdges.get(edge);
+    final ExplorationState state =
+        cited == null ? ExplorationState.EXPLORED : ExplorationState.CITED;
+    return traceEdge(edge, state, sequence, sequence, cited);
   }
 
   private static TraceNode traceNode(final RunStep.Node node, final int sequence) {
     return new TraceNode(
-        node.id(), node.label(), node.entityType(), ExplorationState.EXPLORED, sequence);
+        node.id(),
+        node.label(),
+        node.entityType(),
+        node.fullyQualifiedName(),
+        ExplorationState.EXPLORED,
+        sequence,
+        null);
   }
 
   private static TraceEdge traceEdge(
-      final RunStep.Edge edge, final ExplorationState state, final int sequence) {
+      final RunStep.Edge edge,
+      final ExplorationState state,
+      final int firstStep,
+      final Integer exploredStep,
+      final Integer citedStep) {
     return new TraceEdge(
         edge.node(),
         edge.relationship(),
@@ -103,7 +158,9 @@ final class RunTraceFolder {
         edge.other(),
         edge.count(),
         state,
-        sequence);
+        firstStep,
+        exploredStep,
+        citedStep);
   }
 
   private record RelationshipKey(String node, String relationship, Direction direction) {

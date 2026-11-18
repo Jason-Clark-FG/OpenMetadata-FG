@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.jena.query.QuerySolution;
 
@@ -76,17 +78,25 @@ public final class NodeCardReader {
       final List<Reachable> reachable) {
     final boolean inGraph = facts != null || !values.isEmpty() || !reachable.isEmpty();
     final CardFacts known = facts == null ? new CardFacts() : facts;
+    final List<String> types = known.types().stream().map(vocabulary::compact).sorted().toList();
     return new NodeCard(
         node,
-        nodeIris.entityType(node),
+        entityType(node, known.types()),
         known.fullyQualifiedName(),
-        known.label(),
-        known.types().stream().map(vocabulary::compact).sorted().toList(),
+        Optional.ofNullable(known.label()).orElseGet(() -> DerivedLabel.of(types, values)),
+        types,
         known.keyFacts(),
         values,
         reachable,
         inGraph ? vocabulary.notCoveredFor(known.types()) : List.of(),
         inGraph);
+  }
+
+  /** A catalog entity's type from its IRI; an ontology term's kind from its declared types. */
+  private String entityType(final String node, final Set<String> typeIris) {
+    return Optional.ofNullable(nodeIris.entityType(node))
+        .or(() -> OntologyTermKind.declaredBy(typeIris).map(OntologyTermKind::entityType))
+        .orElse(null);
   }
 
   private Map<String, CardFacts> readFacts(final List<String> nodes) {

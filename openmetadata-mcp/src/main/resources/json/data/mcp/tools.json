@@ -1106,7 +1106,7 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Explore the OpenMetadata knowledge graph step by step without writing SPARQL. 1) operation=find with a 'question' returns starting nodes as cards: ontology concepts and properties of the active ontology releases whose label words all appear in the question (or that contain every word of it), most specific first, alternating with catalog search hits, an ontology term first. If the response has 'termLookupSkipped', ontology terms were not looked for, so their absence proves nothing. 2) Read each card: 'facts' (description, tier, certification, owners, service, usage); 'values', every other value stored on the node, such as profiles, test results, data types and keys: 'property', 'type' for numbers, booleans and times, and 'value'; a property with several values gives the first and 'last' in text order and their 'count', and a value cut at 280 characters ends with … and gives the full 'length'; read any property whole with operation=query, e.g. SELECT ?value WHERE { <card id> <property IRI> ?value }; 'reachable', one entry per relationship the node actually has, in each direction, with a count; the response's 'properties' map says once, for every relationship and value property its cards name, what it is; and 'notCovered', facts the graph does not carry for that kind of node, so their absence proves nothing. 3) operation=expand with card ids in 'nodes' and 'reachable' names such as om:hasOwner or om:upstream in 'relationships' returns the nodes on the other side as cards; pass 'nextCursor' back as 'cursor' for the next page. 4) operation=query runs a SELECT exactly as sparql_query does, for joins and counts across many nodes. 5) operation=trace returns the nodes, edges and ordered steps a run explored. Every response has a 'run'; pass it back on every later call so the exploration is recorded as one run. Requires the ExecuteSparqlQuery permission; administrators always pass.",
+      "description": "Explore the OpenMetadata knowledge graph step by step without writing SPARQL. 1) operation=find with a 'question' returns starting nodes as cards: ontology concepts and properties of the active ontology releases whose label words all appear in the question (or that contain every word of it), most specific first, alternating with catalog search hits, an ontology term first. If the response has 'termLookupSkipped', ontology terms were not looked for, so their absence proves nothing. 2) Read each card: 'facts' (description, tier, certification, owners, service, usage); 'values', every other value stored on the node, such as profiles, test results, data types and keys: 'property', 'type' for numbers, booleans and times, and 'value'; a property with several values gives the first and 'last' in text order and their 'count', and a value cut at 280 characters ends with … and gives the full 'length'; read any property whole with operation=query, e.g. SELECT ?value WHERE { <card id> <property IRI> ?value }; 'reachable', one entry per relationship the node actually has, in each direction, with a count; the response's 'properties' map says once, for every relationship and value property its cards name, what it is; and 'notCovered', facts the graph does not carry for that kind of node, so their absence proves nothing. 3) operation=expand with card ids in 'nodes' and 'reachable' names such as om:hasOwner or om:upstream in 'relationships' returns the nodes on the other side as cards; pass 'nextCursor' back as 'cursor' for the next page. 4) operation=query runs a SELECT exactly as sparql_query does, for joins and counts across many nodes. 5) operation=trace returns the nodes, edges and ordered steps a run explored, each node and edge 'offered', 'explored' or 'cited'. 6) Once, when you have your answer, call operation=cite with the 'run', the 'nodes' (card ids) the answer relies on and, optionally, the 'edges' it relies on; only what the run reached is accepted, the rest comes back under 'refused'. Every response has a 'run'; pass it back on every later call so the exploration is recorded as one run. Requires the ExecuteSparqlQuery permission; administrators always pass.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1116,9 +1116,10 @@
               "find",
               "expand",
               "query",
-              "trace"
+              "trace",
+            "cite"
             ],
-            "description": "find, expand, query or trace."
+            "description": "find, expand, query, trace or cite."
           },
           "run": {
             "type": "string",
@@ -1140,7 +1141,19 @@
             "items": {
               "type": "string"
             },
-            "description": "expand: the 'id' of one or more cards, at most 20."
+            "description": "expand: the 'id' of one or more cards, at most 20. cite: the 'id' of every card your answer relies on, at most 50."
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "node": {"type": "string"},
+                "relationship": {"type": "string"},
+                "other": {"type": "string"}
+              }
+            },
+            "description": "cite: optional, the edges your answer relies on, each {\"node\": card id, \"relationship\": name from reachable, \"other\": card id}, at most 50."
           },
           "relationships": {
             "type": "array",

@@ -27,4 +27,6 @@ public record TraceEdge(
     String other,
     Long count,
     ExplorationState state,
-    int firstStep) {}
+    int firstStep,
+    Integer exploredStep,
+    Integer citedStep) {}

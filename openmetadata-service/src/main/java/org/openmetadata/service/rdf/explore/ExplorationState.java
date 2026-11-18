@@ -21,7 +21,8 @@ import java.util.Locale;
  */
 public enum ExplorationState {
   OFFERED,
-  EXPLORED;
+  EXPLORED,
+  CITED;
 
   @JsonValue
   public String value() {

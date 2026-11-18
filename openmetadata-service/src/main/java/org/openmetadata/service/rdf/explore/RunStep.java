@@ -33,18 +33,51 @@ public record RunStep(
     edges = List.copyOf(edges);
   }
 
+  /**
+   * What the caller asked for. An expand keeps its {@code direction} ({@code outgoing}, {@code
+   * incoming} or {@code both}), {@code limit} and {@code offset}; steps stored before these were
+   * recorded read back without them.
+   */
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   public record Input(
-      String question, List<String> nodes, List<String> relationships, String sparql) {
+      String question,
+      List<String> nodes,
+      List<String> relationships,
+      String sparql,
+      String direction,
+      Integer limit,
+      Integer offset) {
     public Input {
       nodes = nodes == null ? List.of() : List.copyOf(nodes);
       relationships = relationships == null ? List.of() : List.copyOf(relationships);
+    }
+
+    static Input find(final String question) {
+      return new Input(question, List.of(), List.of(), null, null, null, null);
+    }
+
+    static Input expand(
+        final List<String> nodes,
+        final List<String> relationships,
+        final String direction,
+        final int limit,
+        final int offset) {
+      return new Input(null, nodes, relationships, null, direction, limit, offset);
+    }
+
+    static Input query(final String sparql) {
+      return new Input(null, List.of(), List.of(), sparql, null, null, null);
+    }
+
+    static Input cite(final List<String> nodes) {
+      return new Input(null, nodes, List.of(), null, null, null, null);
     }
   }
 
   /** A node returned as a card, with the relationships its card offered. */
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
-  public record Node(String id, String label, String entityType, List<Offer> offers) {
+  public record Node(
+      String id, String label, String entityType, String fullyQualifiedName, List<Offer> offers) {
     public Node {
       offers = offers == null ? List.of() : List.copyOf(offers);
     }

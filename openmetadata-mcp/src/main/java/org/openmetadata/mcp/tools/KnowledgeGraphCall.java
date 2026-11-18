@@ -18,9 +18,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.openmetadata.mcp.util.McpParams;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.service.rdf.RdfIriValidator;
+import org.openmetadata.service.rdf.explore.Citation;
+import org.openmetadata.service.rdf.explore.CitedRelationship;
 import org.openmetadata.service.rdf.explore.Direction;
 import org.openmetadata.service.rdf.explore.OntologyTermKind;
 import org.openmetadata.service.rdf.explore.Operation;
@@ -37,6 +40,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
   static final int MAX_EXPAND_LIMIT = 50;
   static final int MAX_NODES = 20;
   static final int MAX_RELATIONSHIPS = 10;
+  static final int MAX_CITED = 50;
 
   private static final String OPERATION = "operation";
   private static final String RUN = "run";
@@ -48,9 +52,14 @@ record KnowledgeGraphCall(UUID run, Request request) {
   private static final String DIRECTION = "direction";
   private static final String CURSOR = "cursor";
   private static final String SPARQL = "sparql";
+  private static final String EDGES = "edges";
+  private static final String EDGE_NODE = "node";
+  private static final String EDGE_RELATIONSHIP = "relationship";
+  private static final String EDGE_OTHER = "other";
   private static final String BOTH_DIRECTIONS = "both";
+  private static final Set<Operation> RUN_REQUIRED = Set.of(Operation.TRACE, Operation.CITE);
 
-  sealed interface Request permits Find, Expand, Query, Trace {}
+  sealed interface Request permits Find, Expand, Query, Trace, Cite {}
 
   /**
    * No {@code entityTypes} looks everywhere. Otherwise {@code ontologyConcept} and {@code
@@ -82,6 +91,8 @@ record KnowledgeGraphCall(UUID run, Request request) {
 
   record Trace() implements Request {}
 
+  record Cite(Citation citation) implements Request {}
+
   static KnowledgeGraphCall parse(final Map<String, Object> values) {
     final McpToolParameters parameters = McpToolParameters.from(values);
     final Operation operation = operation(parameters.optionalString(OPERATION));
@@ -103,6 +114,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
       case EXPAND -> expand(values, parameters);
       case QUERY -> new Query(required(parameters, SPARQL, "for query: the SELECT to run"));
       case TRACE -> new Trace();
+      case CITE -> cite(values);
     };
   }
 
@@ -111,15 +123,16 @@ record KnowledgeGraphCall(UUID run, Request request) {
         .orElseThrow(
             () ->
                 new IllegalArgumentException(
-                    "'operation' must be one of find, expand, query or trace; got '%s'"
+                    "'operation' must be one of find, expand, query, trace or cite; got '%s'"
                         .formatted(value)));
   }
 
   private static UUID run(final String value, final Operation operation) {
     final boolean absent = McpToolParameters.isBlank(value);
-    if (absent && operation == Operation.TRACE) {
+    if (absent && RUN_REQUIRED.contains(operation)) {
       throw new IllegalArgumentException(
-          "'run' is required for trace: pass the 'run' an earlier knowledge_graph call returned");
+          "'run' is required for %s: pass the 'run' an earlier knowledge_graph call returned"
+              .formatted(operation.value()));
     }
     return absent ? null : parseRun(value);
   }
@@ -182,11 +195,10 @@ record KnowledgeGraphCall(UUID run, Request request) {
     return requireAtMost(values, NODES, MAX_NODES).stream().map(KnowledgeGraphCall::node).toList();
   }
 
-  private static List<String> requireAtMost(
-      final List<String> values, final String name, final int max) {
+  private static <T> List<T> requireAtMost(final List<T> values, final String name, final int max) {
     if (values.size() > max) {
       throw new IllegalArgumentException(
-          "'%s' takes at most %d entries per expand; got %d. Split them over several calls with the same 'run'."
+          "'%s' takes at most %d entries per call; got %d. Split them over several calls with the same 'run'."
               .formatted(name, max, values.size()));
     }
     return values;
@@ -199,6 +211,38 @@ record KnowledgeGraphCall(UUID run, Request request) {
                 new IllegalArgumentException(
                     "'nodes' entries must be the 'id' of a card, an absolute http(s) IRI; got '%s'"
                         .formatted(value)));
+  }
+
+  private static Cite cite(final Map<String, Object> values) {
+    final List<String> nodes = McpParams.getStringList(values, NODES);
+    if (nodes.isEmpty()) {
+      throw new IllegalArgumentException(
+          "'nodes' is required for cite: pass the 'id' of every card your answer relied on");
+    }
+    return new Cite(
+        new Citation(
+            requireAtMost(nodes, NODES, MAX_CITED).stream().map(KnowledgeGraphCall::node).toList(),
+            requireAtMost(edges(values.get(EDGES)), EDGES, MAX_CITED)));
+  }
+
+  private static List<CitedRelationship> edges(final Object value) {
+    final List<?> entries = value instanceof List<?> list ? list : List.of();
+    return entries.stream().map(KnowledgeGraphCall::edge).toList();
+  }
+
+  private static CitedRelationship edge(final Object entry) {
+    final Map<?, ?> fields = entry instanceof Map<?, ?> map ? map : Map.of();
+    final boolean complete =
+        Stream.of(EDGE_NODE, EDGE_RELATIONSHIP, EDGE_OTHER)
+            .allMatch(name -> fields.get(name) instanceof String text && !text.isBlank());
+    if (!complete) {
+      throw new IllegalArgumentException(
+          "'edges' entries for cite are objects with 'node', 'relationship' and 'other', e.g. {\"node\": \"<card id>\", \"relationship\": \"om:upstream\", \"other\": \"<card id>\"}");
+    }
+    return new CitedRelationship(
+        node((String) fields.get(EDGE_NODE)),
+        (String) fields.get(EDGE_RELATIONSHIP),
+        node((String) fields.get(EDGE_OTHER)));
   }
 
   private static Set<Direction> directions(final String value) {

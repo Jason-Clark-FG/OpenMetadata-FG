@@ -398,7 +398,7 @@ class KnowledgeGraphExplorerTest {
     final KnowledgeGraphExplorer explorer =
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
 
-    explorer.recordQuery(run, "SELECT ?s WHERE { ?s ?p ?o } LIMIT 1");
+    explorer.recordQuery(run, "SELECT ?s WHERE { ?s ?p ?o } LIMIT 1", "{}");
 
     assertThat(explorer.trace(run.run()).steps())
         .singleElement()

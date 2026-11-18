@@ -26,6 +26,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.openmetadata.mcp.util.PageCursor;
+import org.openmetadata.service.rdf.explore.Citation;
+import org.openmetadata.service.rdf.explore.CitedRelationship;
 import org.openmetadata.service.rdf.explore.Direction;
 import org.openmetadata.service.rdf.explore.OntologyTermKind;
 
@@ -35,7 +37,7 @@ class KnowledgeGraphCallTest {
 
   static List<Arguments> corrections() {
     return List.of(
-        Arguments.of(Map.of(), List.of("'operation'", "find, expand, query or trace")),
+        Arguments.of(Map.of(), List.of("'operation'", "find, expand, query, trace or cite")),
         Arguments.of(Map.of("operation", "search"), List.of("'operation'", "'search'")),
         Arguments.of(Map.of("operation", "find"), List.of("'question'", "find")),
         Arguments.of(
@@ -92,6 +94,31 @@ class KnowledgeGraphCallTest {
         Arguments.of(Map.of("operation", "query"), List.of("'sparql'")),
         Arguments.of(Map.of("operation", "trace"), List.of("'run'", "trace")),
         Arguments.of(
+            Map.of("operation", "cite", "nodes", List.of(TABLE)), List.of("'run'", "cite")),
+        Arguments.of(
+            Map.of("operation", "cite", "run", UUID.randomUUID().toString()),
+            List.of("'nodes'", "cite")),
+        Arguments.of(
+            Map.of(
+                "operation",
+                "cite",
+                "run",
+                UUID.randomUUID().toString(),
+                "nodes",
+                List.of(TABLE),
+                "edges",
+                List.of(Map.of("node", TABLE, "relationship", "om:upstream"))),
+            List.of("'edges'", "'node'", "'relationship'", "'other'")),
+        Arguments.of(
+            Map.of(
+                "operation",
+                "cite",
+                "run",
+                UUID.randomUUID().toString(),
+                "nodes",
+                Collections.nCopies(KnowledgeGraphCall.MAX_CITED + 1, TABLE)),
+            List.of("'nodes'", "at most " + KnowledgeGraphCall.MAX_CITED)),
+        Arguments.of(
             Map.of("operation", "find", "question", "orders", "run", "run-1"),
             List.of("'run'", "'run-1'")));
   }
@@ -140,6 +167,31 @@ class KnowledgeGraphCallTest {
     assertThat(mixed.termKinds()).containsExactly(OntologyTermKind.CONCEPT);
     assertThat(mixed.catalogTypes()).containsExactly("table");
     assertThat(mixed.searchesCatalog()).isTrue();
+  }
+
+  @Test
+  void citeReadsTheNodesAndRelationshipsAnAnswerReliedOn() {
+    final UUID run = UUID.randomUUID();
+    final String raw = "https://open-metadata.org/entity/table/" + UUID.randomUUID();
+
+    final KnowledgeGraphCall call =
+        KnowledgeGraphCall.parse(
+            Map.of(
+                "operation",
+                "cite",
+                "run",
+                run.toString(),
+                "nodes",
+                List.of(TABLE),
+                "edges",
+                List.of(Map.of("node", TABLE, "relationship", "om:upstream", "other", raw))));
+
+    assertThat(call.run()).isEqualTo(run);
+    assertThat(call.request())
+        .isEqualTo(
+            new KnowledgeGraphCall.Cite(
+                new Citation(
+                    List.of(TABLE), List.of(new CitedRelationship(TABLE, "om:upstream", raw)))));
   }
 
   @Test

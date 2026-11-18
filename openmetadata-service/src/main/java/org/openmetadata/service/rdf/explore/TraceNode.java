@@ -16,4 +16,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TraceNode(
-    String id, String label, String entityType, ExplorationState state, int firstStep) {}
+    String id,
+    String label,
+    String entityType,
+    String fullyQualifiedName,
+    ExplorationState state,
+    int firstStep,
+    Integer citedStep) {}

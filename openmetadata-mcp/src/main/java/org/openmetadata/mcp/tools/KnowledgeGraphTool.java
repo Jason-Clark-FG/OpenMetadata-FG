@@ -29,6 +29,8 @@ import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.RdfSparqlService;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.explore.Citation;
+import org.openmetadata.service.rdf.explore.CiteResult;
 import org.openmetadata.service.rdf.explore.ExpandPage;
 import org.openmetadata.service.rdf.explore.ExpandRequest;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
@@ -96,7 +98,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
 
   /** Every response names its run, which the caller passes back on the next call. */
   public sealed interface Response
-      permits FindResponse, ExpandResponse, QueryResponse, TraceResponse {
+      permits FindResponse, ExpandResponse, QueryResponse, TraceResponse, CiteResponse {
     UUID run();
 
     Operation operation();
@@ -130,6 +132,10 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   public record QueryResponse(UUID run, Operation operation, SparqlQueryTool.Result result)
       implements Response {}
 
+  /** What a cite recorded, and what it refused because the run never reached it. */
+  public record CiteResponse(UUID run, Operation operation, Citation cited, Citation refused)
+      implements Response {}
+
   public record TraceResponse(
       UUID run,
       Operation operation,
@@ -152,6 +158,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       case KnowledgeGraphCall.Expand expand -> expand(securityContext, repository, run, expand);
       case KnowledgeGraphCall.Query query -> query(securityContext, repository, run, query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
+      case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
     };
   }
 
@@ -235,8 +242,17 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final SparqlQueryTool.Result result =
         sparqlQuery.executeAuthorized(
             securityContext, Map.of(SPARQL_QUERY_ARGUMENT, query.sparql()));
-    explorer(securityContext, repository).recordQuery(run, query.sparql());
+    explorer(securityContext, repository).recordQuery(run, query.sparql(), result.body());
     return new QueryResponse(run.run(), Operation.QUERY, result);
+  }
+
+  private CiteResponse cite(
+      final CatalogSecurityContext securityContext,
+      final RdfRepository repository,
+      final RunContext run,
+      final KnowledgeGraphCall.Cite cite) {
+    final CiteResult result = explorer(securityContext, repository).cite(run, cite.citation());
+    return new CiteResponse(run.run(), Operation.CITE, result.cited(), result.refused());
   }
 
   private TraceResponse trace(
