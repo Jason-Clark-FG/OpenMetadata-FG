@@ -205,6 +205,33 @@ class KnowledgeGraphToolTest {
   }
 
   @Test
+  void aFindThatShowsFewerCardsThanItMatchedSaysSoInWordsAndHowToSeeTheRest() throws IOException {
+    callersAreAdministrators(false);
+
+    final KnowledgeGraphTool.FindResponse found =
+        (KnowledgeGraphTool.FindResponse)
+            call(Map.of("operation", "find", "question", "orders", "limit", 1));
+
+    assertThat(found.nodes()).hasSize(1);
+    assertThat(found.matched()).isEqualTo(2);
+    assertThat(found.moreMatched()).isEqualTo(1);
+    assertThat(found.rest())
+        .contains(
+            "2 matches", "best 1", "not shown", "larger limit", "entityTypes", "more specific");
+  }
+
+  @Test
+  void aFindThatShowsEveryMatchSaysNothingMore() throws IOException {
+    callersAreAdministrators(false);
+
+    final KnowledgeGraphTool.FindResponse found =
+        (KnowledgeGraphTool.FindResponse) call(Map.of("operation", "find", "question", "orders"));
+
+    assertThat(found.matched()).isEqualTo(2);
+    assertThat(found.rest()).isNull();
+  }
+
+  @Test
   void aRunHandlePassedBackIsTheRunOfTheResponse() throws IOException {
     callersAreAdministrators(false);
     final UUID run = UUID.randomUUID();

@@ -119,12 +119,18 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
    * search was on and did not take part, so the catalog hits are word matches only.
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
+  /**
+   * {@code matched} counts what find collected, {@code nodes} the best of them that fit; {@code
+   * rest} says in words what was left out and how to see it, and is absent when nothing was.
+   */
   public record FindResponse(
       UUID run,
       Operation operation,
       List<NodeCard> nodes,
       Map<String, RelationshipAbout> properties,
+      int matched,
       int moreMatched,
+      @JsonInclude(JsonInclude.Include.NON_NULL) String rest,
       String termLookupSkipped,
       String semanticSearchSkipped)
       implements Response {}
@@ -212,14 +218,31 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
                 run,
                 new FindRequest(find.question(), find.termKinds(), find.limit(), turn.budget()),
                 catalog.hits());
+    final int matched = found.nodes().size() + found.moreMatched();
     return new FindResponse(
         run.run(),
         Operation.FIND,
         found.nodes(),
         found.properties(),
+        matched,
         found.moreMatched(),
+        findRest(matched, found.nodes().size(), find.limit()),
         found.termLookupSkipped(),
         catalog.semanticSearchSkipped());
+  }
+
+  private static String findRest(final int matched, final int shown, final int limit) {
+    final String larger =
+        limit < KnowledgeGraphCall.MAX_FIND_LIMIT
+            ? "call find with a larger limit (up to %d), "
+                .formatted(KnowledgeGraphCall.MAX_FIND_LIMIT)
+            : "";
+    return matched > shown
+        ? ("find collected %d matches and shows cards for the best %d; the other %d are not shown"
+                + " and may hold what you need. To see them, %sname entityTypes, or ask a more"
+                + " specific question.")
+            .formatted(matched, shown, matched - shown, larger)
+        : null;
   }
 
   private CatalogHits catalogHits(
