@@ -1237,6 +1237,34 @@ PREPARE context_file_visibility_stmt FROM @context_file_visibility_ddl;
 EXECUTE context_file_visibility_stmt;
 DEALLOCATE PREPARE context_file_visibility_stmt;
 
+-- Agent harness: the published context settings agents receive, and one unversioned draft slot
+-- per harness whose revision only ever grows
+-- (ADR:2026-11-18-agent-harness-is-an-entity-and-persona-harnesses-extend-the-default).
+-- personaId is NULL on the company default, so the unique key allows one harness per persona.
+CREATE TABLE IF NOT EXISTS agent_harness_entity (
+    id VARCHAR(36) GENERATED ALWAYS AS (json_unquote(json_extract(`json`, '$.id'))) STORED NOT NULL,
+    name VARCHAR(256) GENERATED ALWAYS AS (json_unquote(json_extract(`json`, '$.name'))) VIRTUAL NOT NULL,
+    fqnHash VARCHAR(768) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    json JSON NOT NULL,
+    personaId VARCHAR(36) GENERATED ALWAYS AS (json_unquote(json_extract(`json`, '$.persona.id'))) STORED,
+    updatedAt BIGINT UNSIGNED GENERATED ALWAYS AS (json_unquote(json_extract(`json`, '$.updatedAt'))) VIRTUAL NOT NULL,
+    updatedBy VARCHAR(256) GENERATED ALWAYS AS (json_unquote(json_extract(`json`, '$.updatedBy'))) VIRTUAL NOT NULL,
+    deleted TINYINT(1) GENERATED ALWAYS AS (json_extract(`json`, '$.deleted')) VIRTUAL,
+    PRIMARY KEY (id),
+    UNIQUE KEY agent_harness_fqn_hash_unique (fqnHash),
+    UNIQUE KEY agent_harness_persona_unique (personaId),
+    KEY agent_harness_name_index (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS agent_harness_draft (
+    harnessId VARCHAR(36) NOT NULL,
+    json JSON,
+    revision INT NOT NULL,
+    updatedBy VARCHAR(256) NOT NULL,
+    updatedAt BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (harnessId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Flowable schema upgrades run after this migration and inherit the database default. Existing
 -- ACT_* tables are aligned to the same collation by FlowableCharsetMigration.
 ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;

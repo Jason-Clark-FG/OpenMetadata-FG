@@ -302,7 +302,7 @@ public class PersonaRepository extends EntityRepository<Persona> {
     return null;
   }
 
-  static void validateContextDefinition(PersonaContextDefinition definition) {
+  public static void validateContextDefinition(PersonaContextDefinition definition) {
     if (definition == null) {
       return;
     }
@@ -473,6 +473,12 @@ public class PersonaRepository extends EntityRepository<Persona> {
   protected void postUpdate(Persona original, Persona updated) {
     super.postUpdate(original, updated);
     PersonaContextCache.getInstance().invalidate(original, updated);
+  }
+
+  @Override
+  protected void entitySpecificCleanup(String deletedBy, Persona persona) {
+    ((AgentHarnessRepository) Entity.getEntityRepository(Entity.AGENT_HARNESS))
+        .deleteForPersona(persona.getId(), deletedBy);
   }
 
   @Override

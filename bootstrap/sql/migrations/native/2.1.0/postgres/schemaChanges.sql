@@ -938,3 +938,31 @@ ALTER TABLE mcp_pending_auth_requests
 ALTER TABLE context_file ADD COLUMN IF NOT EXISTS visibility VARCHAR(16)
     GENERATED ALWAYS AS (json -> 'shareConfig' ->> 'visibility') STORED;
 CREATE INDEX IF NOT EXISTS idx_context_file_visibility ON context_file (visibility);
+
+-- Agent harness: the published context settings agents receive, and one unversioned draft slot
+-- per harness whose revision only ever grows
+-- (ADR:2026-11-18-agent-harness-is-an-entity-and-persona-harnesses-extend-the-default).
+-- personaId is NULL on the company default, so the unique constraint allows one harness per persona.
+CREATE TABLE IF NOT EXISTS agent_harness_entity (
+    id VARCHAR(36) GENERATED ALWAYS AS (json ->> 'id') STORED NOT NULL,
+    name VARCHAR(256) GENERATED ALWAYS AS (json ->> 'name') STORED NOT NULL,
+    fqnHash VARCHAR(768) NOT NULL,
+    json JSONB NOT NULL,
+    personaId VARCHAR(36) GENERATED ALWAYS AS (json -> 'persona' ->> 'id') STORED,
+    updatedAt BIGINT GENERATED ALWAYS AS ((json ->> 'updatedAt')::bigint) STORED NOT NULL,
+    updatedBy VARCHAR(256) GENERATED ALWAYS AS (json ->> 'updatedBy') STORED NOT NULL,
+    deleted BOOLEAN GENERATED ALWAYS AS ((json ->> 'deleted')::boolean) STORED,
+    PRIMARY KEY (id),
+    CONSTRAINT agent_harness_fqn_hash_unique UNIQUE (fqnHash),
+    CONSTRAINT agent_harness_persona_unique UNIQUE (personaId)
+);
+CREATE INDEX IF NOT EXISTS agent_harness_name_index ON agent_harness_entity (name);
+
+CREATE TABLE IF NOT EXISTS agent_harness_draft (
+    harnessId VARCHAR(36) NOT NULL,
+    json JSONB,
+    revision INT NOT NULL,
+    updatedBy VARCHAR(256) NOT NULL,
+    updatedAt BIGINT NOT NULL,
+    PRIMARY KEY (harnessId)
+);

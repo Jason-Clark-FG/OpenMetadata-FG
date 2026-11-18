@@ -63,6 +63,7 @@ public interface CollectionDAO
         ClassificationTagDAOs,
         FeedDAOs,
         AiGovernanceDAOs,
+        AgentHarnessDAOs,
         SearchReindexDAOs,
         RdfInfraDAOs,
         Transactional<CollectionDAO> {
