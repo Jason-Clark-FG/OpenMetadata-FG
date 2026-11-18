@@ -91,21 +91,29 @@ public class RdfPropertyMapper {
           .collect(Collectors.toUnmodifiableSet());
 
   // Fields the graph carries but the entity read must not load: the RDF projection loads the
-  // latest test result from the results table itself (RdfQualityEvidence), where a test case read
-  // would look it up in search first.
-  private static final Set<String> EVIDENCE_LOADED_PROPERTIES = Set.of("testCaseResult");
+  // latest test result and incident status from their tables itself (RdfQualityEvidence), where
+  // a test case read would look the result up in search first, and masks them as the API does.
+  private static final Set<String> EVIDENCE_LOADED_PROPERTIES =
+      Set.of("testCaseResult", "incidentStatus");
 
   // Properties that DO belong in the graph but are emitted by a dedicated structured-emission step
   // (emitStructuredProperties) rather than the generic field loop, so the generic loop must not
   // also write them as opaque JSON literals: tableConstraints (emitTableConstraints, needs the
   // parent table FQN to mint constrained-column URIs), profile (RdfQualityMapper DQV measurements),
   // pipelineStatus (RdfActivityMapper prov:Activity), usageSummary (RdfUsageMapper usage-count
-  // triples), testCaseResult (RdfTestResultMapper, the latest result node).
+  // triples), testCaseResult and incidentStatus (RdfTestResultMapper, the latest result and the
+  // open incident).
   //
   // Skipping the generic loop is NOT a reason to skip fetching them: the dedicated mappers read the
   // same entity JSON, so a field that is not loaded silently emits nothing.
   private static final Set<String> DEDICATED_MAPPER_PROPERTIES =
-      Set.of("tableConstraints", "profile", "pipelineStatus", "usageSummary", "testCaseResult");
+      Set.of(
+          "tableConstraints",
+          "profile",
+          "pipelineStatus",
+          "usageSummary",
+          "testCaseResult",
+          "incidentStatus");
 
   // The generic field-mapping loop skips both groups, for the two different reasons above.
   private static final Set<String> IGNORED_PROPERTIES =
@@ -175,10 +183,11 @@ public class RdfPropertyMapper {
           OM_NS + "hasColumn",
           OM_NS + "hasConstraint",
           "http://www.w3.org/ns/dqv#hasQualityMeasurement",
-          // A test case's target and latest result, which a later write can drop or move.
+          // A test case's target, latest result and open incident, which a later write can drop.
           OM_NS + "testsEntity",
           OM_NS + "testsColumn",
           OM_NS + "hasTestResult",
+          OM_NS + "hasOpenIncident",
           // Remove stale roles from unreleased glossary realizations on the next entity write.
           OM_NS + "hasPrimaryStore",
           OM_NS + "hasDerivedAsset",

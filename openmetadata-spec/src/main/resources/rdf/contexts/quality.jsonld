@@ -156,6 +156,10 @@
         "@id": "om:hasSeverity",
         "@type": "xsd:string"
       },
+      "incidentStatus": {
+        "@id": "om:hasOpenIncident",
+        "@type": "@id"
+      },
       "incidentId": {
         "@id": "om:hasIncidentId",
         "@type": "xsd:string"

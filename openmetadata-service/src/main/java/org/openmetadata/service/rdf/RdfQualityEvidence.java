@@ -16,23 +16,32 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.tests.TestCase;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatus;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatusTypes;
 import org.openmetadata.schema.tests.type.TestCaseResult;
 import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnProfile;
 import org.openmetadata.schema.type.TableProfile;
+import org.openmetadata.schema.type.TagLabel;
+import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.jdbi3.ColumnUtil;
 import org.openmetadata.service.resources.feeds.MessageParser.EntityLink;
 import org.openmetadata.service.security.mask.PIIMasker;
 import org.openmetadata.service.util.EntityUtil;
 
 /**
- * Loads the latest profiles and test results onto entities before they are projected, on the live
- * write and on the reindex alike. They live in time-series tables, not in the entity, so a plain
- * entity read carries none of them. What reaches the graph follows the masking a caller without
- * PII access gets: no profile for a sensitive column, no result for a test on one
+ * Loads the latest profiles, test results and open incidents onto entities before they are
+ * projected, on the live write and on the reindex alike. They live in time-series tables, not in
+ * the entity, so a plain entity read carries none of them. What reaches the graph follows the
+ * masking a caller without PII access gets, judged on tags this class reads itself, so a loader
+ * that did not ask for tags cannot unmask anything
  * (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence).
  */
 public final class RdfQualityEvidence {
@@ -50,7 +59,7 @@ public final class RdfQualityEvidence {
   public void attach(final String entityType, final List<? extends EntityInterface<?>> entities) {
     switch (entityType) {
       case Entity.TABLE -> attachProfiles(entities.stream().map(Table.class::cast).toList());
-      case Entity.TEST_CASE -> attachLatestResults(
+      case Entity.TEST_CASE -> attachTestEvidence(
           entities.stream().map(TestCase.class::cast).toList());
       default -> {
         // Only tables, their columns and test cases carry quality evidence.
@@ -62,7 +71,7 @@ public final class RdfQualityEvidence {
     final Map<String, TableProfile> tableProfiles =
         source.latestTableProfiles(tables.stream().map(Table::getFullyQualifiedName).toList());
     tables.forEach(table -> table.setProfile(tableProfiles.get(table.getFullyQualifiedName())));
-    final List<Column> unmasked = unmaskedColumns(tables);
+    final List<Column> unmasked = tables.stream().flatMap(this::unmaskedColumns).toList();
     final Map<String, ColumnProfile> columnProfiles =
         source.latestColumnProfiles(unmasked.stream().map(Column::getFullyQualifiedName).toList());
     unmasked.forEach(
@@ -70,29 +79,71 @@ public final class RdfQualityEvidence {
   }
 
   /** Clears every column's profile and returns the columns whose profile may be shown. */
-  private static List<Column> unmaskedColumns(final List<Table> tables) {
-    tables.stream()
-        .flatMap(table -> EntityUtil.getFlattenedEntityField(table.getColumns()).stream())
-        .forEach(column -> column.setProfile(null));
-    return tables.stream()
-        .flatMap(table -> PIIMasker.columnsWithUnmaskedProfiles(table.getColumns()).stream())
-        .toList();
+  private Stream<Column> unmaskedColumns(final Table table) {
+    final List<Column> columns = EntityUtil.getFlattenedEntityField(table.getColumns());
+    columns.forEach(column -> column.setProfile(null));
+    final Set<String> unmaskedFqns = unmaskedFqns(table, source.columnTags(table));
+    return columns.stream().filter(column -> unmaskedFqns.contains(column.getFullyQualifiedName()));
   }
 
-  private void attachLatestResults(final List<TestCase> testCases) {
-    final Map<String, TestCaseResult> results =
-        source.latestTestCaseResults(
-            testCases.stream().map(TestCase::getFullyQualifiedName).toList());
+  /** Judges a copy of the column tree that carries the tags stored for each column. */
+  private static Set<String> unmaskedFqns(
+      final Table table, final Map<String, List<TagLabel>> storedTags) {
+    final List<Column> judged = JsonUtils.deepCopyList(table.getColumns(), Column.class);
+    EntityUtil.getFlattenedEntityField(judged)
+        .forEach(
+            column ->
+                column.setTags(storedTags.getOrDefault(column.getFullyQualifiedName(), List.of())));
+    return PIIMasker.columnsWithUnmaskedProfiles(judged).stream()
+        .map(Column::getFullyQualifiedName)
+        .collect(Collectors.toSet());
+  }
+
+  private void attachTestEvidence(final List<TestCase> testCases) {
+    final List<String> fqns = testCases.stream().map(TestCase::getFullyQualifiedName).toList();
+    final Map<String, TestCaseResult> results = source.latestTestCaseResults(fqns);
+    final Map<String, TestCaseResolutionStatus> incidents = source.latestIncidentStatuses(fqns);
     final Map<String, Optional<Table>> tables = new HashMap<>();
     for (final TestCase testCase : testCases) {
-      final TestCaseResult latest = results.get(testCase.getFullyQualifiedName());
-      testCase.setTestCaseResult(latest != null && isUnmasked(testCase, tables) ? latest : null);
+      final Optional<Table> table =
+          tables.computeIfAbsent(link(testCase).getEntityFQN(), source::liveTable);
+      final boolean unmasked = !PIIMasker.hidesTestCaseResults(table.orElse(null), link(testCase));
+      final String fqn = testCase.getFullyQualifiedName();
+      testCase.setTestCaseResult(unmasked ? results.get(fqn) : null);
+      testCase.setIncidentStatus(unmasked ? open(incidents.get(fqn)) : null);
+      keepOnlyResolvedColumnLink(testCase, table);
     }
   }
 
-  private boolean isUnmasked(final TestCase testCase, final Map<String, Optional<Table>> tables) {
-    final EntityLink link = EntityLink.parse(testCase.getEntityLink());
-    final Table table = tables.computeIfAbsent(link.getEntityFQN(), source::liveTable).orElse(null);
-    return !PIIMasker.hidesTestCaseResults(table, link);
+  private static TestCaseResolutionStatus open(final TestCaseResolutionStatus latest) {
+    final boolean isOpen =
+        latest != null
+            && latest.getTestCaseResolutionStatusType() != TestCaseResolutionStatusTypes.Resolved;
+    return isOpen ? latest : null;
+  }
+
+  /**
+   * A column test whose column no longer resolves keeps pointing at its table only: the copy read
+   * for the projection gets the table's entity link, so the graph names no column that is gone.
+   */
+  private static void keepOnlyResolvedColumnLink(
+      final TestCase testCase, final Optional<Table> table) {
+    final EntityLink link = link(testCase);
+    if (link.getFieldName() != null && !resolvesColumn(table, link)) {
+      testCase.setEntityLink(new EntityLink(Entity.TABLE, link.getEntityFQN()).getLinkString());
+    }
+  }
+
+  private static boolean resolvesColumn(final Optional<Table> table, final EntityLink link) {
+    return table
+        .map(
+            found ->
+                ColumnUtil.resolveColumnChainByPath(found.getColumns(), link.getArrayFieldName()))
+        .filter(path -> !path.isEmpty())
+        .isPresent();
+  }
+
+  private static EntityLink link(final TestCase testCase) {
+    return EntityLink.parse(testCase.getEntityLink());
   }
 }

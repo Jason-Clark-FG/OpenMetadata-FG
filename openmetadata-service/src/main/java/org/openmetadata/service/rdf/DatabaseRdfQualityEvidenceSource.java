@@ -12,6 +12,7 @@
  */
 package org.openmetadata.service.rdf;
 
+import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
 import static org.openmetadata.service.jdbi3.TimeSeriesDAOs.ProfilerDataTimeSeriesDAO.TABLE_COLUMN_PROFILE_EXTENSION;
 import static org.openmetadata.service.jdbi3.TimeSeriesDAOs.ProfilerDataTimeSeriesDAO.TABLE_PROFILE_EXTENSION;
 
@@ -21,17 +22,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import org.openmetadata.schema.entity.data.Table;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatus;
 import org.openmetadata.schema.tests.type.TestCaseResult;
+import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnProfile;
 import org.openmetadata.schema.type.EntityProfile;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.type.TableProfile;
+import org.openmetadata.schema.type.TagLabel;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.exception.EntityNotFoundException;
 import org.openmetadata.service.jdbi3.EntityDAO;
 import org.openmetadata.service.jdbi3.EntityProfileRepository;
 import org.openmetadata.service.jdbi3.TimeSeriesDAOs.ProfilerDataTimeSeriesDAO.LatestExtensionRecord;
+import org.openmetadata.service.util.EntityUtil;
 import org.openmetadata.service.util.FullyQualifiedName;
 
 /** Reads the newest profile and result rows in batches, as the table and test case APIs do. */
@@ -58,6 +63,33 @@ final class DatabaseRdfQualityEvidenceSource implements RdfQualityEvidenceSource
           .forEach(row -> jsonByHash.put(row.getEntityFQNHash(), row.getJson()));
     }
     return byFqn(testCaseFqns, jsonByHash, json -> JsonUtils.readValue(json, TestCaseResult.class));
+  }
+
+  /** The tags a table read with tags gives each column, derived glossary tags included. */
+  @Override
+  public Map<String, List<TagLabel>> columnTags(final Table table) {
+    final List<Column> columns = JsonUtils.deepCopyList(table.getColumns(), Column.class);
+    Entity.populateEntityFieldTags(Entity.TABLE, columns, table.getFullyQualifiedName(), true);
+    final Map<String, List<TagLabel>> tags = new HashMap<>();
+    EntityUtil.getFlattenedEntityField(columns)
+        .forEach(column -> tags.put(column.getFullyQualifiedName(), listOrEmpty(column.getTags())));
+    return tags;
+  }
+
+  @Override
+  public Map<String, TestCaseResolutionStatus> latestIncidentStatuses(
+      final List<String> testCaseFqns) {
+    final Map<String, String> jsonByHash = new HashMap<>();
+    if (!testCaseFqns.isEmpty()) {
+      Entity.getCollectionDAO()
+          .testCaseResolutionStatusTimeSeriesDao()
+          .getLatestRecordBatch(testCaseFqns)
+          .forEach(row -> jsonByHash.put(row.getEntityFQNHash(), row.getJson()));
+    }
+    return byFqn(
+        testCaseFqns,
+        jsonByHash,
+        json -> JsonUtils.readValue(json, TestCaseResolutionStatus.class));
   }
 
   @Override

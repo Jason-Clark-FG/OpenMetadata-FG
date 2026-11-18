@@ -83,6 +83,18 @@
           "value": "id"
         }
       ],
+      "incidentStatus": {
+        "stateId": "00000000-0000-0000-0000-000000000003",
+        "timestamp": 1000,
+        "testCaseResolutionStatusType": "Assigned",
+        "severity": "Severity1",
+        "testCaseResolutionStatusDetails": {
+          "assignee": {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "type": "user"
+          }
+        }
+      },
       "testCaseResult": {
         "timestamp": 1000,
         "testCaseStatus": "Failed",

@@ -24,6 +24,7 @@ import org.openmetadata.schema.type.Relationship;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.jdbi3.CoreRelationshipDAOs.EntityRelationshipObject;
+import org.openmetadata.service.util.LikeEscape;
 
 /**
  * Reads the current metadata a live-write replay projects. Replays load state when they run rather
@@ -36,7 +37,22 @@ record RdfProjectionLoaders(
     BiFunction<String, UUID, EntityInterface<?>> entityLoader,
     LineageDetailsLoader lineageDetailsLoader,
     Supplier<OntologyActiveGraph> ontologyGraphs,
-    RdfEntityLiveness liveness) {
+    RdfEntityLiveness liveness,
+    TestCaseRequeue testCaseRequeue) {
+
+  RdfProjectionLoaders(
+      final BiFunction<String, UUID, EntityInterface<?>> entityLoader,
+      final LineageDetailsLoader lineageDetailsLoader,
+      final Supplier<OntologyActiveGraph> ontologyGraphs,
+      final RdfEntityLiveness liveness) {
+    this(entityLoader, lineageDetailsLoader, ontologyGraphs, liveness, tableFqn -> {});
+  }
+
+  /** Queues a fresh projection of every test case on a table whose column tags changed. */
+  @FunctionalInterface
+  interface TestCaseRequeue {
+    void requeueTestCasesOf(String tableFqn);
+  }
 
   @FunctionalInterface
   interface LineageDetailsLoader {
@@ -52,7 +68,20 @@ record RdfProjectionLoaders(
         withQualityEvidence(RdfProjectionLoaders::loadEntity, RdfQualityEvidence.database()),
         RdfProjectionLoaders::loadLineageDetails,
         () -> new OntologyActiveGraph(Entity.getCollectionDAO()),
-        RdfEntityLiveness.database());
+        RdfEntityLiveness.database(),
+        RdfProjectionLoaders::requeueTestCases);
+  }
+
+  /** Queues the test cases whose entity link names {@code tableFqn} or one of its columns. */
+  private static void requeueTestCases(final String tableFqn) {
+    final List<UUID> testCases =
+        Entity.getCollectionDAO()
+            .testCaseDAO()
+            .findIdsByEntityFQN(tableFqn, LikeEscape.escape(tableFqn) + Entity.SEPARATOR + "%")
+            .stream()
+            .map(UUID::fromString)
+            .toList();
+    RdfUpdater.refreshEntities(Entity.TEST_CASE, testCases);
   }
 
   /** Reads entities with {@code loader} and loads their latest quality evidence onto them. */

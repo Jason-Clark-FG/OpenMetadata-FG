@@ -1,126 +1,88 @@
 package org.openmetadata.service.rdf.translator;
 
-import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.jena.datatypes.xsd.XSDDatatype;
+import org.apache.jena.rdf.model.Literal;
 import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
-import org.apache.jena.vocabulary.RDF;
 
 /**
- * Emits the latest table and column profile as {@code dqv:QualityMeasurement} triples, so SPARQL
- * can answer "tables with fewer than N rows" or "columns whose null ratio exceeds 5%".
+ * Emits the latest table and column profile as literal facts on the profiled table or column, so a
+ * node card shows them and SPARQL filters on them directly ("columns whose null ratio exceeds 5%").
  *
- * <p>The graph holds the latest profile only (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence).
- * Each measure has one IRI per subject and metric, so a newer profile changes values in place and
- * the entity write that owns the measurement replaces it exactly. The measure set is bounded to
- * what a model uses to write filters and judge data; min and max are emitted only when numeric,
- * because a non-numeric bound is a data value with no single datatype.
+ * <p>The graph holds the latest profile only, as the profiled node's own triples, so a newer profile
+ * replaces them in the same entity write
+ * (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence). The measure set is bounded;
+ * min and max are emitted only when numeric, because a non-numeric bound is a data value with no
+ * single datatype.
  */
 public final class RdfQualityMapper {
-
   private static final String OM_NS = "https://open-metadata.org/ontology/";
-  private static final String DQV_NS = "http://www.w3.org/ns/dqv#";
-  private static final String PROV_NS = "http://www.w3.org/ns/prov#";
+  private static final String PROFILED_AT = "profiledAt";
 
-  private static final Map<String, String> TABLE_METRICS =
+  private static final Map<String, String> TABLE_MEASURES =
       Map.of(
-          "rowCount", "RowCountMetric",
-          "columnCount", "ColumnCountMetric",
-          "sizeInByte", "SizeInBytesMetric");
+          "rowCount", "profileRowCount",
+          "columnCount", "profileColumnCount",
+          "sizeInByte", "profileSizeInBytes");
 
-  private static final Map<String, String> COLUMN_METRICS =
+  private static final Map<String, String> COLUMN_MEASURES =
       Map.ofEntries(
-          Map.entry("valuesCount", "ValuesCountMetric"),
-          Map.entry("nullCount", "NullCountMetric"),
-          Map.entry("nullProportion", "NullProportionMetric"),
-          Map.entry("distinctCount", "DistinctCountMetric"),
-          Map.entry("uniqueCount", "UniqueCountMetric"),
-          Map.entry("min", "MinMetric"),
-          Map.entry("max", "MaxMetric"),
-          Map.entry("mean", "MeanMetric"),
-          Map.entry("minLength", "MinLengthMetric"),
-          Map.entry("maxLength", "MaxLengthMetric"));
+          Map.entry("valuesCount", "profileValuesCount"),
+          Map.entry("nullCount", "profileNullCount"),
+          Map.entry("nullProportion", "profileNullProportion"),
+          Map.entry("distinctCount", "profileDistinctCount"),
+          Map.entry("uniqueCount", "profileUniqueCount"),
+          Map.entry("min", "profileMin"),
+          Map.entry("max", "profileMax"),
+          Map.entry("mean", "profileMean"),
+          Map.entry("minLength", "profileMinLength"),
+          Map.entry("maxLength", "profileMaxLength"));
 
   private RdfQualityMapper() {}
 
   static void emitTableProfile(JsonNode profile, Resource tableResource, Model model) {
-    emitProfile(profile, TABLE_METRICS, tableResource, model);
+    emitProfile(profile, TABLE_MEASURES, tableResource, model);
   }
 
   static void emitColumnProfile(JsonNode profile, Resource columnResource, Model model) {
-    emitProfile(profile, COLUMN_METRICS, columnResource, model);
+    emitProfile(profile, COLUMN_MEASURES, columnResource, model);
   }
 
   private static void emitProfile(
-      JsonNode profile, Map<String, String> metrics, Resource subjectResource, Model model) {
-    RdfJsonNode.object(profile)
+      JsonNode profile, Map<String, String> measures, Resource subject, Model model) {
+    RdfJsonNode.object(profile).ifPresent(value -> emitFacts(value, measures, subject, model));
+  }
+
+  private static void emitFacts(
+      JsonNode profile, Map<String, String> measures, Resource subject, Model model) {
+    measures.forEach(
+        (field, predicate) ->
+            RdfJsonNode.field(profile, field)
+                .filter(JsonNode::isNumber)
+                .ifPresent(
+                    value ->
+                        subject.addLiteral(
+                            model.createProperty(OM_NS, predicate), number(value, model))));
+    profiledAt(profile)
         .ifPresent(
-            value ->
-                emitMeasurements(value, metrics, readTimestamp(value), subjectResource, model));
+            time ->
+                subject.addLiteral(
+                    model.createProperty(OM_NS, PROFILED_AT),
+                    model.createTypedLiteral(time, XSDDatatype.XSDdateTime)));
   }
 
-  private static void emitMeasurements(
-      JsonNode profile,
-      Map<String, String> metricMap,
-      String timestamp,
-      Resource subjectResource,
-      Model model) {
-    MeasurementContext context =
-        new MeasurementContext(
-            subjectResource, model, MeasurementVocabulary.from(model), timestamp);
-
-    for (Map.Entry<String, String> entry : metricMap.entrySet()) {
-      RdfJsonNode.field(profile, entry.getKey())
-          .filter(JsonNode::isNumber)
-          .ifPresent(value -> emitMeasurement(entry.getValue(), value, context));
-    }
+  private static Literal number(JsonNode value, Model model) {
+    return value.isIntegralNumber()
+        ? model.createTypedLiteral(value.asLong())
+        : model.createTypedLiteral(value.asDouble());
   }
 
-  private static void emitMeasurement(
-      String metricLocalName, JsonNode value, MeasurementContext context) {
-    Model model = context.model();
-    MeasurementVocabulary vocabulary = context.vocabulary();
-    String measurementUri = measurementUri(context.subject().getURI(), metricLocalName);
-    Resource measurement = model.createResource(measurementUri);
-    measurement.addProperty(RDF.type, vocabulary.measurementClass());
-    measurement.addProperty(
-        vocabulary.isMeasurementOf(), model.createResource(OM_NS + metricLocalName));
-    measurement.addProperty(vocabulary.computedOn(), context.subject());
-    addNumericValue(measurement, vocabulary.value(), value, model);
-    if (!nullOrEmpty(context.timestamp())) {
-      measurement.addProperty(
-          vocabulary.generatedAtTime(),
-          model.createTypedLiteral(context.timestamp(), XSDDatatype.XSDdateTime));
-    }
-    context.subject().addProperty(vocabulary.hasMeasurement(), measurement);
-  }
-
-  private static void addNumericValue(
-      Resource measurement, Property dqvValue, JsonNode value, Model model) {
-    if (value.isInt()) {
-      measurement.addProperty(dqvValue, model.createTypedLiteral(value.asInt()));
-    } else if (value.isLong()) {
-      measurement.addProperty(dqvValue, model.createTypedLiteral(value.asLong()));
-    } else {
-      measurement.addProperty(dqvValue, model.createTypedLiteral(value.asDouble()));
-    }
-  }
-
-  /** One measurement IRI per subject and metric: the graph carries the latest profile only. */
-  static String measurementUri(String subjectUri, String metricLocalName) {
-    return subjectUri + "/measurement/" + metricLocalName;
-  }
-
-  private static String readTimestamp(JsonNode profile) {
-    return RdfJsonNode.field(profile, "timestamp")
-        .flatMap(RdfQualityMapper::timestampValue)
-        .orElse(null);
+  private static Optional<String> profiledAt(JsonNode profile) {
+    return RdfJsonNode.field(profile, "timestamp").flatMap(RdfQualityMapper::timestampValue);
   }
 
   private static Optional<String> timestampValue(JsonNode timestamp) {
@@ -131,27 +93,5 @@ public final class RdfQualityMapper {
       value = Optional.of(Instant.ofEpochMilli(timestamp.asLong()).toString());
     }
     return value;
-  }
-
-  private record MeasurementContext(
-      Resource subject, Model model, MeasurementVocabulary vocabulary, String timestamp) {}
-
-  private record MeasurementVocabulary(
-      Property hasMeasurement,
-      Property isMeasurementOf,
-      Property value,
-      Property computedOn,
-      Property generatedAtTime,
-      Resource measurementClass) {
-
-    private static MeasurementVocabulary from(Model model) {
-      return new MeasurementVocabulary(
-          model.createProperty(DQV_NS, "hasQualityMeasurement"),
-          model.createProperty(DQV_NS, "isMeasurementOf"),
-          model.createProperty(DQV_NS, "value"),
-          model.createProperty(DQV_NS, "computedOn"),
-          model.createProperty(PROV_NS, "generatedAtTime"),
-          model.createResource(DQV_NS + "QualityMeasurement"));
-    }
   }
 }

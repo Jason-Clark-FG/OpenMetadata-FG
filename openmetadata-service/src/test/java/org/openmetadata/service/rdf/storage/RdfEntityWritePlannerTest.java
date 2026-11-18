@@ -49,6 +49,9 @@ import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.entity.data.Topic;
 import org.openmetadata.schema.tests.TestCase;
+import org.openmetadata.schema.tests.type.Severity;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatus;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatusTypes;
 import org.openmetadata.schema.tests.type.TestCaseResult;
 import org.openmetadata.schema.tests.type.TestCaseStatus;
 import org.openmetadata.schema.tests.type.TestResultValue;
@@ -356,10 +359,16 @@ class RdfEntityWritePlannerTest {
             .withFullyQualifiedName(TABLE_FQN + ".amount.amount_positive")
             .withEntityLink("<#E::table::" + TABLE_FQN + "::columns::amount>")
             .withEntityFQN(TABLE_FQN + ".amount")
-            .withTestCaseResult(testResult(1000L, TestCaseStatus.Failed, "-3", "9"));
+            .withTestCaseResult(testResult(1000L, TestCaseStatus.Failed, "-3", "9"))
+            .withIncidentStatus(
+                new TestCaseResolutionStatus()
+                    .withTimestamp(1000L)
+                    .withTestCaseResolutionStatusType(TestCaseResolutionStatusTypes.New)
+                    .withSeverity(Severity.Severity1));
     writeBoth(TEST_CASE_URI, testCase);
 
     testCase.setTestCaseResult(testResult(2000L, TestCaseStatus.Success, "0"));
+    testCase.setIncidentStatus(null);
     writeBoth(TEST_CASE_URI, testCase);
     assertSameGraph();
     assertTrue(diff.graph().isIsomorphicWith(translator.toRdf(testCase)));

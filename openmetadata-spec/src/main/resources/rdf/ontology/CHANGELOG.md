@@ -12,20 +12,24 @@ Quality evidence (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-eviden
 
 ### Added
 
-- `om:TestCaseResult`, `om:TestResultValue` classes.
-- `om:testsEntity` (test case → table), `om:testsColumn` (column test → column),
-  `om:hasTestResult` (test case → its latest result), `om:hasResultValue`.
+- Latest profile facts: `om:profiledAt`; on a table `om:profileRowCount`, `om:profileColumnCount`,
+  `om:profileSizeInBytes`; on a column `om:profileValuesCount`, `om:profileNullCount`,
+  `om:profileNullProportion`, `om:profileDistinctCount`, `om:profileUniqueCount`, `om:profileMin`,
+  `om:profileMax`, `om:profileMean`, `om:profileMinLength`, `om:profileMaxLength`.
+- `om:TestCaseResult`, `om:TestResultValue`, `om:TestCaseIncident` classes.
+- `om:testsEntity` (test case → table, `owl:inverseOf om:testedBy`), `om:testsColumn`,
+  `om:latestResultStatus`, `om:latestResultAt`, `om:hasTestResult`, `om:hasResultValue`.
 - On a result: `om:testResultStatus`, `om:testResultMessage`, `om:passedRows`, `om:failedRows`,
   `om:minBound`, `om:maxBound`, with the run time as `prov:generatedAtTime`.
+- `om:hasOpenIncident`, `om:incidentState`, `om:incidentSeverity`, `om:incidentAssignee`.
 - Declared the already written `om:testsEntityFQN` and `om:hasParameterValue`.
-- `dqv:Metric` individuals for every profile measure (`om:RowCountMetric`, `om:NullCountMetric`, …).
 
 ### Changed
 
-- Profile measurements are named `<subject>/measurement/<Metric>`, without the profile time, and
-  only the latest profile is kept. The column measure set is bounded; sum, median, standard
-  deviation, variance, valid, missing and duplicate counts are no longer emitted.
+- `dqv:hasQualityMeasurement`, `dqv:isMeasurementOf` and `dqv:computedOn` are `om:InferenceOnly`:
+  profiles are facts on the profiled node, not measurement nodes.
 - JSON-LD `quality.jsonld`: `testCaseResult` and `testResultValue` map to resources, not `@json`.
+- The `incidentStatus` JSON literal on test cases is no longer written.
 
 ## 1.1.0 — 2026-04-28
 

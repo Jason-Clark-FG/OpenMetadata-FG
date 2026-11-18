@@ -23,6 +23,7 @@ import org.apache.jena.datatypes.xsd.XSDDatatype;
 import org.apache.jena.rdf.model.Literal;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.openmetadata.service.Entity;
@@ -41,6 +42,8 @@ final class RdfTestResultMapper {
   private static final String DQV_VALUE = "http://www.w3.org/ns/dqv#value";
   private static final String GENERATED_AT = "http://www.w3.org/ns/prov#generatedAtTime";
   private static final String LATEST_RESULT = "/result/latest";
+  private static final String OPEN_INCIDENT = "/incident/open";
+  private static final String RESOLVED = "Resolved";
   private static final List<String> RESULT_NUMBERS =
       List.of("passedRows", "failedRows", "minBound", "maxBound");
 
@@ -59,6 +62,9 @@ final class RdfTestResultMapper {
     emitTestedTable(testCase, liveTables, target, baseUri);
     emitTestedColumn(testCase, target, baseUri);
     RdfJsonNode.object(testCase, "testCaseResult").ifPresent(result -> emitResult(result, target));
+    RdfJsonNode.object(testCase, "incidentStatus")
+        .filter(RdfTestResultMapper::isOpen)
+        .ifPresent(incident -> emitIncident(incident, target, baseUri));
   }
 
   private static void emitTestedTable(
@@ -87,12 +93,57 @@ final class RdfTestResultMapper {
     node.addProperty(RDF.type, model.createResource(OM_NS + "TestCaseResult"));
     text(result, "testCaseStatus").ifPresent(status -> literal(node, "testResultStatus", status));
     text(result, "result").ifPresent(message -> literal(node, "testResultMessage", message));
-    RdfJsonNode.field(result, "timestamp")
-        .filter(JsonNode::isNumber)
-        .ifPresent(
-            time -> node.addProperty(model.createProperty(GENERATED_AT), dateTime(time, model)));
+    timestamp(result).ifPresent(time -> node.addProperty(model.createProperty(GENERATED_AT), time));
+    emitLatestFacts(result, target.subject());
     emitResultNumbers(result, node);
     emitResultValues(result, node);
+  }
+
+  /** The latest status and run time again on the test case, so its own card shows them. */
+  private static void emitLatestFacts(final JsonNode result, final Resource testCase) {
+    final Model model = testCase.getModel();
+    text(result, "testCaseStatus")
+        .ifPresent(status -> literal(testCase, "latestResultStatus", status));
+    timestamp(result)
+        .ifPresent(
+            time -> testCase.addProperty(model.createProperty(OM_NS, "latestResultAt"), time));
+  }
+
+  private static boolean isOpen(final JsonNode incident) {
+    return text(incident, "testCaseResolutionStatusType")
+        .filter(state -> !RESOLVED.equals(state))
+        .isPresent();
+  }
+
+  private static void emitIncident(
+      final JsonNode incident, final MappingTarget target, final String baseUri) {
+    final Model model = target.model();
+    final Resource node = model.createResource(target.subject().getURI() + OPEN_INCIDENT);
+    target.subject().addProperty(model.createProperty(OM_NS, "hasOpenIncident"), node);
+    node.addProperty(RDF.type, model.createResource(OM_NS + "TestCaseIncident"));
+    text(incident, "testCaseResolutionStatusType")
+        .ifPresent(state -> literal(node, "incidentState", state));
+    text(incident, "severity").ifPresent(severity -> literal(node, "incidentSeverity", severity));
+    timestamp(incident)
+        .ifPresent(time -> node.addProperty(model.createProperty(GENERATED_AT), time));
+    RdfJsonNode.object(incident, "testCaseResolutionStatusDetails")
+        .flatMap(details -> RdfJsonNode.object(details, "assignee"))
+        .flatMap(assignee -> referenceIri(assignee, baseUri))
+        .ifPresent(
+            iri ->
+                node.addProperty(
+                    model.createProperty(OM_NS, "incidentAssignee"), model.createResource(iri)));
+  }
+
+  private static Optional<String> referenceIri(final JsonNode reference, final String baseUri) {
+    return text(reference, "type")
+        .flatMap(type -> text(reference, "id").map(id -> baseUri + "entity/" + type + "/" + id));
+  }
+
+  private static Optional<Literal> timestamp(final JsonNode record) {
+    return RdfJsonNode.field(record, "timestamp")
+        .filter(JsonNode::isNumber)
+        .map(RdfTestResultMapper::dateTime);
   }
 
   private static void emitResultNumbers(final JsonNode result, final Resource resultNode) {
@@ -154,8 +205,8 @@ final class RdfTestResultMapper {
         : model.createTypedLiteral(value.asDouble());
   }
 
-  private static Literal dateTime(final JsonNode epochMillis, final Model model) {
-    return model.createTypedLiteral(
+  private static Literal dateTime(final JsonNode epochMillis) {
+    return ResourceFactory.createTypedLiteral(
         Instant.ofEpochMilli(epochMillis.asLong()).toString(), XSDDatatype.XSDdateTime);
   }
 

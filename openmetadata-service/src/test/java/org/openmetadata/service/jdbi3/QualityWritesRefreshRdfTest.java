@@ -36,19 +36,22 @@ import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.api.data.CreateEntityProfile;
 import org.openmetadata.schema.api.data.CreateTableProfile;
 import org.openmetadata.schema.entity.data.Table;
+import org.openmetadata.schema.tests.type.TestCaseResolutionStatus;
+import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.type.TableProfile;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.RdfLiveWrite;
 import org.openmetadata.service.rdf.RdfUpdater;
+import org.openmetadata.service.search.SearchRepository;
 import org.openmetadata.service.util.EntityUtil.Fields;
 import org.openmetadata.service.util.PostCommitActionQueue;
 
 /**
- * Profiles are time-series rows, not entity updates, so no entity hook projects them: each profile
- * write refreshes its table's projection itself.
+ * Profiles and incident statuses are time-series rows, not entity updates, so no entity hook
+ * projects them: each write refreshes the projection of the table or test case it is about.
  */
-class ProfileWritesRefreshRdfTest {
+class QualityWritesRefreshRdfTest {
   private static final String TABLE_FQN = "svc.db.schema.orders";
   private static final long PROFILED_AT = 1_763_000_000_000L;
 
@@ -130,6 +133,33 @@ class ProfileWritesRefreshRdfTest {
     }
 
     assertEquals(List.of(refreshOfTheTable(), refreshOfTheTable()), queued);
+  }
+
+  @Test
+  void anIncidentStatusChangeRefreshesItsTestCase() throws ReflectiveOperationException {
+    final TestCaseResolutionStatusRepository repository =
+        mock(TestCaseResolutionStatusRepository.class, Mockito.CALLS_REAL_METHODS);
+    setField(
+        EntityTimeSeriesRepository.class,
+        repository,
+        "searchRepository",
+        mock(SearchRepository.class));
+    setField(
+        EntityTimeSeriesRepository.class,
+        repository,
+        "entityClass",
+        TestCaseResolutionStatus.class);
+    final UUID testCaseId = UUID.randomUUID();
+    final TestCaseResolutionStatus status =
+        new TestCaseResolutionStatus()
+            .withTestCaseReference(
+                new EntityReference().withId(testCaseId).withType(Entity.TEST_CASE));
+
+    repository.postCreate(status);
+    repository.postUpdate(status);
+
+    final RdfLiveWrite refresh = new RdfLiveWrite.EntityUpdate(Entity.TEST_CASE, testCaseId);
+    assertEquals(List.of(refresh, refresh), queued);
   }
 
   private RdfLiveWrite refreshOfTheTable() {

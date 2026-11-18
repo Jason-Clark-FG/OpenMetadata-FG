@@ -92,9 +92,10 @@ Guarded by `RdfOwnedResourcesTest`, `RdfEntityWritePlannerTest` and `RdfEntityDi
 
 ## Amendment 2026-11-18
 
-A test case's write also owns its latest result node (`om:hasTestResult`) and that node's
-`om:hasResultValue` entries, and replaces its `om:testsEntity` and `om:testsColumn` links even when
-the new projection omits them. Profile measures no longer carry the profile time in their IRI, so a
-newer profile changes values in place. See
-ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence. Guarded by
+A test case's write also owns its latest result node (`om:hasTestResult`) with that node's
+`om:hasResultValue` entries, and its open incident node (`om:hasOpenIncident`), and replaces its
+`om:testsEntity` and `om:testsColumn` links even when the new projection omits them. Profiles are no
+longer measurement nodes but literal facts on the table and its columns, which the write replaces
+as the entity's own triples; the measurement-node cleanup above stays, so nodes earlier builds
+wrote still leave. See ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence. Guarded by
 `RdfEntityWritePlannerTest#aNewerTestResultReplacesTheOlderOneAndDeletingTheTestCaseRemovesIt`.

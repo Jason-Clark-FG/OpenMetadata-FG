@@ -168,6 +168,16 @@ public final class RdfUpdater {
     }
   }
 
+  /** Queues a fresh projection of each of {@code entityIds}, read back when it is applied. */
+  public static void refreshEntities(final String entityType, final List<UUID> entityIds) {
+    if (isEnabled() && !RdfExcludedEntities.isExcluded(entityType)) {
+      submitAll(
+          entityIds.stream()
+              .<RdfLiveWrite>map(id -> new RdfLiveWrite.EntityUpdate(entityType, id))
+              .toList());
+    }
+  }
+
   /** Projects a cascade's entities with one deferred enqueue instead of one per entity. */
   public static void updateEntities(final Collection<? extends EntityInterface<?>> entities) {
     if (isEnabled()) {

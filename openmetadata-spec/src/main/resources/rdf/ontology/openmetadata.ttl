@@ -424,7 +424,8 @@ om:TestResultValue a owl:Class ;
 om:testsEntity a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "tests entity" ;
-    rdfs:comment "The table a test case checks. Follow it backwards from a table to find every test on it, column tests included; a column test also carries om:testsColumn. Written only while the table is in the catalog." ;
+    rdfs:comment "The table a test case checks. Follow it backwards from a table to find every test on it, column tests included; a column test also carries om:testsColumn. Written only while the table is in the catalog. The inverse of om:testedBy, which the projection does not write for test cases." ;
+    owl:inverseOf om:testedBy ;
     rdfs:domain om:TestCase ;
     rdfs:range om:Table .
 
@@ -498,64 +499,156 @@ om:hasResultValue a owl:ObjectProperty ;
     rdfs:domain om:TestCaseResult ;
     rdfs:range om:TestResultValue .
 
+om:profiledAt a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled at" ;
+    rdfs:comment "When the latest profile of this table or column was taken. Every om:profile* fact on the same node comes from that profile; older profiles stay in the profiler API." ;
+    rdfs:domain om:Entity ;
+    rdfs:range xsd:dateTime .
+
+om:profileRowCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled row count" ;
+    rdfs:comment "Rows the profiler counted in the table. Unlike om:rowCount, which a connector may report, this is the measured count. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
+    rdfs:domain om:Table ;
+    rdfs:range xsd:double .
+
+om:profileColumnCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled column count" ;
+    rdfs:comment "Columns the profiler saw in the table. Compare om:columnCount, the declared column count. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
+    rdfs:domain om:Table ;
+    rdfs:range xsd:double .
+
+om:profileSizeInBytes a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled size in bytes" ;
+    rdfs:comment "Storage size of the table when it was profiled. From the latest profile only; om:profiledAt on the same node says when it was taken." ;
+    rdfs:domain om:Table ;
+    rdfs:range xsd:double .
+
+om:profileValuesCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled values count" ;
+    rdfs:comment "Values the profiler counted in the column. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileNullCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled null count" ;
+    rdfs:comment "Null values in the column; a filter on the column drops these rows unless it handles nulls. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileNullProportion a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled null proportion" ;
+    rdfs:comment "Share of the column that is null, from 0 to 1. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileDistinctCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled distinct count" ;
+    rdfs:comment "Distinct values in the column; a low count suggests a categorical column to filter or group by. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileUniqueCount a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled unique count" ;
+    rdfs:comment "Values that occur exactly once in the column; close to the row count suggests a key. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileMin a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled minimum" ;
+    rdfs:comment "Smallest value of a numeric column. Not projected for non-numeric columns or PII-sensitive ones. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileMax a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled maximum" ;
+    rdfs:comment "Largest value of a numeric column. Not projected for non-numeric columns or PII-sensitive ones. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileMean a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled mean" ;
+    rdfs:comment "Average value of a numeric column. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileMinLength a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled minimum length" ;
+    rdfs:comment "Shortest string length in a text column. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:profileMaxLength a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "profiled maximum length" ;
+    rdfs:comment "Longest string length in a text column. From the latest profile only; om:profiledAt on the same node says when it was taken. Columns tagged PII.Sensitive carry no profile." ;
+    rdfs:domain om:Column ;
+    rdfs:range xsd:double .
+
+om:latestResultStatus a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "latest result status" ;
+    rdfs:comment "Outcome of the test case's latest run (Success, Failed, Aborted or Queued), repeated from its om:hasTestResult node so the test case's own card shows it. Absent when the test never ran or tests a PII-sensitive column." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range xsd:string .
+
+om:latestResultAt a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "latest result at" ;
+    rdfs:comment "When the test case's latest run happened." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range xsd:dateTime .
+
+om:TestCaseIncident a owl:Class ;
+    rdfs:label "Test Case Incident" ;
+    rdfs:comment "The incident a failing test case has open: its state, severity and who is assigned. A resolved incident is not projected." .
+
+om:hasOpenIncident a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has open incident" ;
+    rdfs:comment "The unresolved incident of a test case. Present means someone has to act on the failure before the data it covers is trusted; it disappears when the incident is resolved." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:TestCaseIncident .
+
+om:incidentState a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "incident state" ;
+    rdfs:comment "Where the open incident stands: New, Ack (acknowledged) or Assigned. The time of that state is prov:generatedAtTime on the same node." ;
+    rdfs:domain om:TestCaseIncident ;
+    rdfs:range xsd:string .
+
+om:incidentSeverity a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "incident severity" ;
+    rdfs:comment "Severity of the open incident, from Severity1 (most severe) to Severity5." ;
+    rdfs:domain om:TestCaseIncident ;
+    rdfs:range xsd:string .
+
+om:incidentAssignee a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "incident assignee" ;
+    rdfs:comment "The user or team working on the open incident, once it is assigned." ;
+    rdfs:domain om:TestCaseIncident ;
+    rdfs:range prov:Agent .
+
 om:hasParameterValue a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "has parameter value" ;
     rdfs:comment "The test case's configured parameters, such as minValue or allowedValues, as one JSON array of name and value pairs." ;
     rdfs:domain om:TestCase ;
     rdfs:range xsd:string .
-
-om:RowCountMetric a dqv:Metric ;
-    rdfs:label "row count" ;
-    rdfs:comment "Rows in the table when it was last profiled. Profile measures hang off a table or column through dqv:hasQualityMeasurement; each names its metric with dqv:isMeasurementOf, carries dqv:value and prov:generatedAtTime, and only the latest profile is kept." .
-
-om:ColumnCountMetric a dqv:Metric ;
-    rdfs:label "column count" ;
-    rdfs:comment "Columns the profiler saw in the table." .
-
-om:SizeInBytesMetric a dqv:Metric ;
-    rdfs:label "size in bytes" ;
-    rdfs:comment "Storage size of the table when it was last profiled." .
-
-om:ValuesCountMetric a dqv:Metric ;
-    rdfs:label "values count" ;
-    rdfs:comment "Values the profiler counted in the column." .
-
-om:NullCountMetric a dqv:Metric ;
-    rdfs:label "null count" ;
-    rdfs:comment "Null values in the column." .
-
-om:NullProportionMetric a dqv:Metric ;
-    rdfs:label "null proportion" ;
-    rdfs:comment "Share of the column's values that are null, from 0 to 1." .
-
-om:DistinctCountMetric a dqv:Metric ;
-    rdfs:label "distinct count" ;
-    rdfs:comment "Distinct values in the column; a low count suggests a categorical column to filter or group by." .
-
-om:UniqueCountMetric a dqv:Metric ;
-    rdfs:label "unique count" ;
-    rdfs:comment "Values that occur exactly once in the column." .
-
-om:MinMetric a dqv:Metric ;
-    rdfs:label "minimum" ;
-    rdfs:comment "Smallest value in a numeric column. Not projected for non-numeric columns or PII-sensitive ones." .
-
-om:MaxMetric a dqv:Metric ;
-    rdfs:label "maximum" ;
-    rdfs:comment "Largest value in a numeric column. Not projected for non-numeric columns or PII-sensitive ones." .
-
-om:MeanMetric a dqv:Metric ;
-    rdfs:label "mean" ;
-    rdfs:comment "Average value of a numeric column." .
-
-om:MinLengthMetric a dqv:Metric ;
-    rdfs:label "minimum length" ;
-    rdfs:comment "Shortest string length in a text column." .
-
-om:MaxLengthMetric a dqv:Metric ;
-    rdfs:label "maximum length" ;
-    rdfs:comment "Longest string length in a text column." .
 
 #################################################################
 # DCAT 3 Alignment Classes
@@ -687,6 +780,7 @@ om:mentionedIn a owl:ObjectProperty ;
 om:testedBy a owl:ObjectProperty ;
     om:projectionStatus om:Stored ;
     rdfs:label "tested by" ;
+    rdfs:comment "A test case that checks this asset, written only for a stored testedBy relationship. Test cases link their table with the inverse, om:testsEntity; query that one." ;
     rdfs:domain om:DataAsset ;
     rdfs:range om:TestCase .
 
@@ -2203,15 +2297,18 @@ om:ExtensionProperty a owl:Class ;
     rdfs:label "version" .
 
 <http://www.w3.org/ns/dqv#computedOn> a rdf:Property ;
-    om:projectionStatus om:Stored ;
+    om:projectionStatus om:InferenceOnly ;
+    rdfs:comment "Not emitted by the metadata projection: profiles are om:profile* facts on the table or column (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence). Kept so a DQV view can be derived from those facts." ;
     rdfs:label "computedOn" .
 
 <http://www.w3.org/ns/dqv#hasQualityMeasurement> a rdf:Property ;
-    om:projectionStatus om:Stored ;
+    om:projectionStatus om:InferenceOnly ;
+    rdfs:comment "Not emitted by the metadata projection: profiles are om:profile* facts on the table or column (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence). Kept so a DQV view can be derived from those facts." ;
     rdfs:label "hasQualityMeasurement" .
 
 <http://www.w3.org/ns/dqv#isMeasurementOf> a rdf:Property ;
-    om:projectionStatus om:Stored ;
+    om:projectionStatus om:InferenceOnly ;
+    rdfs:comment "Not emitted by the metadata projection: profiles are om:profile* facts on the table or column (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence). Kept so a DQV view can be derived from those facts." ;
     rdfs:label "isMeasurementOf" .
 
 <http://www.w3.org/ns/dqv#value> a rdf:Property ;
