@@ -14,8 +14,13 @@ import { BadgeColors } from '@openmetadata/ui-core-components';
 import { EntityType } from '../../enums/entity.enum';
 import { SearchIndex } from '../../enums/search.enum';
 import {
+  GuardrailLevel,
   HarnessStatus,
   HookEvent,
+  MemoryReview,
+  MemoryVisibility,
+  ToolAccessDefault,
+  ToolAccessLevel,
 } from '../../generated/api/context/agentHarnessState';
 import { CompileEvent } from '../../generated/api/context/compileAgentContext';
 import { PreviewAgentHarness } from '../../generated/api/context/previewAgentHarness';
@@ -25,7 +30,84 @@ import {
   HarnessSource,
   HarnessTab,
   PickableSource,
+  PluginTarget,
+  ToolAccessError,
 } from '../../interface/discovery/agentHarness.interface';
+
+/** Guardrail levels from loosest to strictest; a persona harness may only move right. */
+export const GUARDRAIL_LEVEL_ORDER: GuardrailLevel[] = [
+  GuardrailLevel.Off,
+  GuardrailLevel.Warn,
+  GuardrailLevel.Block,
+];
+
+export const GUARDRAIL_LEVEL_LABEL_KEYS: Record<GuardrailLevel, string> = {
+  [GuardrailLevel.Off]: 'label.off',
+  [GuardrailLevel.Warn]: 'label.warn',
+  [GuardrailLevel.Block]: 'label.block',
+};
+
+/** MCP access levels from loosest to strictest, the order the server compares them in. */
+export const TOOL_ACCESS_LEVEL_ORDER: ToolAccessLevel[] = [
+  ToolAccessLevel.Allow,
+  ToolAccessLevel.Warn,
+  ToolAccessLevel.Block,
+];
+
+export const TOOL_ACCESS_LEVEL_LABEL_KEYS: Record<ToolAccessLevel, string> = {
+  [ToolAccessLevel.Allow]: 'label.allow',
+  [ToolAccessLevel.Warn]: 'label.warn',
+  [ToolAccessLevel.Block]: 'label.block',
+};
+
+export const TOOL_ACCESS_DEFAULT_LABEL_KEYS: Record<ToolAccessDefault, string> =
+  {
+    [ToolAccessDefault.Allow]: 'label.allow',
+    [ToolAccessDefault.Deny]: 'label.deny',
+  };
+
+export const TOOL_ACCESS_ERROR_KEYS: Record<ToolAccessError, string> = {
+  belowDefault: 'message.agent-harness-mcp-below-default',
+  duplicate: 'message.agent-harness-mcp-duplicate-server',
+  matchRequired: 'message.agent-harness-mcp-server-required',
+};
+
+export const MEMORY_REVIEW_LABEL_KEYS: Record<MemoryReview, string> = {
+  [MemoryReview.StewardReview]: 'label.steward-review',
+  [MemoryReview.AuthorOnly]: 'label.author-only',
+};
+
+export const MEMORY_VISIBILITY_LABEL_KEYS: Record<MemoryVisibility, string> = {
+  [MemoryVisibility.Private]: 'label.private',
+  [MemoryVisibility.Persona]: 'label.persona',
+  [MemoryVisibility.Organization]: 'label.organization',
+};
+
+export const PLUGIN_TARGETS: { target: PluginTarget; labelKey: string }[] = [
+  { labelKey: 'label.claude', target: PluginTarget.Claude },
+  { labelKey: 'label.chatgpt', target: PluginTarget.ChatGpt },
+  { labelKey: 'label.codex-and-claude-code', target: PluginTarget.Cli },
+];
+
+/** The zip the server serves (`PluginBuilder`); its entries never change with the harness. */
+export const PLUGIN_ZIP_NAME = 'openmetadata.zip';
+export const PLUGIN_ZIP_ENTRIES = [
+  '.claude-plugin/plugin.json',
+  '.mcp.json',
+  'hooks/hooks.json',
+  'skills/openmetadata/SKILL.md',
+];
+export const PLUGIN_INCLUDE_KEYS = [
+  'label.skill',
+  'label.mcp',
+  'label.hook-plural',
+];
+
+export const CLAUDE_MANAGED_SETTINGS_FILE = 'managed-settings.json';
+export const CODEX_REQUIREMENTS_FILE = 'requirements.toml';
+
+/** How long a download or copy button shows its done label before it reverts. */
+export const DONE_LABEL_MS = 1800;
 
 export const HOOK_EVENT_ORDER: HookEvent[] = [
   HookEvent.SessionStart,

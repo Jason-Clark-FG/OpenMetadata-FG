@@ -15,15 +15,19 @@ import {
   PICKABLE_SOURCE_SEARCH_INDEX,
   SOURCE_PICKER_PAGE_SIZE,
 } from '../constants/discovery/agentHarness.constants';
+import { AgentHarnessManagedSettings } from '../generated/api/context/agentHarnessManagedSettings';
 import { AgentHarnessPersonaSummary } from '../generated/api/context/agentHarnessPersonaSummary';
 import {
   AgentHarnessSpec,
   AgentHarnessState,
   ContextRule,
 } from '../generated/api/context/agentHarnessState';
+import { AgentHarnessSurfaces } from '../generated/api/context/agentHarnessSurfaces';
 import { CompileEvent } from '../generated/api/context/compileAgentContext';
 import { CompiledAgentContext } from '../generated/api/context/compiledAgentContext';
+import { GuardrailDefinition } from '../generated/api/context/guardrailDefinition';
 import { PreviewAgentHarness } from '../generated/api/context/previewAgentHarness';
+import { SkillDefinition } from '../generated/api/context/skillDefinition';
 import { PickableSource } from '../interface/discovery/agentHarness.interface';
 import { getEncodedFqn } from '../utils/StringUtils';
 import axiosClient from './axiosClient';
@@ -149,6 +153,48 @@ export const previewAgentHarnessRule = async (
     `${BASE_URL}/${harnessId}/rules/preview`,
     rule
   );
+
+  return response.data;
+};
+
+export const getAgentHarnessSkills = async () => {
+  const response = await axiosClient.get<SkillDefinition[]>(
+    `${BASE_URL}/skills`
+  );
+
+  return response.data;
+};
+
+export const getAgentHarnessGuardrails = async () => {
+  const response = await axiosClient.get<GuardrailDefinition[]>(
+    `${BASE_URL}/guardrails`
+  );
+
+  return response.data;
+};
+
+export const getAgentHarnessSurfaces = async () => {
+  const response = await axiosClient.get<AgentHarnessSurfaces>(
+    `${BASE_URL}/surfaces`
+  );
+
+  return response.data;
+};
+
+export const getAgentHarnessManagedSettings = async () => {
+  const response = await axiosClient.get<AgentHarnessManagedSettings>(
+    `${BASE_URL}/managedSettings`
+  );
+
+  return response.data;
+};
+
+/** The static Claude plugin zip: skill, MCP connector and hooks, with no harness content. */
+export const getAgentHarnessPlugin = async () => {
+  const response = await axiosClient.get<Blob>(`${BASE_URL}/plugin`, {
+    params: { target: 'claude' },
+    responseType: 'blob',
+  });
 
   return response.data;
 };

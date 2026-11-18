@@ -22,6 +22,7 @@ import {
   DeliveryRow,
   HarnessBudgetErrors,
   HarnessTarget,
+  ToolAccessErrors,
 } from '../../../interface/discovery/agentHarness.interface';
 import {
   getDefaultAgentHarness,
@@ -35,6 +36,8 @@ import {
   deliveryRows,
   editableSpec,
   hasBudgetErrors,
+  hasToolAccessErrors,
+  specToolAccessErrors,
 } from '../../../utils/discovery/context-center/agentHarness.utils';
 import { showErrorToast, showInfoToast } from '../../../utils/ToastUtils';
 
@@ -61,6 +64,7 @@ export interface AgentHarnessDraft {
   saveState: DraftSaveState;
   rows: DeliveryRow[];
   errors: HarnessBudgetErrors;
+  toolErrors: ToolAccessErrors;
   isPublishing: boolean;
   update: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
   /** Saves a pending edit now; resolves true once the server holds the local spec. */
@@ -138,7 +142,8 @@ export const useAgentHarnessDraft = (
     const version = editVersion.current;
     const { spec, state } = current;
     if (
-      hasBudgetErrors(budgetErrors(spec, deliveryRows(spec, state.resolved)))
+      hasBudgetErrors(budgetErrors(spec, deliveryRows(spec, state.resolved))) ||
+      hasToolAccessErrors(specToolAccessErrors(spec, state.resolved))
     ) {
       setSaveState('invalid');
 
@@ -262,17 +267,22 @@ export const useAgentHarnessDraft = (
     [commit]
   );
 
-  const { rows, errors } = useMemo(() => {
+  const { rows, errors, toolErrors } = useMemo(() => {
     if (load.kind !== 'ready') {
-      return { errors: { events: {} }, rows: [] };
+      return { errors: { events: {} }, rows: [], toolErrors: { servers: {} } };
     }
     const delivery = deliveryRows(load.spec, load.state.resolved);
 
-    return { errors: budgetErrors(load.spec, delivery), rows: delivery };
+    return {
+      errors: budgetErrors(load.spec, delivery),
+      rows: delivery,
+      toolErrors: specToolAccessErrors(load.spec, load.state.resolved),
+    };
   }, [load]);
 
   return {
     errors,
+    toolErrors,
     flush,
     isPublishing,
     load,

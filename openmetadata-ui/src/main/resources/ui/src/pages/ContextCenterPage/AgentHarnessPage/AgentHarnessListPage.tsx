@@ -42,6 +42,7 @@ import { MEMORY_STATUSES_AWAITING_DECISION } from '../../../constants/ContextCen
 import { CursorType } from '../../../enums/pagination.enum';
 import { AgentHarnessPersonaSummary } from '../../../generated/api/context/agentHarnessPersonaSummary';
 import { AgentHarnessState } from '../../../generated/api/context/agentHarnessState';
+import { Surface } from '../../../generated/api/context/agentHarnessSurfaces';
 import { useAuth } from '../../../hooks/authHooks';
 import { usePaging } from '../../../hooks/paging/usePaging';
 import { useIsAiMode } from '../../../hooks/useAppMode';
@@ -50,6 +51,7 @@ import {
   HarnessTab,
 } from '../../../interface/discovery/agentHarness.interface';
 import {
+  getAgentHarnessSurfaces,
   getDefaultAgentHarness,
   getPersonaAgentHarness,
   listAgentHarnessPersonas,
@@ -83,6 +85,7 @@ const AgentHarnessListPage = () => {
   );
   const [userCount, setUserCount] = useState<number>();
   const [pendingMemories, setPendingMemories] = useState<number>();
+  const [surfaces, setSurfaces] = useState<Surface[]>();
   const [isLoading, setIsLoading] = useState(true);
   const [isNewOpen, setIsNewOpen] = useState(false);
   const {
@@ -169,6 +172,9 @@ const AgentHarnessListPage = () => {
     })
       .then(({ paging: memories }) => setPendingMemories(memories.total))
       .catch(() => setPendingMemories(undefined));
+    getAgentHarnessSurfaces()
+      .then(({ surfaces: list }) => setSurfaces(list))
+      .catch(() => setSurfaces(undefined));
   }, [isAdminUser]);
 
   const handlePageNavigation = (newPage: number) => {
@@ -269,6 +275,7 @@ const AgentHarnessListPage = () => {
           <DefaultHarnessCard
             pendingMemories={pendingMemories}
             state={defaultState}
+            surfaces={surfaces}
             userCount={userCount}
             onEdit={() =>
               navigate(contextCenterClassBase.getAgentHarnessDefaultPath())

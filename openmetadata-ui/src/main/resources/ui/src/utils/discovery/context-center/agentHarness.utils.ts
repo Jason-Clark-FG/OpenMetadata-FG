@@ -10,14 +10,17 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+import { TFunction } from 'i18next';
 import {
   CACHE_TTL_MINUTES_RANGE,
   CHARACTER_BUDGET_RANGE,
   DELIVERY_GROUP_OF_EVENT,
   DELIVERY_GROUP_ORDER,
+  GUARDRAIL_LEVEL_ORDER,
   HOOK_EVENT_ORDER,
   PICKABLE_SOURCE_ENTITY_TYPE,
   PICKED_RULE_NAMES,
+  TOOL_ACCESS_LEVEL_ORDER,
 } from '../../../constants/discovery/agentHarness.constants';
 import { EntityType } from '../../../enums/entity.enum';
 import { AgentHarnessPersonaSummary } from '../../../generated/api/context/agentHarnessPersonaSummary';
@@ -27,21 +30,38 @@ import {
   AgentHarnessState,
   ContextRule,
   EventDelivery,
+  GuardrailLevel,
   HarnessKind,
   HookEvent,
+  MemoryReview,
+  MemorySettings,
+  MemoryVisibility,
   ResolvedAgentHarness,
   ResolvedRule,
+  ToolAccess,
+  ToolAccessDefault,
+  ToolAccessLevel,
+  ToolAccessServer,
 } from '../../../generated/api/context/agentHarnessState';
+import {
+  Surface,
+  SurfaceStatus,
+} from '../../../generated/api/context/agentHarnessSurfaces';
 import { Segment } from '../../../generated/api/context/compiledAgentContext';
+import { GuardrailDefinition } from '../../../generated/api/context/guardrailDefinition';
+import { SkillDefinition } from '../../../generated/api/context/skillDefinition';
 import {
   BudgetError,
   DeliveryGroup,
   DeliveryRow,
+  GuardrailRow,
   HarnessAdditions,
   HarnessBudgetErrors,
   HarnessSource,
   PickableSource,
+  SkillRow,
   SourceCount,
+  ToolAccessErrors,
 } from '../../../interface/discovery/agentHarness.interface';
 
 /** The editable fields of a published harness, as a draft would hold them. */
@@ -391,4 +411,261 @@ export const segmentsByKind = (segments: Segment[]): Segment[] => {
   );
 
   return Array.from(tokensByKind, ([kind, tokens]) => ({ kind, tokens }));
+};
+
+/**
+ * The skills a harness offers, with local edits. The default lists the skills it turns on or
+ * names; a persona lists the default's, locked on, and the ones it adds.
+ */
+export const skillRows = (
+  spec: AgentHarnessSpec,
+  resolved: ResolvedAgentHarness,
+  registry: SkillDefinition[]
+): SkillRow[] =>
+  registry.flatMap(({ name, description, defaultEnabled }) => {
+    const own = spec.skills?.find((skill) => skill.name === name);
+    const isPersona = resolved.kind === HarnessKind.Persona;
+    const inherited =
+      isPersona &&
+      Boolean(resolved.skills.find((skill) => skill.name === name)?.inherited);
+    const enabled =
+      inherited || (own?.enabled ?? (!isPersona && defaultEnabled));
+
+    return inherited || own || enabled
+      ? [{ description, enabled, inherited, name }]
+      : [];
+  });
+
+export const addableSkills = (
+  rows: SkillRow[],
+  registry: SkillDefinition[]
+): SkillDefinition[] =>
+  registry.filter(({ name }) => !rows.some((row) => row.name === name));
+
+export const withSkill = (
+  spec: AgentHarnessSpec,
+  name: string,
+  enabled: boolean
+): AgentHarnessSpec => ({
+  ...spec,
+  skills: [
+    ...(spec.skills ?? []).filter((skill) => skill.name !== name),
+    { enabled, name },
+  ],
+});
+
+const guardrailRank = (level: GuardrailLevel) =>
+  GUARDRAIL_LEVEL_ORDER.indexOf(level);
+
+/** The levels a guardrail may take: on a persona harness, the default's level and above. */
+export const allowedLevels = (minLevel?: GuardrailLevel): GuardrailLevel[] =>
+  GUARDRAIL_LEVEL_ORDER.filter(
+    (level) => !minLevel || guardrailRank(level) >= guardrailRank(minLevel)
+  );
+
+/** Every registered guardrail at the level it has on this harness, with local edits. */
+export const guardrailRows = (
+  spec: AgentHarnessSpec,
+  resolved: ResolvedAgentHarness,
+  registry: GuardrailDefinition[]
+): GuardrailRow[] =>
+  registry.map(({ id, name, description, available, defaultLevel }) => {
+    const own = spec.guardrails?.find((guardrail) => guardrail.id === id);
+    const minLevel =
+      resolved.kind === HarnessKind.Persona
+        ? resolved.guardrails.find((guardrail) => guardrail.id === id)?.minLevel
+        : undefined;
+    const seed =
+      GUARDRAIL_LEVEL_ORDER.find((level) => level === String(defaultLevel)) ??
+      GuardrailLevel.Off;
+    const base = own?.level ?? minLevel ?? seed;
+    const level =
+      minLevel && guardrailRank(minLevel) > guardrailRank(base)
+        ? minLevel
+        : base;
+
+    return { available, description, id, level, minLevel, name };
+  });
+
+export const withGuardrailLevel = (
+  spec: AgentHarnessSpec,
+  id: string,
+  level: GuardrailLevel
+): AgentHarnessSpec => ({
+  ...spec,
+  guardrails: [
+    ...(spec.guardrails ?? []).filter((guardrail) => guardrail.id !== id),
+    { id, level },
+  ],
+});
+
+const accessRank = (level: ToolAccessLevel) =>
+  TOOL_ACCESS_LEVEL_ORDER.indexOf(level);
+
+const stricterAccess = (
+  first: ToolAccessLevel,
+  second: ToolAccessLevel
+): ToolAccessLevel =>
+  accessRank(first) >= accessRank(second) ? first : second;
+
+export const defaultAccessLevel = (value?: ToolAccessDefault) =>
+  value === ToolAccessDefault.Deny
+    ? ToolAccessLevel.Block
+    : ToolAccessLevel.Allow;
+
+const serverMatches = (
+  entry: ToolAccessServer,
+  server: string,
+  tool?: string
+): boolean => {
+  const tools = entry.tools ?? [];
+
+  return (
+    entry.match.trim().toLowerCase() === server.toLowerCase() &&
+    (tools.length === 0 || (tool !== undefined && tools.includes(tool)))
+  );
+};
+
+/**
+ * One harness's decision on an MCP call: the first matching server entry, else the harness's
+ * default. Mirrors the server's `ToolAccessPolicy.decide`.
+ */
+export const toolAccessDecision = (
+  access: ToolAccess | undefined,
+  server: string,
+  tool?: string
+): ToolAccessLevel =>
+  access
+    ? access.servers?.find((entry) => serverMatches(entry, server, tool))
+        ?.level ?? defaultAccessLevel(access.default)
+    : ToolAccessLevel.Allow;
+
+/** The lowest level a persona entry may set: the default's strictest decision on the calls it names. */
+export const minServerLevel = (
+  inherited: ToolAccess | undefined,
+  entry: ToolAccessServer
+): ToolAccessLevel => {
+  const tools: (string | undefined)[] = entry.tools?.length
+    ? entry.tools
+    : [undefined];
+
+  return tools
+    .map((tool) => toolAccessDecision(inherited, entry.match.trim(), tool))
+    .reduce(stricterAccess, ToolAccessLevel.Allow);
+};
+
+export const allowedAccessLevels = (
+  minLevel: ToolAccessLevel
+): ToolAccessLevel[] =>
+  TOOL_ACCESS_LEVEL_ORDER.filter(
+    (level) => accessRank(level) >= accessRank(minLevel)
+  );
+
+/**
+ * The checks the server makes on `toolAccess`. `inherited` is the default's access, given only
+ * for a persona harness, which may tighten it and never loosen it.
+ */
+export const toolAccessErrors = (
+  access: ToolAccess | undefined,
+  inherited?: ToolAccess
+): ToolAccessErrors => {
+  const errors: ToolAccessErrors = { servers: {} };
+  if (!access) {
+    return errors;
+  }
+  if (
+    inherited &&
+    accessRank(defaultAccessLevel(access.default)) <
+      accessRank(defaultAccessLevel(inherited.default))
+  ) {
+    errors.default = 'belowDefault';
+  }
+  const listed = new Set<string>();
+  (access.servers ?? []).forEach((entry, index) => {
+    const match = entry.match.trim().toLowerCase();
+    const key = `${match}|${(entry.tools ?? []).join(',')}`;
+    if (!match) {
+      errors.servers[index] = 'matchRequired';
+    } else if (listed.has(key)) {
+      errors.servers[index] = 'duplicate';
+    } else if (
+      inherited &&
+      accessRank(entry.level) < accessRank(minServerLevel(inherited, entry))
+    ) {
+      errors.servers[index] = 'belowDefault';
+    }
+    listed.add(key);
+  });
+
+  return errors;
+};
+
+export const hasToolAccessErrors = (errors: ToolAccessErrors): boolean =>
+  Boolean(errors.default || Object.keys(errors.servers).length);
+
+/** `toolAccessErrors` for an editor's local spec, against the default's access on a persona. */
+export const specToolAccessErrors = (
+  spec: AgentHarnessSpec,
+  resolved: ResolvedAgentHarness
+): ToolAccessErrors =>
+  toolAccessErrors(
+    spec.toolAccess,
+    resolved.kind === HarnessKind.Persona
+      ? resolved.inheritedToolAccess
+      : undefined
+  );
+
+/**
+ * Sets a harness's MCP access. Access that only repeats what it inherits (no servers and the
+ * same default) is dropped, so a persona harness lists access only when it tightens it.
+ */
+export const withToolAccess = (
+  spec: AgentHarnessSpec,
+  access: ToolAccess,
+  inherited?: ToolAccess
+): AgentHarnessSpec => {
+  const repeatsInherited =
+    !access.servers?.length &&
+    defaultAccessLevel(access.default) ===
+      defaultAccessLevel(inherited?.default);
+
+  return { ...spec, toolAccess: repeatsInherited ? undefined : access };
+};
+
+/** Author-only memories stay with their author, so their visibility is always Private. */
+export const withMemory = (
+  spec: AgentHarnessSpec,
+  memory: MemorySettings
+): AgentHarnessSpec => ({
+  ...spec,
+  memory:
+    memory.review === MemoryReview.AuthorOnly
+      ? { ...memory, visibility: MemoryVisibility.Private }
+      : memory,
+});
+
+export const surfacesCellText = (
+  surfaces: Surface[] | undefined,
+  t: TFunction
+): { value: string; sub: string } => {
+  if (!surfaces) {
+    return { sub: '', value: '—' };
+  }
+  const notConnected = surfaces.find(
+    ({ status }) => status !== SurfaceStatus.Connected
+  );
+
+  return {
+    sub: notConnected
+      ? t('message.agent-harness-surface-not-connected', {
+          name: notConnected.name,
+        })
+      : t('message.agent-harness-all-surfaces-connected'),
+    value: t('message.agent-harness-surfaces-connected', {
+      connected: surfaces.filter(
+        ({ status }) => status === SurfaceStatus.Connected
+      ).length,
+      total: surfaces.length,
+    }),
+  };
 };

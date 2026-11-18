@@ -19,24 +19,44 @@ import {
   MemoryReview,
   MemoryVisibility,
   ResolvedAgentHarness,
+  ToolAccess,
+  ToolAccessDefault,
+  ToolAccessLevel,
 } from '../../../generated/api/context/agentHarnessState';
+import {
+  SurfaceID,
+  SurfaceStatus,
+} from '../../../generated/api/context/agentHarnessSurfaces';
+import { GuardrailDefinition } from '../../../generated/api/context/guardrailDefinition';
+import { SkillDefinition } from '../../../generated/api/context/skillDefinition';
 import {
   DeliveryGroup,
   HarnessSource,
 } from '../../../interface/discovery/agentHarness.interface';
 import {
+  addableSkills,
   additionsSummary,
+  allowedLevels,
   budgetErrors,
   contextBudgetPercent,
   deliveryGroups,
   deliveryRows,
+  guardrailRows,
   hasBudgetErrors,
+  minServerLevel,
   pickedIds,
   segmentsByKind,
+  skillRows,
   sourceCounts,
+  surfacesCellText,
+  toolAccessDecision,
+  toolAccessErrors,
   visibleRules,
   withEventDelivery,
+  withMemory,
   withPickedIds,
+  withSkill,
+  withToolAccess,
 } from './agentHarness.utils';
 
 const DEFAULT_RULE: ContextRule = {
@@ -454,5 +474,303 @@ describe('agentHarness.utils', () => {
       { kind: 'Assets', tokens: 750 },
       { kind: 'Glossary', tokens: 3800 },
     ]);
+  });
+});
+
+const SKILLS = [
+  {
+    defaultEnabled: true,
+    description: 'Look up context first',
+    name: 'find-context',
+  },
+  {
+    defaultEnabled: false,
+    description: 'Explain a metric',
+    name: 'metric-definition',
+  },
+  { defaultEnabled: false, description: 'Trace lineage', name: 'lineage' },
+] as SkillDefinition[];
+
+const GUARDRAILS = [
+  {
+    available: true,
+    defaultLevel: 'Block',
+    description: '',
+    event: 'PreToolUse',
+    id: 'block-deprecated',
+    name: 'Block deprecated assets',
+  },
+  {
+    available: true,
+    defaultLevel: 'Warn',
+    description: '',
+    event: 'PreToolUse',
+    id: 'flag-incidents',
+    name: 'Flag open incidents',
+  },
+  {
+    available: false,
+    defaultLevel: 'Off',
+    description: '',
+    event: 'PreToolUse',
+    id: 'query-cost',
+    name: 'Query cost ceiling',
+  },
+] as GuardrailDefinition[];
+
+const defaultResolved = (): ResolvedAgentHarness => ({
+  ...personaResolved(),
+  guardrails: [],
+  kind: HarnessKind.Default,
+  skills: [],
+});
+
+describe('agentHarness.utils for instructions, guardrails, MCP access and memory', () => {
+  describe('skillRows', () => {
+    it('lists on the default the skills it turns on or names', () => {
+      const rows = skillRows(
+        { skills: [{ enabled: false, name: 'lineage' }] },
+        defaultResolved(),
+        SKILLS
+      );
+
+      expect(rows).toEqual([
+        {
+          description: 'Look up context first',
+          enabled: true,
+          inherited: false,
+          name: 'find-context',
+        },
+        {
+          description: 'Trace lineage',
+          enabled: false,
+          inherited: false,
+          name: 'lineage',
+        },
+      ]);
+      expect(addableSkills(rows, SKILLS).map(({ name }) => name)).toEqual([
+        'metric-definition',
+      ]);
+    });
+
+    it('locks the default skills on a persona and lists the ones it adds', () => {
+      const resolved = {
+        ...personaResolved(),
+        skills: [
+          { enabled: true, inherited: true, name: 'find-context' },
+          { enabled: false, inherited: false, name: 'metric-definition' },
+        ],
+      };
+      const spec = withSkill({}, 'metric-definition', true);
+
+      expect(skillRows(spec, resolved, SKILLS)).toEqual([
+        {
+          description: 'Look up context first',
+          enabled: true,
+          inherited: true,
+          name: 'find-context',
+        },
+        {
+          description: 'Explain a metric',
+          enabled: true,
+          inherited: false,
+          name: 'metric-definition',
+        },
+      ]);
+    });
+  });
+
+  describe('guardrails', () => {
+    it('allows only the default level and stricter on a persona', () => {
+      expect(allowedLevels(GuardrailLevel.Warn)).toEqual([
+        GuardrailLevel.Warn,
+        GuardrailLevel.Block,
+      ]);
+      expect(allowedLevels()).toEqual([
+        GuardrailLevel.Off,
+        GuardrailLevel.Warn,
+        GuardrailLevel.Block,
+      ]);
+    });
+
+    it('seeds the default from the registry and keeps local levels', () => {
+      const rows = guardrailRows(
+        { guardrails: [{ id: 'flag-incidents', level: GuardrailLevel.Off }] },
+        defaultResolved(),
+        GUARDRAILS
+      );
+
+      expect(
+        rows.map(({ id, level, minLevel }) => [id, level, minLevel])
+      ).toEqual([
+        ['block-deprecated', GuardrailLevel.Block, undefined],
+        ['flag-incidents', GuardrailLevel.Off, undefined],
+        ['query-cost', GuardrailLevel.Off, undefined],
+      ]);
+      expect(rows[2].available).toBe(false);
+    });
+
+    it('raises a persona level that the default has since made stricter', () => {
+      const resolved = {
+        ...personaResolved(),
+        guardrails: [
+          {
+            id: 'flag-incidents',
+            level: GuardrailLevel.Block,
+            minLevel: GuardrailLevel.Block,
+          },
+        ],
+      };
+      const [, incidents] = guardrailRows(
+        { guardrails: [{ id: 'flag-incidents', level: GuardrailLevel.Warn }] },
+        resolved,
+        GUARDRAILS
+      );
+
+      expect(incidents.level).toBe(GuardrailLevel.Block);
+      expect(incidents.minLevel).toBe(GuardrailLevel.Block);
+    });
+  });
+
+  describe('MCP access', () => {
+    const inherited: ToolAccess = {
+      default: ToolAccessDefault.Allow,
+      servers: [
+        { level: ToolAccessLevel.Warn, match: 'github', tools: ['push'] },
+        { level: ToolAccessLevel.Block, match: 'GitHub' },
+      ],
+    };
+
+    it('decides by the first matching server, then the default', () => {
+      expect(toolAccessDecision(inherited, 'github', 'push')).toBe(
+        ToolAccessLevel.Warn
+      );
+      expect(toolAccessDecision(inherited, 'github', 'read')).toBe(
+        ToolAccessLevel.Block
+      );
+      expect(toolAccessDecision(inherited, 'slack')).toBe(
+        ToolAccessLevel.Allow
+      );
+      expect(
+        toolAccessDecision({ default: ToolAccessDefault.Deny }, 'slack')
+      ).toBe(ToolAccessLevel.Block);
+      expect(toolAccessDecision(undefined, 'slack')).toBe(
+        ToolAccessLevel.Allow
+      );
+    });
+
+    it('floors a persona entry at the strictest call it names', () => {
+      expect(
+        minServerLevel(inherited, {
+          level: ToolAccessLevel.Allow,
+          match: ' github ',
+          tools: ['push'],
+        })
+      ).toBe(ToolAccessLevel.Warn);
+      expect(
+        minServerLevel(inherited, {
+          level: ToolAccessLevel.Allow,
+          match: 'github',
+        })
+      ).toBe(ToolAccessLevel.Block);
+    });
+
+    it('reports blank, repeated and looser entries by index', () => {
+      expect(
+        toolAccessErrors(
+          {
+            default: ToolAccessDefault.Allow,
+            servers: [
+              { level: ToolAccessLevel.Block, match: ' ' },
+              { level: ToolAccessLevel.Block, match: 'jira' },
+              { level: ToolAccessLevel.Warn, match: 'Jira' },
+              { level: ToolAccessLevel.Warn, match: 'github' },
+            ],
+          },
+          inherited
+        )
+      ).toEqual({
+        servers: { 0: 'matchRequired', 2: 'duplicate', 3: 'belowDefault' },
+      });
+      expect(
+        toolAccessErrors(
+          { default: ToolAccessDefault.Allow },
+          { default: ToolAccessDefault.Deny }
+        )
+      ).toEqual({ default: 'belowDefault', servers: {} });
+      expect(
+        toolAccessErrors({
+          default: ToolAccessDefault.Allow,
+          servers: [{ level: ToolAccessLevel.Allow, match: 'github' }],
+        })
+      ).toEqual({ servers: {} });
+    });
+
+    it('drops access that only repeats what the harness inherits', () => {
+      expect(
+        withToolAccess(
+          {},
+          { default: ToolAccessDefault.Deny, servers: [] },
+          { default: ToolAccessDefault.Deny }
+        ).toolAccess
+      ).toBeUndefined();
+      expect(
+        withToolAccess({}, { default: ToolAccessDefault.Deny, servers: [] })
+          .toolAccess
+      ).toEqual({ default: ToolAccessDefault.Deny, servers: [] });
+    });
+  });
+
+  describe('withMemory', () => {
+    it('forces Private visibility when review is Author only', () => {
+      expect(
+        withMemory(
+          {},
+          {
+            capture: true,
+            dedup: false,
+            linkAssets: true,
+            review: MemoryReview.AuthorOnly,
+            visibility: MemoryVisibility.Organization,
+          }
+        ).memory?.visibility
+      ).toBe(MemoryVisibility.Private);
+    });
+  });
+
+  describe('surfacesCellText', () => {
+    const t = ((key: string, params?: Record<string, unknown>) =>
+      params ? `${key} ${JSON.stringify(params)}` : key) as never;
+
+    it('counts connected surfaces and names the first one still to connect', () => {
+      expect(
+        surfacesCellText(
+          [
+            {
+              connector: true,
+              hooks: true,
+              id: SurfaceID.ClaudeCode,
+              name: 'Claude Code',
+              skills: true,
+              status: SurfaceStatus.Connected,
+            },
+            {
+              connector: true,
+              hooks: false,
+              id: SurfaceID.ChatGPT,
+              name: 'ChatGPT',
+              skills: false,
+              status: SurfaceStatus.NotConnected,
+            },
+          ],
+          t
+        )
+      ).toEqual({
+        sub: 'message.agent-harness-surface-not-connected {"name":"ChatGPT"}',
+        value:
+          'message.agent-harness-surfaces-connected {"connected":1,"total":2}',
+      });
+      expect(surfacesCellText(undefined, t)).toEqual({ sub: '', value: '—' });
+    });
   });
 });

@@ -20,6 +20,8 @@ import {
   HookEvent,
   MemoryReview,
   MemoryVisibility,
+  ToolAccessDefault,
+  ToolAccessLevel,
 } from '../../../generated/api/context/agentHarnessState';
 import {
   getPersonaAgentHarness,
@@ -171,6 +173,29 @@ describe('useAgentHarnessDraft', () => {
     expect(putAgentHarnessDraft).not.toHaveBeenCalled();
     expect(hook.result.current.saveState).toBe('invalid');
     expect(hook.result.current.errors.perTurnTokenBudget).toBe('belowEvents');
+  });
+
+  it('holds back MCP access with an unnamed server', async () => {
+    const hook = await renderDraft();
+
+    act(() =>
+      hook.result.current.update((spec) => ({
+        ...spec,
+        toolAccess: {
+          default: ToolAccessDefault.Allow,
+          servers: [{ level: ToolAccessLevel.Block, match: ' ' }],
+        },
+      }))
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(800);
+    });
+
+    expect(putAgentHarnessDraft).not.toHaveBeenCalled();
+    expect(hook.result.current.saveState).toBe('invalid');
+    expect(hook.result.current.toolErrors).toEqual({
+      servers: { 0: 'matchRequired' },
+    });
   });
 
   it('reloads the server draft when someone else changed it', async () => {

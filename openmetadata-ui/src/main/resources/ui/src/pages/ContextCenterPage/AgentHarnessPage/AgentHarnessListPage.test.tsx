@@ -27,7 +27,12 @@ import {
 } from '../../../generated/api/context/agentHarnessPersonaSummary';
 import { AgentHarnessState } from '../../../generated/api/context/agentHarnessState';
 import {
+  SurfaceID,
+  SurfaceStatus,
+} from '../../../generated/api/context/agentHarnessSurfaces';
+import {
   createPersonaAgentHarness,
+  getAgentHarnessSurfaces,
   getDefaultAgentHarness,
   getPersonaAgentHarness,
   listAgentHarnessPersonas,
@@ -40,6 +45,7 @@ const mockAuth = { isAdminUser: true };
 
 jest.mock('../../../rest/AgentHarnessAPI', () => ({
   createPersonaAgentHarness: jest.fn(),
+  getAgentHarnessSurfaces: jest.fn(),
   getDefaultAgentHarness: jest.fn(),
   getPersonaAgentHarness: jest.fn(),
   listAgentHarnessPersonas: jest.fn(),
@@ -155,6 +161,19 @@ describe('AgentHarnessListPage', () => {
   beforeEach(() => {
     mockAuth.isAdminUser = true;
     (getDefaultAgentHarness as jest.Mock).mockResolvedValue(DEFAULT_STATE);
+    (getAgentHarnessSurfaces as jest.Mock).mockResolvedValue({
+      surfaces: [SurfaceID.ClaudeCode, SurfaceID.Codex].map((id) => ({
+        connector: true,
+        hooks: id === SurfaceID.ClaudeCode,
+        id,
+        name: id === SurfaceID.ClaudeCode ? 'Claude Code' : 'Codex',
+        skills: true,
+        status:
+          id === SurfaceID.ClaudeCode
+            ? SurfaceStatus.Connected
+            : SurfaceStatus.NotConnected,
+      })),
+    });
     (getPersonaAgentHarness as jest.Mock).mockResolvedValue({
       draftRevision: 0,
       published: {
@@ -195,6 +214,34 @@ describe('AgentHarnessListPage', () => {
 
     expect(getPersonaAgentHarness).toHaveBeenCalledTimes(1);
     expect(getPersonaAgentHarness).toHaveBeenCalledWith('Analyst');
+  });
+
+  it('counts connected surfaces and names the first one still to connect', async () => {
+    renderPage();
+
+    const cell = await screen.findByTestId('default-harness-surfaces');
+
+    await waitFor(() =>
+      expect(cell).toHaveTextContent('message.agent-harness-surfaces-connected')
+    );
+
+    expect(cell).toHaveTextContent(
+      'message.agent-harness-surface-not-connected'
+    );
+  });
+
+  it('shows no surface count when the status cannot be read', async () => {
+    (getAgentHarnessSurfaces as jest.Mock).mockRejectedValue(new Error('403'));
+    renderPage();
+
+    const cell = await screen.findByTestId('default-harness-surfaces');
+
+    await waitFor(() => expect(getAgentHarnessSurfaces).toHaveBeenCalled());
+
+    expect(cell).toHaveTextContent('—');
+    expect(cell).not.toHaveTextContent(
+      'message.agent-harness-surfaces-connected'
+    );
   });
 
   it('opens the persona editor from its row', async () => {

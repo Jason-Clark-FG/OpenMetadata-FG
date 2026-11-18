@@ -30,10 +30,12 @@ import {
   HarnessStatus,
   MemoryReview,
 } from '../../../../generated/api/context/agentHarnessState';
+import { Surface } from '../../../../generated/api/context/agentHarnessSurfaces';
 import { HarnessSource } from '../../../../interface/discovery/agentHarness.interface';
 import {
   deliveryGroups,
   sourceCounts,
+  surfacesCellText,
 } from '../../../../utils/discovery/context-center/agentHarness.utils';
 import { digitFormatter } from '../../../../utils/NumberUtils';
 
@@ -41,6 +43,8 @@ export interface DefaultHarnessCardProps {
   state: AgentHarnessState;
   userCount?: number;
   pendingMemories?: number;
+  /** Undefined while loading or when the status could not be read. */
+  surfaces?: Surface[];
   onEdit: () => void;
 }
 
@@ -55,6 +59,7 @@ const DefaultHarnessCard = ({
   state,
   userCount,
   pendingMemories,
+  surfaces,
   onEdit,
 }: DefaultHarnessCardProps) => {
   const { t } = useTranslation();
@@ -119,8 +124,7 @@ const DefaultHarnessCard = ({
     {
       key: 'surfaces',
       label: t('label.surface-plural'),
-      value: '—',
-      sub: t('message.agent-harness-surface-status-unavailable'),
+      ...surfacesCellText(surfaces, t),
     },
   ];
 

@@ -10,7 +10,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-import { HookEvent } from '../../generated/api/context/agentHarnessState';
+import {
+  GuardrailLevel,
+  HookEvent,
+} from '../../generated/api/context/agentHarnessState';
 
 /** Which harness an editor page shows: the company default, or one persona's. */
 export type HarnessTarget =
@@ -84,4 +87,40 @@ export interface HarnessAdditions {
   rules: number;
   skills: number;
   guardrails: number;
+}
+
+/** One Instructions tab skill row, as it applies to this harness with local edits. */
+export interface SkillRow {
+  name: string;
+  description: string;
+  enabled: boolean;
+  /** The default offers this skill, so a persona harness always has it. */
+  inherited: boolean;
+}
+
+/** One Guardrails tab row, as it applies to this harness with local edits. */
+export interface GuardrailRow {
+  id: string;
+  name: string;
+  description: string;
+  /** False until the server can evaluate the guardrail; its level is kept but has no effect. */
+  available: boolean;
+  level: GuardrailLevel;
+  /** The default's level, the lowest a persona harness may set. */
+  minLevel?: GuardrailLevel;
+}
+
+export type ToolAccessError = 'matchRequired' | 'duplicate' | 'belowDefault';
+
+/** The checks the server makes on `toolAccess`, keyed by the server entry's index. */
+export interface ToolAccessErrors {
+  default?: ToolAccessError;
+  servers: Partial<Record<number, ToolAccessError>>;
+}
+
+/** The hosts the Surfaces tab shows install steps for. */
+export enum PluginTarget {
+  Claude = 'claude',
+  ChatGpt = 'chatGpt',
+  Cli = 'cli',
 }

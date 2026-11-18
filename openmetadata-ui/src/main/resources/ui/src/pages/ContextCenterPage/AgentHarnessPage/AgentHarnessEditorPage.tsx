@@ -16,7 +16,6 @@ import {
   Button,
   PageLayout,
   Tabs,
-  Typography,
 } from '@openmetadata/ui-core-components';
 import { Eye, EyeOff } from '@openmetadata/ui-core-components/icons';
 import { AxiosError } from 'axios';
@@ -32,8 +31,12 @@ import { NavigationBlocker } from '../../../components/common/NavigationBlocker/
 import CompiledContextRail from '../../../components/ContextCenter/AgentHarness/CompiledContextRail/CompiledContextRail';
 import ContextTab from '../../../components/ContextCenter/AgentHarness/ContextTab/ContextTab';
 import DeliveryTab from '../../../components/ContextCenter/AgentHarness/DeliveryTab/DeliveryTab';
+import GuardrailsTab from '../../../components/ContextCenter/AgentHarness/GuardrailsTab/GuardrailsTab';
 import HarnessSettingsBar from '../../../components/ContextCenter/AgentHarness/HarnessSettingsBar/HarnessSettingsBar';
 import InheritanceStrip from '../../../components/ContextCenter/AgentHarness/InheritanceStrip/InheritanceStrip';
+import InstructionsTab from '../../../components/ContextCenter/AgentHarness/InstructionsTab/InstructionsTab';
+import MemoryTab from '../../../components/ContextCenter/AgentHarness/MemoryTab/MemoryTab';
+import SurfacesTab from '../../../components/ContextCenter/AgentHarness/SurfacesTab/SurfacesTab';
 import ContextCenterHeader from '../../../components/ContextCenter/ContextCenterHeader/ContextCenterHeader.component';
 import { useContextCenterPageLayout } from '../../../components/ContextCenter/ContextCenterLayout/useContextCenterPageLayout';
 import {
@@ -46,6 +49,8 @@ import {
   GuardrailLevel,
   HarnessKind,
 } from '../../../generated/api/context/agentHarnessState';
+import { GuardrailDefinition } from '../../../generated/api/context/guardrailDefinition';
+import { SkillDefinition } from '../../../generated/api/context/skillDefinition';
 import { useAuth } from '../../../hooks/authHooks';
 import {
   AgentHarnessDraft,
@@ -59,12 +64,15 @@ import {
 } from '../../../interface/discovery/agentHarness.interface';
 import {
   createPersonaAgentHarness,
+  getAgentHarnessGuardrails,
+  getAgentHarnessSkills,
   getDefaultAgentHarness,
 } from '../../../rest/AgentHarnessAPI';
 import contextCenterClassBase from '../../../utils/ContextCenterClassBase';
 import {
   enabledEventTokens,
   hasBudgetErrors,
+  hasToolAccessErrors,
 } from '../../../utils/discovery/context-center/agentHarness.utils';
 import { getEntityName } from '../../../utils/EntityNameUtils';
 import { showErrorToast } from '../../../utils/ToastUtils';
@@ -87,7 +95,9 @@ const AgentHarnessEditorPage = () => {
   const [showInherited, setShowInherited] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [defaultVersion, setDefaultVersion] = useState<number>();
+  const [defaultState, setDefaultState] = useState<AgentHarnessState>();
+  const [skills, setSkills] = useState<SkillDefinition[]>([]);
+  const [guardrails, setGuardrails] = useState<GuardrailDefinition[]>([]);
   const canEdit = Boolean(isAdminUser);
 
   const target = useMemo<HarnessTarget>(
@@ -95,16 +105,29 @@ const AgentHarnessEditorPage = () => {
     [fqn]
   );
   const draft: AgentHarnessDraft = useAgentHarnessDraft(target);
-  const { load, saveState, rows, errors } = draft;
+  const { load, saveState, rows, errors, toolErrors } = draft;
+  const isInvalid = hasBudgetErrors(errors) || hasToolAccessErrors(toolErrors);
 
   useEffect(() => {
     if (!fqn || !canEdit) {
       return;
     }
     getDefaultAgentHarness()
-      .then(({ published }) => setDefaultVersion(published.version))
-      .catch(() => setDefaultVersion(undefined));
+      .then(setDefaultState)
+      .catch(() => setDefaultState(undefined));
   }, [fqn, canEdit]);
+
+  useEffect(() => {
+    if (!canEdit) {
+      return;
+    }
+    getAgentHarnessSkills()
+      .then(setSkills)
+      .catch((error) => showErrorToast(error as AxiosError));
+    getAgentHarnessGuardrails()
+      .then(setGuardrails)
+      .catch((error) => showErrorToast(error as AxiosError));
+  }, [canEdit]);
 
   const tabParam = searchParams.get('tab');
   const activeTab = isHarnessTab(tabParam) ? tabParam : HarnessTab.Context;
@@ -161,7 +184,7 @@ const AgentHarnessEditorPage = () => {
         <Button
           color="primary"
           data-testid="publish-harness"
-          isDisabled={!hasDraft || hasBudgetErrors(errors)}
+          isDisabled={!hasDraft || isInvalid}
           isLoading={draft.isPublishing}
           size="sm"
           onPress={draft.publish}>
@@ -199,12 +222,45 @@ const AgentHarnessEditorPage = () => {
             onChange={draft.update}
           />
         );
-      default:
+      case HarnessTab.Instructions:
         return (
-          <Typography className="tw:text-tertiary" size="text-sm">
-            {t('message.agent-harness-tab-not-available')}
-          </Typography>
+          <InstructionsTab
+            canEdit={canEdit}
+            kind={state.published.kind}
+            resolved={state.resolved}
+            showInherited={showInherited}
+            skills={skills}
+            spec={spec}
+            onChange={draft.update}
+          />
         );
+      case HarnessTab.Guardrails:
+        return (
+          <GuardrailsTab
+            canEdit={canEdit}
+            guardrails={guardrails}
+            kind={state.published.kind}
+            resolved={state.resolved}
+            showInherited={showInherited}
+            spec={spec}
+            toolAccessErrors={toolErrors}
+            onChange={draft.update}
+          />
+        );
+      case HarnessTab.Memory:
+        return (
+          <MemoryTab
+            canEdit={canEdit}
+            inheritedMemory={
+              defaultState?.resolved.memory ?? state.resolved.memory
+            }
+            kind={state.published.kind}
+            spec={spec}
+            onChange={draft.update}
+          />
+        );
+      case HarnessTab.Surfaces:
+        return <SurfacesTab />;
     }
   };
 
@@ -235,7 +291,7 @@ const AgentHarnessEditorPage = () => {
       <Box direction="col" gap={4}>
         {kind === HarnessKind.Persona ? (
           <InheritanceStrip
-            defaultVersion={defaultVersion}
+            defaultVersion={defaultState?.published.version}
             kind="persona"
             personaName={name}
             showInherited={showInherited}
@@ -281,7 +337,7 @@ const AgentHarnessEditorPage = () => {
           {showPreview && (
             <CompiledContextRail
               harnessId={state.published.id}
-              isValid={!hasBudgetErrors(errors)}
+              isValid={!isInvalid}
               perTurnTokenBudget={spec.perTurnTokenBudget}
               spec={spec}
             />

@@ -21,12 +21,15 @@ import {
   HookEvent,
   MemoryReview,
   MemoryVisibility,
+  ToolAccessDefault,
+  ToolAccessLevel,
 } from '../../../generated/api/context/agentHarnessState';
 import {
   createPersonaAgentHarness,
   getDefaultAgentHarness,
   getPersonaAgentHarness,
   publishAgentHarness,
+  putAgentHarnessDraft,
 } from '../../../rest/AgentHarnessAPI';
 import AgentHarnessEditorPage from './AgentHarnessEditorPage';
 
@@ -34,6 +37,23 @@ const mockAuth = { isAdminUser: true };
 
 jest.mock('../../../rest/AgentHarnessAPI', () => ({
   createPersonaAgentHarness: jest.fn(),
+  getAgentHarnessGuardrails: jest.fn().mockResolvedValue([
+    {
+      available: true,
+      defaultLevel: 'Block',
+      description: 'Deprecated assets are refused',
+      event: 'PreToolUse',
+      id: 'block-deprecated',
+      name: 'Block deprecated assets',
+    },
+  ]),
+  getAgentHarnessSkills: jest.fn().mockResolvedValue([
+    {
+      defaultEnabled: true,
+      description: 'Look up context before answering',
+      name: 'find-context',
+    },
+  ]),
   getDefaultAgentHarness: jest.fn(),
   getPersonaAgentHarness: jest.fn(),
   previewAgentHarness: jest.fn().mockReturnValue(new Promise(() => undefined)),
@@ -194,6 +214,76 @@ describe('AgentHarnessEditorPage', () => {
 
     expect(await screen.findByTestId('context-tab')).toBeInTheDocument();
     expect(createPersonaAgentHarness).toHaveBeenCalledWith('Analyst');
+  });
+
+  it('lists the registered skills on the Instructions tab', async () => {
+    (getPersonaAgentHarness as jest.Mock).mockResolvedValue(
+      stateOf({
+        resolved: {
+          ...stateOf({}).resolved,
+          skills: [{ enabled: true, inherited: true, name: 'find-context' }],
+        },
+      })
+    );
+    renderEditor(
+      '/context-center/agent-harness/persona/Analyst?tab=instructions'
+    );
+
+    expect(await screen.findByTestId('skill-find-context')).toHaveTextContent(
+      'label.from-default'
+    );
+    expect(screen.getByTestId('persona-prompt')).toBeInTheDocument();
+  });
+
+  it('holds back a draft whose MCP access loosens the default', async () => {
+    (getPersonaAgentHarness as jest.Mock).mockResolvedValue(
+      stateOf({
+        draft: {
+          context: { cacheTtlMinutes: 30, characterBudget: 400000 },
+          perTurnTokenBudget: 20000,
+          toolAccess: {
+            default: ToolAccessDefault.Allow,
+            servers: [{ level: ToolAccessLevel.Allow, match: 'github' }],
+          },
+        },
+        resolved: {
+          ...stateOf({}).resolved,
+          inheritedToolAccess: {
+            default: ToolAccessDefault.Allow,
+            servers: [{ level: ToolAccessLevel.Block, match: 'github' }],
+          },
+        },
+        status: HarnessStatus.Draft,
+      })
+    );
+    (putAgentHarnessDraft as jest.Mock).mockResolvedValue(
+      stateOf({ status: HarnessStatus.Draft })
+    );
+    renderEditor(
+      '/context-center/agent-harness/persona/Analyst?tab=guardrails'
+    );
+
+    expect(
+      await screen.findByText('message.agent-harness-mcp-below-default')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('publish-harness')).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('mcp-server-level-0-Block'));
+
+    await waitFor(
+      () =>
+        expect(putAgentHarnessDraft).toHaveBeenCalledWith(
+          'analyst-harness',
+          2,
+          expect.objectContaining({
+            toolAccess: {
+              default: ToolAccessDefault.Allow,
+              servers: [{ level: ToolAccessLevel.Block, match: 'github' }],
+            },
+          })
+        ),
+      { timeout: 3000 }
+    );
   });
 
   it('shows nothing of the harness to a non-admin', async () => {
