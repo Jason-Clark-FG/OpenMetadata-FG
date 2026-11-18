@@ -115,13 +115,16 @@ public final class KnowledgeGraphExplorer {
     return page;
   }
 
-  /** A query step keeps its text and the nodes its rows named, so the trace can draw them. */
+  /**
+   * A query step keeps its text and the nodes it served, so the trace can draw them and an answer
+   * can cite them.
+   */
   public void recordQuery(final RunContext run, final String sparql, final String resultBody) {
     record(
         run,
         Operation.QUERY,
         RunStep.Input.query(sparql),
-        QueriedNodes.of(resultBody).stream().map(RunSteps::queried).toList(),
+        QueriedNodes.of(sparql, resultBody).stream().map(RunSteps::queried).toList(),
         List.of());
   }
 

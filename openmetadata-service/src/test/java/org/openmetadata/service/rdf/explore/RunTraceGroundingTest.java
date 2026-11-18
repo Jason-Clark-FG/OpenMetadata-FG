@@ -218,6 +218,33 @@ class RunTraceGroundingTest {
   }
 
   @Test
+  void aNodeAQueryAskedAboutByNameAndGotRowsForIsServedAndCanBeCited() {
+    final KnowledgeGraphExplorer explorer = shop();
+    final String rows =
+        """
+        {"head":{"vars":["p","o"]},"results":{"bindings":[
+          {"p":{"type":"uri","value":"%supstream"},"o":{"type":"literal","value":"raw"}}]}}
+        """
+            .formatted(OM);
+    final String noRows = "{\"head\":{\"vars\":[\"o\"]},\"results\":{\"bindings\":[]}}";
+
+    explorer.recordQuery(
+        run,
+        "PREFIX om: <%s>\nSELECT ?p ?o WHERE { <%s> ?p ?o . ?o <%supstream> ?x }"
+            .formatted(OM, RAW, OM),
+        rows);
+    explorer.recordQuery(run, "SELECT ?o WHERE { <%s> ?p ?o }".formatted(DAILY), noRows);
+    final CiteResult result = explorer.cite(run, new Citation(List.of(RAW, DAILY), List.of()));
+
+    assertThat(result.cited().nodes()).containsExactly(RAW);
+    assertThat(result.refused().nodes()).containsExactly(DAILY);
+    assertThat(explorer.trace(run.run()).nodes())
+        .extracting(TraceNode::id)
+        .contains(RAW)
+        .doesNotContain(DAILY);
+  }
+
+  @Test
   void citedNodesAndRelationshipsAreTracedAsCitedAtTheStepThatCitedThem() {
     final KnowledgeGraphExplorer explorer = shop();
     findOrdersThenFollowItsUpstream(explorer);
