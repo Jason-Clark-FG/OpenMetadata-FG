@@ -46,7 +46,8 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
  * terms. With semantic search on and no hybrid search (Elasticsearch), {@code semantic_search} and
  * the word search both run and their hits alternate, meaning first. With semantic search off, the
  * word search runs alone. When semantic search fails, the word search answers alone and the hits
- * say so. Every hit is one the caller may view.
+ * say so. An asset whose qualified name the question spells comes first on every path. Every hit
+ * is one the caller may view.
  */
 final class CatalogStartingPoints implements StartingPoints {
 
@@ -61,6 +62,7 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String PARENT_ID = "parentId";
   private static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
   private static final int MAX_WORDS = 8;
+  private static final String ANY = "*";
 
   /** How many hybrid hits per card asked for are ranked, so each kind can take its turn. */
   private static final int KIND_POOL = 3;
@@ -137,9 +139,32 @@ final class CatalogStartingPoints implements StartingPoints {
       final KnowledgeGraphCall.Find find)
       throws IOException {
     final List<String> words = TermWords.of(find.question()).stream().limit(MAX_WORDS).toList();
-    return words.isEmpty()
-        ? CatalogHits.of(List.of())
-        : hitsFor(authorizer, securityContext, find, words);
+    final CatalogHits ranked =
+        words.isEmpty()
+            ? CatalogHits.of(List.of())
+            : hitsFor(authorizer, securityContext, find, words);
+    final QualifiedNames names = QualifiedNames.in(find.question());
+    return names.isEmpty()
+        ? ranked
+        : new CatalogHits(
+            names.first(exactHits(authorizer, securityContext, find, names), ranked.hits()),
+            ranked.semanticSearchSkipped());
+  }
+
+  /** The assets whose qualified name the question spells, through the caller's own search. */
+  private List<SearchHit> exactHits(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final QualifiedNames names)
+      throws IOException {
+    final Map<String, Object> arguments = new HashMap<>();
+    arguments.put(QUERY, ANY);
+    arguments.put(SIZE, find.limit());
+    arguments.put(FIELDS, ID);
+    arguments.put(QUERY_FILTER, names.queryFilter(find.catalogTypes()));
+    return hits(
+        requireSucceeded(keywordSearch.get().execute(authorizer, securityContext, arguments)), ID);
   }
 
   private CatalogHits hitsFor(

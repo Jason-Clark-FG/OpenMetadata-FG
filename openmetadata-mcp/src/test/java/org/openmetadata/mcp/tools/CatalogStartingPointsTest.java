@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.rdf.explore.SearchHit;
+import org.openmetadata.service.rdf.explore.TermWords;
 import org.openmetadata.service.search.vector.HybridSearchException;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
@@ -364,6 +365,73 @@ class CatalogStartingPointsTest {
     assertThat(byWords)
         .extracting(SearchHit::fullyQualifiedName)
         .containsExactly("shop.customers_clean", "shop.customers");
+  }
+
+  private static final String R3 =
+      "We want to change raw.raw_orders.ordered_at from a timestamp to a date. What is affected,"
+          + " all the way down to reports?";
+
+  /**
+   * R3 names raw.raw_orders.ordered_at; the first find led with demo_dbt_jaffle.raw_orders, a
+   * Deprecated table of the same name in another dataset.
+   */
+  @Test
+  void aQualifiedNameInTheQuestionResolvesToItsAssetAndColumnFirst() throws Exception {
+    final UUID rawOrders = UUID.randomUUID();
+    final UUID orderedAt = UUID.randomUUID();
+    final UUID lookAlike = UUID.randomUUID();
+    final Map<String, Object> exactColumn =
+        keywordRow(orderedAt, "tableColumn", "bq.p.raw.raw_orders.ordered_at", null);
+    final Map<String, Object> exactTable =
+        keywordRow(rawOrders, "table", "bq.p.raw.raw_orders", null);
+    final Map<String, Object> other =
+        keywordRow(lookAlike, "table", "bq.p.demo_dbt_jaffle.raw_orders", "Deprecated");
+    final List<Map<String, Object>> ranked = List.of(other, exactTable);
+    final Map<String, List<Map<String, Object>>> byQuery = new HashMap<>();
+    byQuery.put("*", List.of(exactColumn, exactTable));
+    byQuery.put(R3, ranked);
+    TermWords.of(R3).forEach(word -> byQuery.put(word, ranked));
+    final QuerySearch words = new QuerySearch(byQuery);
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                hybridHit(lookAlike, "table", "bq.p.demo_dbt_jaffle.raw_orders"),
+                hybridHit(rawOrders, "table", "bq.p.raw.raw_orders")));
+    final KnowledgeGraphCall.Find find = new KnowledgeGraphCall.Find(R3, List.of(), 5);
+
+    final List<SearchHit> byWords =
+        new CatalogStartingPoints(
+                () -> false, () -> semantic, () -> words, NO_HYBRID, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, find)
+            .hits();
+    final List<SearchHit> byHybrid =
+        new CatalogStartingPoints(
+                () -> true, () -> semantic, () -> words, hybrid, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, find)
+            .hits();
+
+    for (final List<SearchHit> hits : List.of(byWords, byHybrid)) {
+      assertThat(hits)
+          .extracting(SearchHit::fullyQualifiedName)
+          .startsWith("bq.p.raw.raw_orders", "bq.p.raw.raw_orders.ordered_at")
+          .containsOnlyOnce("bq.p.raw.raw_orders")
+          .contains("bq.p.demo_dbt_jaffle.raw_orders");
+    }
+    final Map<String, Object> lookup =
+        words.calls.stream()
+            .filter(call -> "*".equals(call.get("query")))
+            .findFirst()
+            .orElseThrow();
+    assertThat(lookup.get("queryFilter").toString())
+        .contains("fullyQualifiedName", "*.raw.raw_orders.ordered_at", "*.raw.raw_orders");
+  }
+
+  @Test
+  void aQuestionWithoutAQualifiedNameMakesNoExactLookup() throws Exception {
+    startingPoints(false)
+        .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders per month", List.of(), 5));
+
+    assertThat(keyword.calls).noneMatch(call -> "*".equals(call.get("query")));
   }
 
   @Test
