@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,6 +28,7 @@ import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.context.GuardrailAction;
 import org.openmetadata.schema.api.context.GuardrailDecision;
 import org.openmetadata.schema.utils.JsonUtils;
+import org.openmetadata.service.aicontext.harness.CompileSelector;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
@@ -43,6 +45,22 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
 public class HarnessHookTool implements McpTool {
   /** Claude Code saves longer hook text to a file the model is not asked to read. */
   static final int MAX_HOOK_TEXT_CHARS = 10_000;
+
+  /**
+   * Codex shows the model about 2,500 tokens of each hook output. The cap sits a little under that
+   * because the compiler estimates {@link CompileSelector#CHARS_PER_TOKEN} characters per token,
+   * which undercounts real tokens for code and identifiers.
+   */
+  static final int CODEX_MAX_HOOK_TEXT_CHARS = 9_000;
+
+  /**
+   * Argument the server sets from the caller's connection before the tool runs. A value the caller
+   * sends under this name is replaced, so a caller cannot choose its own cap beyond its client
+   * label, which it already declares in its User-Agent.
+   */
+  public static final String CLIENT_NAME_PARAM = "mcp_client_name";
+
+  private static final String CODEX_CLIENT_PREFIX = "codex";
 
   static final String HOOK_SPECIFIC_OUTPUT = "hookSpecificOutput";
   static final String HOOK_EVENT_NAME = "hookEventName";
@@ -65,7 +83,8 @@ public class HarnessHookTool implements McpTool {
       String prompt,
       String toolName,
       JsonNode toolInput,
-      JsonNode toolResponse) {
+      JsonNode toolResponse,
+      String clientName) {
 
     static HookInput from(Map<String, Object> params) {
       return new HookInput(
@@ -74,7 +93,15 @@ public class HarnessHookTool implements McpTool {
           text(params.get("prompt")),
           text(params.get("tool_name")),
           json(params.get("tool_input")),
-          json(params.get("tool_response")));
+          json(params.get("tool_response")),
+          text(params.get(CLIENT_NAME_PARAM)));
+    }
+
+    int maxChars() {
+      return clientName != null
+              && clientName.toLowerCase(Locale.ROOT).startsWith(CODEX_CLIENT_PREFIX)
+          ? CODEX_MAX_HOOK_TEXT_CHARS
+          : MAX_HOOK_TEXT_CHARS;
     }
 
     Optional<CompileAgentContext> request() {
@@ -88,7 +115,8 @@ public class HarnessHookTool implements McpTool {
                       .withPrompt(prompt)
                       .withToolName(toolName)
                       .withToolInput(toolInput)
-                      .withToolOutput(toolResponse));
+                      .withToolOutput(toolResponse)
+                      .withMaxTokens(maxChars() / CompileSelector.CHARS_PER_TOKEN));
     }
   }
 
@@ -102,7 +130,8 @@ public class HarnessHookTool implements McpTool {
             request ->
                 hookOutput(
                     input.event(),
-                    GetContextTool.compiler(authorizer).compile(securityContext, request)))
+                    GetContextTool.compiler(authorizer).compile(securityContext, request),
+                    input.maxChars()))
         .orElse(Map.of());
   }
 
@@ -116,24 +145,29 @@ public class HarnessHookTool implements McpTool {
   }
 
   /** Claude Code hook output: context to add and, at PreToolUse, a deny with its reasons. */
-  static Map<String, Object> hookOutput(String event, CompiledAgentContext compiled) {
+  static Map<String, Object> hookOutput(String event, CompiledAgentContext compiled, int maxChars) {
     Map<String, Object> specific = new LinkedHashMap<>();
     specific.put(HOOK_EVENT_NAME, event);
     if (!nullOrEmpty(compiled.getText()) && !compiled.getText().isBlank()) {
-      specific.put(ADDITIONAL_CONTEXT, truncated(compiled.getText()));
+      specific.put(ADDITIONAL_CONTEXT, truncated(compiled.getText(), maxChars));
     }
     GuardrailDecision decision = compiled.getDecision();
     if (decision != null && decision.getAction() == GuardrailAction.DENY) {
       specific.put(PERMISSION_DECISION, DENY);
-      specific.put(PERMISSION_DECISION_REASON, truncated(String.join(" ", decision.getReasons())));
+      specific.put(
+          PERMISSION_DECISION_REASON, truncated(String.join(" ", decision.getReasons()), maxChars));
     }
     return specific.size() > 1 ? Map.of(HOOK_SPECIFIC_OUTPUT, specific) : Map.of();
   }
 
-  static String truncated(String text) {
-    return text.length() <= MAX_HOOK_TEXT_CHARS
+  /**
+   * The compiler already packs whole items into the host's cap; this cuts what its separators or a
+   * guardrail reason still push past it.
+   */
+  static String truncated(String text, int maxChars) {
+    return text.length() <= maxChars
         ? text
-        : text.substring(0, MAX_HOOK_TEXT_CHARS - TRUNCATION_MARK.length()) + TRUNCATION_MARK;
+        : text.substring(0, maxChars - TRUNCATION_MARK.length()) + TRUNCATION_MARK;
   }
 
   private static String text(Object value) {

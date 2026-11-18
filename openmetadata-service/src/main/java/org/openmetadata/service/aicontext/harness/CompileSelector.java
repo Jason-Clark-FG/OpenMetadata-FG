@@ -29,7 +29,9 @@ import org.openmetadata.schema.api.context.CompiledSegment;
  * compiler hands it the caller's document and the event's input.
  */
 public final class CompileSelector {
-  private static final int CHARS_PER_TOKEN = 4;
+  /** The compiler's estimate of text size; budgets and host caps are converted with it. */
+  public static final int CHARS_PER_TOKEN = 4;
+
   private static final int MIN_NAME_LENGTH = 3;
   private static final String ITEM_SEPARATOR = "\n\n";
 

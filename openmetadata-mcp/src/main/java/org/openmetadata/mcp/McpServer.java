@@ -11,7 +11,9 @@ import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpStatelessServerTransport;
 import jakarta.servlet.DispatcherType;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -26,6 +28,7 @@ import org.openmetadata.mcp.server.auth.util.UriUtils;
 import org.openmetadata.mcp.server.transport.JsonRpcErrorBody;
 import org.openmetadata.mcp.server.transport.OAuthHttpStatelessServerTransportProvider;
 import org.openmetadata.mcp.tools.DefaultToolContext;
+import org.openmetadata.mcp.tools.HarnessHookTool;
 import org.openmetadata.mcp.usage.McpUsageRecorder;
 import org.openmetadata.schema.api.configuration.MCPConfiguration;
 import org.openmetadata.schema.entity.app.mcp.McpToolCallUsage;
@@ -463,7 +466,8 @@ public class McpServer implements McpServerProvider {
   }
 
   private McpSchema.CallToolResult executeTool(
-      McpSchema.Tool tool, McpTransportContext context, McpSchema.CallToolRequest req) {
+      McpSchema.Tool tool, McpTransportContext context, McpSchema.CallToolRequest initialRequest) {
+    McpSchema.CallToolRequest req = withClientName(tool, context, initialRequest);
     CatalogSecurityContext securityContext = securityContextFrom(context);
     String userName = securityContext.getUserPrincipal().getName();
     String clientName = (String) context.get(AuthEnrichedMcpContextExtractor.CLIENT_NAME);
@@ -481,6 +485,27 @@ public class McpServer implements McpServerProvider {
     } finally {
       recordUsage(tool.name(), userName, clientName, outcome);
     }
+  }
+
+  /**
+   * The hook tool sizes its output to the caller's host, which only the transport context knows.
+   * The name is set here, replacing any the caller sent, and only for that tool.
+   */
+  private static McpSchema.CallToolRequest withClientName(
+      McpSchema.Tool tool, McpTransportContext context, McpSchema.CallToolRequest req) {
+    if (!"harness_hook".equals(tool.name())) {
+      return req;
+    }
+    Map<String, Object> arguments = new HashMap<>();
+    if (req.arguments() != null) {
+      arguments.putAll(req.arguments());
+    }
+    arguments.remove(HarnessHookTool.CLIENT_NAME_PARAM);
+    Object clientName = context.get(AuthEnrichedMcpContextExtractor.CLIENT_NAME);
+    if (clientName != null) {
+      arguments.put(HarnessHookTool.CLIENT_NAME_PARAM, clientName);
+    }
+    return new McpSchema.CallToolRequest(req.name(), arguments, req.meta());
   }
 
   private void recordUsage(

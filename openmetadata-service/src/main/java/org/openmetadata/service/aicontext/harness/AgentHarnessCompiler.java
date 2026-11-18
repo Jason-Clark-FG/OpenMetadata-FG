@@ -297,8 +297,11 @@ public final class AgentHarnessCompiler {
     final AgentHarnessEvent event =
         HarnessEvents.find(turn.effective().getEvents(), turn.event())
             .orElseGet(() -> new AgentHarnessEvent().withEnabled(false).withTokenBudget(0));
+    final int configured =
+        Math.min(event.getTokenBudget(), turn.effective().getPerTurnTokenBudget());
+    final Integer hostCap = turn.request().getMaxTokens();
     return Boolean.TRUE.equals(event.getEnabled())
-        ? Math.min(event.getTokenBudget(), turn.effective().getPerTurnTokenBudget())
+        ? (hostCap == null ? configured : Math.min(configured, hostCap))
         : 0;
   }
 

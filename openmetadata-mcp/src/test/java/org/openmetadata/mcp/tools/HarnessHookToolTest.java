@@ -33,7 +33,7 @@ class HarnessHookToolTest {
         Map.of(
             "hookSpecificOutput",
             Map.of("hookEventName", "SessionStart", "additionalContext", "Cite FQNs.")),
-        HarnessHookTool.hookOutput("SessionStart", compiled("Cite FQNs.", null)));
+        HarnessHookTool.hookOutput("SessionStart", compiled("Cite FQNs.", null), 10_000));
   }
 
   @Test
@@ -54,7 +54,8 @@ class HarnessHookToolTest {
                 "",
                 new GuardrailDecision()
                     .withAction(GuardrailAction.DENY)
-                    .withReasons(List.of("orders is deprecated.", "slack is blocked.")))));
+                    .withReasons(List.of("orders is deprecated.", "slack is blocked."))),
+            10_000));
   }
 
   @Test
@@ -69,23 +70,52 @@ class HarnessHookToolTest {
                 "orders has incidents.",
                 new GuardrailDecision()
                     .withAction(GuardrailAction.WARN)
-                    .withReasons(List.of("orders has incidents.")))));
+                    .withReasons(List.of("orders has incidents."))),
+            10_000));
     assertEquals(
         Map.of(),
         HarnessHookTool.hookOutput(
             "PreToolUse",
             compiled(
                 "",
-                new GuardrailDecision().withAction(GuardrailAction.ALLOW).withReasons(List.of()))));
+                new GuardrailDecision().withAction(GuardrailAction.ALLOW).withReasons(List.of())),
+            10_000));
   }
 
   @Test
   void injectedTextIsCutAtTenThousandCharacters() {
-    final String cut = HarnessHookTool.truncated("x".repeat(12_000));
+    final String cut = HarnessHookTool.truncated("x".repeat(12_000), 10_000);
 
     assertEquals(10_000, cut.length());
     assertEquals("x".repeat(9_999) + "…", cut);
-    assertEquals("short", HarnessHookTool.truncated("short"));
+    assertEquals("short", HarnessHookTool.truncated("short", 10_000));
+  }
+
+  @Test
+  void codexCallersGetTheSmallerCapAndEveryoneElseTheClaudeCodeCap() {
+    final Map<String, Object> codex =
+        Map.of(
+            "hook_event_name", "SessionStart", HarnessHookTool.CLIENT_NAME_PARAM, "Codex_cli_rs");
+    final Map<String, Object> claude =
+        Map.of("hook_event_name", "SessionStart", HarnessHookTool.CLIENT_NAME_PARAM, "Claude CLI");
+    final Map<String, Object> unknown = Map.of("hook_event_name", "SessionStart");
+
+    assertEquals(
+        2_250, HarnessHookTool.HookInput.from(codex).request().orElseThrow().getMaxTokens());
+    assertEquals(
+        2_500, HarnessHookTool.HookInput.from(claude).request().orElseThrow().getMaxTokens());
+    assertEquals(
+        2_500, HarnessHookTool.HookInput.from(unknown).request().orElseThrow().getMaxTokens());
+
+    final int codexCap = HarnessHookTool.HookInput.from(codex).maxChars();
+    final String additional =
+        (String)
+            ((Map<?, ?>)
+                    HarnessHookTool.hookOutput(
+                            "SessionStart", compiled("x".repeat(12_000), null), codexCap)
+                        .get("hookSpecificOutput"))
+                .get("additionalContext");
+    assertEquals(9_000, additional.length());
   }
 
   @Test
@@ -120,7 +150,10 @@ class HarnessHookToolTest {
         Optional.empty(),
         HarnessHookTool.HookInput.from(Map.of("hook_event_name", "Stop")).request());
     assertEquals(
-        new CompileAgentContext().withEvent(CompileEvent.SESSION_START).withSessionId("s1"),
+        new CompileAgentContext()
+            .withEvent(CompileEvent.SESSION_START)
+            .withSessionId("s1")
+            .withMaxTokens(2_500),
         HarnessHookTool.HookInput.from(
                 Map.of(
                     "hook_event_name", "SessionStart",

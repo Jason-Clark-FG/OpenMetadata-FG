@@ -20,6 +20,12 @@ export interface CompileAgentContext {
      */
     event: CompileEvent;
     /**
+     * Upper bound on the compiled text, for agent hosts that cap how much hook output the model
+     * sees. Items are dropped whole, persona items first, until the text fits. The event's own
+     * budget applies when it is lower.
+     */
+    maxTokens?: number;
+    /**
      * The user's prompt, for UserPromptSubmit.
      */
     prompt?: string;
