@@ -15,10 +15,14 @@ package org.openmetadata.service.rdf.explore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
-/** The facts a reader needs to tell nodes apart, each one only when the graph holds it. */
+/**
+ * The facts a reader needs to tell nodes apart, each one only when the graph holds it. {@code
+ * descriptionLength} is the full length of a description cut at {@link #DESCRIPTION_LIMIT}.
+ */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public record KeyFacts(
     String description,
+    Integer descriptionLength,
     String tier,
     String certification,
     List<String> owners,

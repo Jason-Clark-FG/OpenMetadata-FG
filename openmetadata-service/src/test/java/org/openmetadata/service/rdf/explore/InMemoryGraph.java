@@ -69,6 +69,10 @@ final class InMemoryGraph implements GraphReader {
     return new InMemoryGraph(dataset);
   }
 
+  static Model model(final String turtle) {
+    return turtle(turtle);
+  }
+
   private static Model turtle(final String turtle) {
     final Model model = ModelFactory.createDefaultModel();
     model.read(new StringReader(PREFIXES + turtle), null, "TTL");

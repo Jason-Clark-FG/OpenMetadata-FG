@@ -41,23 +41,23 @@ import org.openmetadata.schema.type.TableProfile;
 import org.openmetadata.schema.type.TagLabel;
 
 /** A profiled table, a test on it and the stored evidence about both, for the quality tests. */
-final class RdfQualityFixtures {
-  static final String BASE = "https://open-metadata.org/";
+public final class RdfQualityFixtures {
+  public static final String BASE = "https://open-metadata.org/";
   static final String OM = BASE + "ontology/";
   static final String DQV = "http://www.w3.org/ns/dqv#";
   static final String PROV = "http://www.w3.org/ns/prov#";
   static final String GRAPH = BASE + "graph/knowledge";
-  static final String TABLE_FQN = "svc.db.schema.orders";
+  public static final String TABLE_FQN = "svc.db.schema.orders";
   static final UUID TABLE_ID = UUID.fromString("00000000-0000-0000-0000-0000000000c1");
-  static final String TABLE_URI = BASE + "entity/table/" + TABLE_ID;
+  public static final String TABLE_URI = BASE + "entity/table/" + TABLE_ID;
   static final UUID TEST_ID = UUID.fromString("00000000-0000-0000-0000-0000000000d1");
-  static final String TEST_URI = BASE + "entity/testCase/" + TEST_ID;
+  public static final String TEST_URI = BASE + "entity/testCase/" + TEST_ID;
   static final UUID ASSIGNEE_ID = UUID.fromString("00000000-0000-0000-0000-0000000000e1");
-  static final long PROFILED_AT = 1_763_000_000_000L;
+  public static final long PROFILED_AT = 1_763_000_000_000L;
 
   private RdfQualityFixtures() {}
 
-  static Table profiledTable(final double rowCount, final double nullCount) {
+  public static Table profiledTable(final double rowCount, final double nullCount) {
     final Column amount =
         new Column()
             .withName("amount")
@@ -111,7 +111,7 @@ final class RdfQualityFixtures {
         .withDataType(ColumnDataType.VARCHAR);
   }
 
-  static TagLabel sensitive() {
+  public static TagLabel sensitive() {
     return new TagLabel()
         .withTagFQN("PII.Sensitive")
         .withSource(TagLabel.TagSource.CLASSIFICATION)
@@ -124,7 +124,7 @@ final class RdfQualityFixtures {
     table.getColumns().forEach(column -> column.setProfile(null));
   }
 
-  static TestCase columnTest(final String column, final TestCaseResult latest) {
+  public static TestCase columnTest(final String column, final TestCaseResult latest) {
     return new TestCase()
         .withId(TEST_ID)
         .withName(column + "_positive")
@@ -134,7 +134,7 @@ final class RdfQualityFixtures {
         .withTestCaseResult(latest);
   }
 
-  static TestCaseResult failedResult(final long timestamp, final long failedRows) {
+  public static TestCaseResult failedResult(final long timestamp, final long failedRows) {
     return new TestCaseResult()
         .withTimestamp(timestamp)
         .withTestCaseStatus(TestCaseStatus.Failed)
@@ -147,7 +147,7 @@ final class RdfQualityFixtures {
         .withTestResultValue(List.of(new TestResultValue().withName("min").withValue("-3")));
   }
 
-  static TestCaseResolutionStatus assignedIncident() {
+  public static TestCaseResolutionStatus assignedIncident() {
     return new TestCaseResolutionStatus()
         .withStateId(UUID.randomUUID())
         .withTimestamp(PROFILED_AT)

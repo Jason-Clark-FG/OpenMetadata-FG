@@ -30,6 +30,7 @@ final class CardFacts {
   private String displayName;
   private String fullyQualifiedName;
   private String description;
+  private Integer descriptionLength;
   private String tier;
   private String certification;
   private String service;
@@ -56,6 +57,8 @@ final class CardFacts {
 
   void setDescription(final FactValue value) {
     description = truncate(value.value());
+    descriptionLength =
+        value.value().length() > KeyFacts.DESCRIPTION_LIMIT ? value.value().length() : null;
   }
 
   void setTier(final FactValue value) {
@@ -109,6 +112,7 @@ final class CardFacts {
     final Usage usage = new Usage(dailyUsage, weeklyUsage, monthlyUsage, weeklyPercentile);
     return new KeyFacts(
         description,
+        descriptionLength,
         tier,
         certification,
         List.copyOf(owners),

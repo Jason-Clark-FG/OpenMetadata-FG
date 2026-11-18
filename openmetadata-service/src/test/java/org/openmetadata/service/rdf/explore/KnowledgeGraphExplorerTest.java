@@ -38,6 +38,7 @@ import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.rdf.RdfQualityFixtures;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
 import org.openmetadata.service.rdf.SparqlQueryLimits;
 import org.openmetadata.service.rdf.translator.JsonLdTranslator;
@@ -368,6 +369,28 @@ class KnowledgeGraphExplorerTest {
 
   private static int occurrences(final String text, final String part) {
     return text.split(Pattern.quote(part), -1).length - 1;
+  }
+
+  @Test
+  void theValuesOnCardsAreDescribedOnceAndKeptOutOfTheStoredStep() {
+    EntityInterface.CANONICAL_ENTITY_NAME_MAP.put("table", Entity.TABLE);
+    final Table orders = RdfQualityFixtures.profiledTable(100.0, 4.0);
+    final Model projected = new JsonLdTranslator(new ObjectMapper(), BASE).toRdf(orders);
+    final OntologyVocabulary vocabulary = OntologyVocabulary.canonical();
+
+    final FindResult found =
+        explorer(InMemoryGraph.of(projected))
+            .find(
+                run,
+                catalog("orders", UNBOUNDED),
+                List.of(new SearchHit("table", orders.getFullyQualifiedName(), orders.getId())));
+
+    assertThat(found.properties())
+        .containsEntry("om:profileRowCount", vocabulary.aboutNamed("om:profileRowCount"));
+    assertThat(vocabulary.aboutNamed("om:profileRowCount").comment()).isNotBlank();
+    assertThat(traces.storedJson(run.run()).getFirst())
+        .doesNotContain("profileRowCount")
+        .doesNotContain("2025-11-13T02:13:20Z");
   }
 
   @Test

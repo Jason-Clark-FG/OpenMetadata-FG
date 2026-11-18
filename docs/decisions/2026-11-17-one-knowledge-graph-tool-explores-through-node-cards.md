@@ -1,10 +1,10 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
-  `OntologyVocabularyTest`, `GraphExpansionTest`, `RdfToolGatingTest`,
+  `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
   `RdfToolDescriptionVocabularyTest`, `ExplorationQueriesTest`, `OntologyTermsTest`,
   `KnowledgeGraphExplorerTest`, `CatalogStartingPointsTest`, `RdfKnowledgeGraphToolIT`
 - **Related:** ADR:2026-09-16-agent-sparql-execution,
@@ -111,3 +111,32 @@ Known limits: the candidate read scans every label of every active release (`CON
 index), and its cost on a very large imported ontology is unmeasured. When more than 500 labels
 contain a question word, the candidates past the cut, by term IRI, are not ranked, so a more
 specific term can be missed. The common-word list is English only.
+
+## Amendment 2026-11-18. Every stored value is on the card; descriptions come once
+
+Used for real, a card showed thirteen fixed facts and hid every other value stored on the node:
+profiles, the latest test result, an incident's state, a column's data type. And every `reachable`
+entry repeated its relationship's comment, so a ten-card `find` of wide tables exceeded the
+response budget. This replaces the card shape above.
+
+- **`values`.** A card lists every property whose objects are literals on the node, except the
+  header facts it already shows (label, display name, qualified name, description, certification,
+  usage). Each entry has `property` (the name `query` takes), `type` (`integer`, `decimal`,
+  `boolean`, `dateTime` or `date`, absent for text) and `value`. A property with several values
+  gives the first and `last` in text order and their `count`; a value longer than 280 characters
+  is cut, ends with `…`, and the entry gives the full `length` of the longest value. A cut
+  description in the header gives its `descriptionLength`. The rest is read with `query`. Nothing
+  is added to the graph: what the projection leaves out (masked profiles, say) stays out.
+- **`properties`.** `reachable` entries carry `relationship`, `direction` and `count`. A `find` or
+  `expand` response carries one `properties` map from every relationship and value property its
+  cards or groups name to the ontology's label and comment. The budget charges each description
+  once per response.
+- **Reads.** Cards cost three graph reads per batch: header facts, values (one aggregated row per
+  node and property, each value cut at 280 characters inside the query, so a long literal never
+  crosses the read bound whole), and reachability.
+- **Trace.** The stored step keeps no values and no descriptions.
+
+Measured on tables with 30 stored, described relationships: one card went from 12,531 to 5,616
+characters; a 10-card `find` from 125,347 to 63,396 (6 cards fitted the 80,000-character budget,
+now all 10); a 20-card `expand` from 252,336 to 121,235 (6 cards fitted, now 12). The stored find
+step stayed at 15,318.

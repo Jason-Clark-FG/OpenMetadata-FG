@@ -21,7 +21,10 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.jena.query.QuerySolution;
 
-/** Builds node cards from two graph reads per batch: one for facts, one for reachability. */
+/**
+ * Builds node cards from three graph reads per batch: the header facts, every other value stored on
+ * the nodes, and reachability.
+ */
 public final class NodeCardReader {
 
   private static final Comparator<Reachable> REACHABLE_ORDER =
@@ -51,14 +54,27 @@ public final class NodeCardReader {
 
   private List<NodeCard> cardsFor(final List<String> nodes) {
     final Map<String, CardFacts> facts = readFacts(nodes);
+    final Map<String, List<CardValue>> values =
+        CardValues.byNode(
+            SparqlRows.parse(graph.select(ExplorationQueries.values(nodes))), vocabulary);
     final Map<String, List<Reachable>> reachable = readReachable(nodes);
     return nodes.stream()
-        .map(node -> card(node, facts.get(node), reachable.getOrDefault(node, List.of())))
+        .map(
+            node ->
+                card(
+                    node,
+                    facts.get(node),
+                    values.getOrDefault(node, List.of()),
+                    reachable.getOrDefault(node, List.of())))
         .toList();
   }
 
-  private NodeCard card(final String node, final CardFacts facts, final List<Reachable> reachable) {
-    final boolean inGraph = facts != null || !reachable.isEmpty();
+  private NodeCard card(
+      final String node,
+      final CardFacts facts,
+      final List<CardValue> values,
+      final List<Reachable> reachable) {
+    final boolean inGraph = facts != null || !values.isEmpty() || !reachable.isEmpty();
     final CardFacts known = facts == null ? new CardFacts() : facts;
     return new NodeCard(
         node,
@@ -67,6 +83,7 @@ public final class NodeCardReader {
         known.label(),
         known.types().stream().map(vocabulary::compact).sorted().toList(),
         known.keyFacts(),
+        values,
         reachable,
         inGraph ? vocabulary.notCoveredFor(known.types()) : List.of(),
         inGraph);

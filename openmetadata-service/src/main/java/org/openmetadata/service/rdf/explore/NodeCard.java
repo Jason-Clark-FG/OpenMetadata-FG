@@ -29,12 +29,14 @@ public record NodeCard(
     String label,
     List<String> types,
     KeyFacts facts,
+    List<CardValue> values,
     List<Reachable> reachable,
     List<NotCovered> notCovered,
     boolean inGraph) {
 
   public NodeCard {
     types = List.copyOf(types);
+    values = List.copyOf(values);
     reachable = List.copyOf(reachable);
     notCovered = List.copyOf(notCovered);
   }

@@ -61,6 +61,32 @@ final class ExplorationQueries {
             .formatted(iris(nodes), iris(FactPredicate.iris()));
   }
 
+  /**
+   * One row per node and property whose values are literals, other than those a card's header
+   * shows: how many values, the first and last in text order, the longest length and a datatype.
+   * Values are cut at the card's limit here, so a long literal never crosses the read bound whole.
+   */
+  static String values(final Collection<String> nodes) {
+    return PREFIXES
+        + """
+        SELECT ?node ?predicate (COUNT(DISTINCT ?value) AS ?count) (MIN(?shown) AS ?first)
+               (MAX(?shown) AS ?last) (MAX(?length) AS ?longest)
+               (SAMPLE(DATATYPE(?value)) AS ?datatype) WHERE {
+          VALUES ?node { %s }
+          ?node ?predicate ?value .
+          FILTER(isLiteral(?value))
+          FILTER(?predicate NOT IN (%s))
+          BIND(STRLEN(STR(?value)) AS ?length)
+          BIND(SUBSTR(STR(?value), 1, %d) AS ?shown)
+        } GROUP BY ?node ?predicate
+        """
+            .formatted(
+                iris(nodes),
+                String.join(
+                    ", ", FactPredicate.iris().stream().map(ExplorationQueries::iri).toList()),
+                CardValue.VALUE_LIMIT);
+  }
+
   static String reachable(final Collection<String> nodes) {
     final String values = iris(nodes);
     return PREFIXES

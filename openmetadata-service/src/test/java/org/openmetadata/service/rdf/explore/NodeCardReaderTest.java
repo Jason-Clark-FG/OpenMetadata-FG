@@ -127,12 +127,12 @@ class NodeCardReaderTest {
   }
 
   @Test
-  void cardsForSeveralNodesComeFromTwoGraphReadsInRequestOrder() {
+  void cardsForSeveralNodesComeFromThreeGraphReadsInRequestOrder() {
     final InMemoryGraph graph = InMemoryGraph.ofTurtle(GRAPH);
 
     final List<NodeCard> cards = reader(graph).read(List.of(RAW, ORDERS));
 
     assertThat(cards).extracting(NodeCard::id).containsExactly(RAW, ORDERS);
-    assertThat(graph.queries()).hasSize(2);
+    assertThat(graph.queries()).hasSize(3);
   }
 }

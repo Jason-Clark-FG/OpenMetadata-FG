@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.openmetadata.schema.utils.JsonUtils;
 
 /**
@@ -59,7 +60,11 @@ final class PropertyDescriptions {
         + JsonUtils.pojoToJson(vocabulary.aboutNamed(name)).length();
   }
 
+  /** The properties a card names: its relationships and the properties of its values. */
   static Set<String> namesOf(final NodeCard card) {
-    return card.reachable().stream().map(Reachable::relationship).collect(Collectors.toSet());
+    return Stream.concat(
+            card.reachable().stream().map(Reachable::relationship),
+            card.values().stream().map(CardValue::property))
+        .collect(Collectors.toSet());
   }
 }
