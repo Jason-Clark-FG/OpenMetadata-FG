@@ -33,6 +33,9 @@ public final class RdfOwnedResources {
       NodeFactory.createURI(OM_NS + "hasConstrainedColumn");
   private static final String BOUND_ASSET = RdfConceptBindingMapper.BOUND_ASSET;
   private static final String BOUND_COLUMN = RdfConceptBindingMapper.BOUND_COLUMN;
+  private static final Node HAS_TEST_RESULT = NodeFactory.createURI(OM_NS + "hasTestResult");
+  private static final Node HAS_RESULT_VALUE = NodeFactory.createURI(OM_NS + "hasResultValue");
+  private static final Node HAS_OPEN_INCIDENT = NodeFactory.createURI(OM_NS + "hasOpenIncident");
 
   private RdfOwnedResources() {}
 
@@ -60,6 +63,18 @@ public final class RdfOwnedResources {
           ?entity (<https://open-metadata.org/ontology/hasConstraint>
                    |<http://www.w3.org/ns/dqv#hasQualityMeasurement>) ?subject .
           ?subject ?p ?o
+        }
+        UNION {
+          ?entity <https://open-metadata.org/ontology/hasOpenIncident> ?subject .
+          ?subject ?p ?o
+        }
+        UNION {
+          ?entity <https://open-metadata.org/ontology/hasTestResult> ?result .
+          { ?result ?p ?o . BIND(?result AS ?subject) }
+          UNION {
+            ?result <https://open-metadata.org/ontology/hasResultValue> ?subject .
+            ?subject ?p ?o
+          }
         }
         UNION {
           ?entity <https://open-metadata.org/ontology/hasColumn> ?topColumn .
@@ -150,6 +165,8 @@ public final class RdfOwnedResources {
     }
     owned.addAll(objects(graph, entity, HAS_CONSTRAINT));
     owned.addAll(objects(graph, entity, HAS_QUALITY_MEASUREMENT));
+    owned.addAll(testResults(graph, entity));
+    owned.addAll(objects(graph, entity, HAS_OPEN_INCIDENT));
     final Set<Node> columns =
         descendants(graph, objects(graph, entity, HAS_COLUMN), HAS_CHILD_COLUMN);
     owned.addAll(columns);
@@ -172,6 +189,13 @@ public final class RdfOwnedResources {
       parts.addAll(objects(graph, constraint, HAS_CONSTRAINED_COLUMN));
     }
     return parts;
+  }
+
+  private static Set<Node> testResults(final Graph graph, final Node entity) {
+    final Set<Node> results = objects(graph, entity, HAS_TEST_RESULT);
+    final Set<Node> owned = new HashSet<>(results);
+    results.forEach(result -> owned.addAll(objects(graph, result, HAS_RESULT_VALUE)));
+    return owned;
   }
 
   private static Set<Node> listCells(final Graph graph, final Node entity) {

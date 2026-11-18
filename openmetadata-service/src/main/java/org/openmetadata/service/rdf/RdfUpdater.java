@@ -260,7 +260,8 @@ public final class RdfUpdater {
 
   /**
    * Re-projects entities whose projection depends on rows outside their own record, such as the
-   * concept bindings into an asset. The replay reads those rows when it runs.
+   * concept bindings into an asset or a test case's latest result and incident. The replay reads
+   * those rows when it runs.
    */
   public static void refreshEntities(final Collection<EntityReference> entities) {
     if (isEnabled()) {

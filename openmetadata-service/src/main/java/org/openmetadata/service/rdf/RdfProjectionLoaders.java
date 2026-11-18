@@ -25,19 +25,38 @@ import org.openmetadata.schema.type.Relationship;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.jdbi3.CoreRelationshipDAOs.EntityRelationshipObject;
+import org.openmetadata.service.util.LikeEscape;
 
 /**
  * Reads the current metadata a live-write replay projects. Replays load state when they run rather
  * than carrying payloads, so a delayed replay never restores an obsolete snapshot. The entity
- * loader reads live entities only and fails as not found for a soft-deleted one, which the replay
- * turns into a delete: the graph projects the live catalog.
+ * loader reads live entities only, with their latest profiles and test results, and fails as not
+ * found for a soft-deleted one, which the replay turns into a delete: the graph projects the live
+ * catalog.
  */
 record RdfProjectionLoaders(
     BiFunction<String, UUID, EntityInterface<?>> entityLoader,
     LineageDetailsLoader lineageDetailsLoader,
     Supplier<OntologyActiveGraph> ontologyGraphs,
     RdfEntityLiveness liveness,
-    BoundAssets boundAssets) {
+    BoundAssets boundAssets,
+    TestCaseRequeue testCaseRequeue) {
+
+  /** Loaders that requeue no test cases, for replays that never refresh a table's tags. */
+  RdfProjectionLoaders(
+      final BiFunction<String, UUID, EntityInterface<?>> entityLoader,
+      final LineageDetailsLoader lineageDetailsLoader,
+      final Supplier<OntologyActiveGraph> ontologyGraphs,
+      final RdfEntityLiveness liveness,
+      final BoundAssets boundAssets) {
+    this(entityLoader, lineageDetailsLoader, ontologyGraphs, liveness, boundAssets, tableFqn -> {});
+  }
+
+  /** Queues a fresh projection of every test case on a table whose column tags changed. */
+  @FunctionalInterface
+  interface TestCaseRequeue {
+    void requeueTestCasesOf(String tableFqn);
+  }
 
   @FunctionalInterface
   interface LineageDetailsLoader {
@@ -59,11 +78,12 @@ record RdfProjectionLoaders(
 
   static RdfProjectionLoaders defaults() {
     return new RdfProjectionLoaders(
-        RdfProjectionLoaders::loadEntity,
+        withQualityEvidence(RdfProjectionLoaders::loadEntity, RdfQualityEvidence.database()),
         RdfProjectionLoaders::loadLineageDetails,
         () -> new OntologyActiveGraph(Entity.getCollectionDAO()),
         RdfEntityLiveness.database(),
-        RdfProjectionLoaders::loadBoundAssets);
+        RdfProjectionLoaders::loadBoundAssets,
+        RdfProjectionLoaders::requeueTestCases);
   }
 
   private static List<EntityReference> loadBoundAssets(
@@ -78,6 +98,29 @@ record RdfProjectionLoaders(
                     .withType(asset.assetType())
                     .withId(UUID.fromString(asset.assetId())))
         .toList();
+  }
+
+  /** Queues the test cases whose entity link names {@code tableFqn} or one of its columns. */
+  private static void requeueTestCases(final String tableFqn) {
+    final List<EntityReference> testCases =
+        Entity.getCollectionDAO()
+            .testCaseDAO()
+            .findIdsByEntityFQN(tableFqn, LikeEscape.escape(tableFqn) + Entity.SEPARATOR + "%")
+            .stream()
+            .map(id -> new EntityReference().withType(Entity.TEST_CASE).withId(UUID.fromString(id)))
+            .toList();
+    RdfUpdater.refreshEntities(testCases);
+  }
+
+  /** Reads entities with {@code loader} and loads their latest quality evidence onto them. */
+  static BiFunction<String, UUID, EntityInterface<?>> withQualityEvidence(
+      final BiFunction<String, UUID, EntityInterface<?>> loader,
+      final RdfQualityEvidence evidence) {
+    return (entityType, entityId) -> {
+      final EntityInterface<?> entity = loader.apply(entityType, entityId);
+      evidence.attach(entityType, List.of(entity));
+      return entity;
+    };
   }
 
   private static EntityInterface<?> loadEntity(final String entityType, final UUID entityId) {

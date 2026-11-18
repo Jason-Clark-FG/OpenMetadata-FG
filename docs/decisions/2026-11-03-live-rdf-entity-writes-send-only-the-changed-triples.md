@@ -1,7 +1,7 @@
 # Live RDF entity writes send only the changed triples
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership) · v3 2026-11-17 (incoming concept binding edges, constraint members)
+- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership) · v3 2026-11-17 (incoming concept binding edges, constraint members) · v4 2026-11-18 (test result ownership)
 - **Deciders:** OpenMetadata RDF maintainers
 - **Guard:** `RdfEntityWritePlannerTest`, `RdfOwnedResourcesTest`, `RdfEntityDiffWriteIT`,
   `EntityWriteCircuitBreakerTest`, `InferenceInvalidatingRdfStorageTest`,
@@ -105,3 +105,13 @@ The scope also owns each table constraint's `om:ConstraintMember` nodes and the 
 `om:hasConstrainedColumn` names, so a constraint naming a column the table does not have leaves
 no triples behind once it changes (ADR:2026-11-13-column-uniqueness-means-the-column-alone-is-unique).
 Guarded by `RdfEntityWritePlannerTest` and `RdfOwnedResourcesTest`.
+
+## Amendment 2026-11-18
+
+A test case's write also owns its latest result node (`om:hasTestResult`) with that node's
+`om:hasResultValue` entries, and its open incident node (`om:hasOpenIncident`), and replaces its
+`om:testsEntity` and `om:testsColumn` links even when the new projection omits them. Profiles are no
+longer measurement nodes but literal facts on the table and its columns, which the write replaces
+as the entity's own triples; the measurement-node cleanup above stays, so nodes earlier builds
+wrote still leave. See ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence. Guarded by
+`RdfEntityWritePlannerTest#aNewerTestResultReplacesTheOlderOneAndDeletingTheTestCaseRemovesIt`.

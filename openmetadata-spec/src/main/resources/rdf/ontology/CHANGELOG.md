@@ -27,6 +27,30 @@ The version recorded here is the value of `owl:versionInfo` on the `om:` ontolog
   longer mark each column `om:isUnique`. See
   ADR:2026-11-13-column-uniqueness-means-the-column-alone-is-unique.
 
+### Added — Quality evidence
+
+See ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence.
+
+
+- Latest profile facts: `om:profiledAt`; on a table `om:profileRowCount`, `om:profileColumnCount`,
+  `om:profileSizeInBytes`; on a column `om:profileValuesCount`, `om:profileNullCount`,
+  `om:profileNullProportion`, `om:profileDistinctCount`, `om:profileUniqueCount`, `om:profileMin`,
+  `om:profileMax`, `om:profileMean`, `om:profileMinLength`, `om:profileMaxLength`.
+- `om:TestCaseResult`, `om:TestResultValue`, `om:TestCaseIncident` classes.
+- `om:testsEntity` (test case → table, `owl:inverseOf om:testedBy`), `om:testsColumn`,
+  `om:latestResultStatus`, `om:latestResultAt`, `om:hasTestResult`, `om:hasResultValue`.
+- On a result: `om:testResultStatus`, `om:testResultMessage`, `om:passedRows`, `om:failedRows`,
+  `om:minBound`, `om:maxBound`, with the run time as `prov:generatedAtTime`.
+- `om:hasOpenIncident`, `om:incidentState`, `om:incidentSeverity`, `om:incidentAssignee`.
+- Declared the already written `om:testsEntityFQN` and `om:hasParameterValue`.
+
+### Changed — Quality evidence
+
+- `dqv:hasQualityMeasurement`, `dqv:isMeasurementOf` and `dqv:computedOn` are `om:InferenceOnly`:
+  profiles are facts on the profiled node, not measurement nodes.
+- JSON-LD `quality.jsonld`: `testCaseResult` and `testResultValue` map to resources, not `@json`.
+- The `incidentStatus` JSON literal on test cases is no longer written.
+
 ## 1.1.0 — 2026-04-28
 
 Knowledge-graph fidelity pass. All changes are additive or domain corrections; existing consumers

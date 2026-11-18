@@ -264,9 +264,7 @@ public class JsonLdTranslator {
       documents.put(entity, propertyMapper.document(entity));
     }
     return new Page(
-        documents,
-        propertyMapper.resolveLabelsTogether(documents.values()),
-        servedBindings(entities));
+        documents, propertyMapper.resolveLabelsTogether(documents), servedBindings(entities));
   }
 
   /** A reindex page whose labels are resolved; translate each of its entities once. */
