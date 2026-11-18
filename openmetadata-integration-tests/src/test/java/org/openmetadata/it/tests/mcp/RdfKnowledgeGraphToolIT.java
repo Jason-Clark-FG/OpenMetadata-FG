@@ -49,6 +49,7 @@ public class RdfKnowledgeGraphToolIT extends McpTestBase {
   private static final String TOOL = "knowledge_graph";
   private static final String BELONGS_TO_SCHEMA = "om:belongsToSchema";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Duration PROJECTION_WAIT = Duration.ofSeconds(90);
 
   @BeforeAll
   static void setUp() throws Exception {
@@ -68,11 +69,10 @@ public class RdfKnowledgeGraphToolIT extends McpTestBase {
                 .withName(namespace.prefix("kgCard"))
                 .withDatabaseSchema(schema.getFullyQualifiedName())
                 .withColumns(List.of(ColumnBuilder.of("id", "BIGINT").build())));
-    RdfTestUtils.verifyEntityInRdf(table, "dcat:Dataset");
     final String tableIri = BASE_URI + "entity/table/" + table.getId();
     final String schemaIri = BASE_URI + "entity/databaseSchema/" + schema.getId();
 
-    final String run = awaitCard(table.getName(), tableIri).path("run").asText();
+    final String run = awaitCard(table, tableIri).path("run").asText();
     final JsonNode expanded =
         call(
             Map.of(
@@ -94,11 +94,14 @@ public class RdfKnowledgeGraphToolIT extends McpTestBase {
     assertThat(trace.path("steps").size()).isEqualTo(2);
   }
 
-  /** Search indexes the table asynchronously, so find is retried until the hit appears. */
-  private JsonNode awaitCard(final String question, final String tableIri) {
+  /**
+   * Search indexes the table and the single live writer projects it asynchronously, so find is
+   * retried until the card shows the projected table.
+   */
+  private JsonNode awaitCard(final Table table, final String tableIri) {
     final List<JsonNode> found = new ArrayList<>();
-    Awaitility.await("find returns the new table's card")
-        .atMost(Duration.ofSeconds(60))
+    Awaitility.await("find returns the new table's projected card")
+        .atMost(PROJECTION_WAIT)
         .pollInterval(Duration.ofSeconds(1))
         .ignoreExceptions()
         .untilAsserted(
@@ -109,11 +112,15 @@ public class RdfKnowledgeGraphToolIT extends McpTestBase {
                           "operation",
                           "find",
                           "question",
-                          question,
+                          table.getName(),
                           "entityTypes",
                           List.of("table")));
               final JsonNode card = cardFor(response, tableIri);
               assertThat(card.path("inGraph").asBoolean()).isTrue();
+              assertThat(card.path("types").toString()).contains("\"dcat:Dataset\"");
+              assertThat(card.path("label").asText()).isEqualTo(table.getName());
+              assertThat(card.path("fullyQualifiedName").asText())
+                  .isEqualTo(table.getFullyQualifiedName());
               assertThat(card.path("reachable").toString())
                   .contains("\"relationship\":\"" + BELONGS_TO_SCHEMA + "\"");
               found.add(response);
