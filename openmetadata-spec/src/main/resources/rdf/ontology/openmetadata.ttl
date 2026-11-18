@@ -25,7 +25,7 @@
 
 # OpenMetadata Complete Ontology
 om: a owl:Ontology ;
-    owl:versionInfo "2.0.2" ;
+    owl:versionInfo "2.1.0" ;
     dct:title "OpenMetadata Ontology" ;
     dct:description "Complete ontology for OpenMetadata covering all entities and relationships" ;
     dct:creator "OpenMetadata Team" ;

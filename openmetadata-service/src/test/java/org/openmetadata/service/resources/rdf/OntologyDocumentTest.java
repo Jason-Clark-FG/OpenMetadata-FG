@@ -57,8 +57,8 @@ class OntologyDocumentTest {
         parsed.contains(
             parsed.createResource(OM_NS),
             parsed.createProperty(OWL_VERSION_INFO),
-            parsed.createLiteral("2.0.2")),
-        "Ontology document should declare owl:versionInfo \"2.0.2\" on the om: ontology");
+            parsed.createLiteral("2.1.0")),
+        "Ontology document should declare owl:versionInfo \"2.1.0\" on the om: ontology");
 
     assertTrue(
         parsed.containsResource(parsed.createResource(OM_NS + "Column")),
