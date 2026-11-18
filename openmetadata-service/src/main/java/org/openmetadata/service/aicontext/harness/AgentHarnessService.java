@@ -337,7 +337,10 @@ public final class AgentHarnessService {
             .withCharacterBudget(
                 effective.map(spec -> spec.getContext().getCharacterBudget()).orElse(0));
     if (harness != null) {
-      summary.withHarnessId(harness.getId()).withEnabled(harness.getEnabled());
+      summary
+          .withHarnessId(harness.getId())
+          .withEnabled(harness.getEnabled())
+          .withAdditions(HarnessAdditionCounts.of(harness));
     }
     return withCacheFigures(summary, persona, HarnessContexts.merged(defaultHarness, harness));
   }

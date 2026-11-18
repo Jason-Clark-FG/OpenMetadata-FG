@@ -46,24 +46,16 @@ import { Surface } from '../../../generated/api/context/agentHarnessSurfaces';
 import { useAuth } from '../../../hooks/authHooks';
 import { usePaging } from '../../../hooks/paging/usePaging';
 import { useIsAiMode } from '../../../hooks/useAppMode';
-import {
-  HarnessAdditions,
-  HarnessTab,
-} from '../../../interface/discovery/agentHarness.interface';
+import { HarnessTab } from '../../../interface/discovery/agentHarness.interface';
 import {
   getAgentHarnessSurfaces,
   getDefaultAgentHarness,
-  getPersonaAgentHarness,
   listAgentHarnessPersonas,
   setAgentHarnessEnabled,
 } from '../../../rest/AgentHarnessAPI';
 import { getListContextMemories } from '../../../rest/contextMemoryAPI';
 import { getUsers } from '../../../rest/userAPI';
 import contextCenterClassBase from '../../../utils/ContextCenterClassBase';
-import {
-  additionsSummary,
-  editableSpec,
-} from '../../../utils/discovery/context-center/agentHarness.utils';
 import { getEntityName } from '../../../utils/EntityNameUtils';
 import { showErrorToast } from '../../../utils/ToastUtils';
 
@@ -80,9 +72,6 @@ const AgentHarnessListPage = () => {
   const { isAdminUser } = useAuth();
   const [defaultState, setDefaultState] = useState<AgentHarnessState>();
   const [rows, setRows] = useState<AgentHarnessPersonaSummary[]>([]);
-  const [additions, setAdditions] = useState<Map<string, HarnessAdditions>>(
-    new Map()
-  );
   const [userCount, setUserCount] = useState<number>();
   const [pendingMemories, setPendingMemories] = useState<number>();
   const [surfaces, setSurfaces] = useState<Surface[]>();
@@ -99,26 +88,6 @@ const AgentHarnessListPage = () => {
     showPagination,
   } = usePaging();
 
-  const loadAdditions = useCallback(
-    async (summaries: AgentHarnessPersonaSummary[]) => {
-      const withHarness = summaries.filter(({ harnessId }) => harnessId);
-      const states = await Promise.allSettled(
-        withHarness.map((row) => getPersonaAgentHarness(personaFqn(row)))
-      );
-      const next = new Map<string, HarnessAdditions>();
-      states.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          next.set(
-            result.value.published.id,
-            additionsSummary(editableSpec(result.value))
-          );
-        }
-      });
-      setAdditions(next);
-    },
-    []
-  );
-
   const fetchPersonas = useCallback(
     async (cursor?: Partial<Record<CursorType, string>>) => {
       try {
@@ -131,13 +100,12 @@ const AgentHarnessListPage = () => {
         );
         setRows(sorted);
         handlePagingChange(page.paging);
-        void loadAdditions(sorted);
       } catch (error) {
         setRows([]);
         showErrorToast(error as AxiosError);
       }
     },
-    [handlePagingChange, loadAdditions, pageSize]
+    [handlePagingChange, pageSize]
   );
 
   useEffect(() => {
@@ -239,7 +207,6 @@ const AgentHarnessListPage = () => {
     return (
       <Card>
         <PersonaHarnessTable
-          additions={additions}
           canEdit={Boolean(isAdminUser)}
           rows={rows}
           onEnabledChange={handleEnabledChange}

@@ -5,6 +5,47 @@
   "description": "One persona in the agent harness list, as returned by `GET /v1/agentHarness/personas`. The context figures are read from the context cache and never compiled for the list.",
   "type": "object",
   "javaType": "org.openmetadata.schema.api.context.AgentHarnessPersonaSummary",
+  "definitions": {
+    "harnessAdditions": {
+      "description": "What a persona harness adds to the default, counted from the harness's published settings.",
+      "type": "object",
+      "javaType": "org.openmetadata.schema.api.context.AgentHarnessAdditions",
+      "properties": {
+        "glossaryTerms": {
+          "description": "Glossary terms picked one by one.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics": {
+          "description": "Metrics picked one by one.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "articles": {
+          "description": "Articles picked one by one.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "rules": {
+          "description": "Context rules that are not picked lists.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "skills": {
+          "description": "Enabled skills the harness adds.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "guardrails": {
+          "description": "Guardrails the harness makes stricter.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["glossaryTerms", "metrics", "articles", "rules", "skills", "guardrails"],
+      "additionalProperties": false
+    }
+  },
   "properties": {
     "persona": {
       "description": "The persona.",
@@ -26,6 +67,10 @@
     "enabled": {
       "description": "The persona harness's `enabled` flag. Absent when the persona has no harness.",
       "type": "boolean"
+    },
+    "additions": {
+      "description": "What the persona's harness adds to the default. Absent when the persona has no harness.",
+      "$ref": "#/definitions/harnessAdditions"
     },
     "enabledEvents": {
       "description": "Hook events at which the persona's members receive context, with inheritance applied to the published harnesses.",

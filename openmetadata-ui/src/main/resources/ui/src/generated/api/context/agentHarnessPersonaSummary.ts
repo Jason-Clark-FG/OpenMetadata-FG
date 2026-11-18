@@ -16,6 +16,10 @@
  */
 export interface AgentHarnessPersonaSummary {
     /**
+     * What the persona's harness adds to the default. Absent when the persona has no harness.
+     */
+    additions?: HarnessAdditions;
+    /**
      * State of the cached document. A persona with nothing cached reports `STALE`.
      */
     cacheState: CacheState;
@@ -58,6 +62,38 @@ export interface AgentHarnessPersonaSummary {
      * persona.
      */
     userCount: number;
+}
+
+/**
+ * What the persona's harness adds to the default. Absent when the persona has no harness.
+ *
+ * What a persona harness adds to the default, counted from the harness's published settings.
+ */
+export interface HarnessAdditions {
+    /**
+     * Articles picked one by one.
+     */
+    articles: number;
+    /**
+     * Glossary terms picked one by one.
+     */
+    glossaryTerms: number;
+    /**
+     * Guardrails the harness makes stricter.
+     */
+    guardrails: number;
+    /**
+     * Metrics picked one by one.
+     */
+    metrics: number;
+    /**
+     * Context rules that are not picked lists.
+     */
+    rules: number;
+    /**
+     * Enabled skills the harness adds.
+     */
+    skills: number;
 }
 
 /**

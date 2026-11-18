@@ -34,7 +34,6 @@ import {
   createPersonaAgentHarness,
   getAgentHarnessSurfaces,
   getDefaultAgentHarness,
-  getPersonaAgentHarness,
   listAgentHarnessPersonas,
   setAgentHarnessEnabled,
 } from '../../../rest/AgentHarnessAPI';
@@ -47,7 +46,6 @@ jest.mock('../../../rest/AgentHarnessAPI', () => ({
   createPersonaAgentHarness: jest.fn(),
   getAgentHarnessSurfaces: jest.fn(),
   getDefaultAgentHarness: jest.fn(),
-  getPersonaAgentHarness: jest.fn(),
   listAgentHarnessPersonas: jest.fn(),
   setAgentHarnessEnabled: jest.fn(),
 }));
@@ -145,6 +143,14 @@ const DEFAULT_STATE = {
 } as unknown as AgentHarnessState;
 
 const ANALYST = summary('Analyst', {
+  additions: {
+    articles: 0,
+    glossaryTerms: 0,
+    guardrails: 0,
+    metrics: 0,
+    rules: 0,
+    skills: 1,
+  },
   enabled: true,
   harnessId: 'analyst-harness',
   status: HarnessStatus.Published,
@@ -174,16 +180,6 @@ describe('AgentHarnessListPage', () => {
             : SurfaceStatus.NotConnected,
       })),
     });
-    (getPersonaAgentHarness as jest.Mock).mockResolvedValue({
-      draftRevision: 0,
-      published: {
-        context: { rules: [] },
-        guardrails: [],
-        id: 'analyst-harness',
-        skills: [{ enabled: true, name: 'explain-metric' }],
-      },
-      status: HarnessStatus.Published,
-    });
     (listAgentHarnessPersonas as jest.Mock).mockResolvedValue({
       data: [summary('Steward'), ANALYST],
       paging: { total: 2 },
@@ -204,16 +200,11 @@ describe('AgentHarnessListPage', () => {
         .map((row) => row.getAttribute('data-testid'))
     ).toEqual(['persona-harness-row-Analyst', 'persona-harness-row-Steward']);
 
-    await waitFor(() =>
-      expect(
-        within(screen.getByTestId('persona-harness-row-Analyst')).getByText(
-          'message.agent-harness-added-skill'
-        )
-      ).toBeInTheDocument()
-    );
-
-    expect(getPersonaAgentHarness).toHaveBeenCalledTimes(1);
-    expect(getPersonaAgentHarness).toHaveBeenCalledWith('Analyst');
+    expect(
+      within(screen.getByTestId('persona-harness-row-Analyst')).getByText(
+        'message.agent-harness-added-skill'
+      )
+    ).toBeInTheDocument();
   });
 
   it('counts connected surfaces and names the first one still to connect', async () => {

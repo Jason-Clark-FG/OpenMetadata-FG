@@ -25,9 +25,11 @@ import {
   DELIVERY_GROUP_LABEL_KEYS,
   HARNESS_STATUS_BADGE,
 } from '../../../../constants/discovery/agentHarness.constants';
-import { AgentHarnessPersonaSummary } from '../../../../generated/api/context/agentHarnessPersonaSummary';
+import {
+  AgentHarnessPersonaSummary,
+  HarnessAdditions,
+} from '../../../../generated/api/context/agentHarnessPersonaSummary';
 import { HarnessStatus } from '../../../../generated/api/context/agentHarnessState';
-import { HarnessAdditions } from '../../../../interface/discovery/agentHarness.interface';
 import {
   contextBudgetPercent,
   deliveryGroups,
@@ -37,7 +39,6 @@ import { digitFormatter } from '../../../../utils/NumberUtils';
 
 export interface PersonaHarnessTableProps {
   rows: AgentHarnessPersonaSummary[];
-  additions: Map<string, HarnessAdditions>;
   canEdit: boolean;
   onOpen: (row: AgentHarnessPersonaSummary) => void;
   onEnabledChange: (row: AgentHarnessPersonaSummary, enabled: boolean) => void;
@@ -54,7 +55,6 @@ const ADDITION_KEYS: [keyof HarnessAdditions, string][] = [
 
 const PersonaHarnessTable = ({
   rows,
-  additions,
   canEdit,
   onOpen,
   onEnabledChange,
@@ -74,7 +74,7 @@ const PersonaHarnessTable = ({
         </Box>
       );
     }
-    const added = row.harnessId ? additions.get(row.harnessId) : undefined;
+    const added = row.additions;
     const parts = added
       ? ADDITION_KEYS.filter(([key]) => added[key] > 0).map(([key, i18nKey]) =>
           t(i18nKey, { count: added[key] })

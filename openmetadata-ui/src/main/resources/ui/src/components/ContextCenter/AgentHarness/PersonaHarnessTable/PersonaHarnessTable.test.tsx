@@ -35,6 +35,14 @@ const row = (
 
 const ROWS = [
   row('Analyst', {
+    additions: {
+      articles: 0,
+      glossaryTerms: 18,
+      guardrails: 0,
+      metrics: 0,
+      rules: 1,
+      skills: 0,
+    },
     charactersUsed: 248000,
     enabled: true,
     enabledEvents: [
@@ -64,21 +72,6 @@ const renderTable = (canEdit = true) => {
   const onEnabledChange = jest.fn();
   render(
     <PersonaHarnessTable
-      additions={
-        new Map([
-          [
-            'h-analyst',
-            {
-              articles: 0,
-              glossaryTerms: 18,
-              guardrails: 0,
-              metrics: 0,
-              rules: 1,
-              skills: 0,
-            },
-          ],
-        ])
-      }
       canEdit={canEdit}
       rows={ROWS}
       onEnabledChange={onEnabledChange}

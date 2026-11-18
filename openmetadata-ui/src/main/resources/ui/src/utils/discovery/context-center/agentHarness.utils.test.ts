@@ -35,7 +35,6 @@ import {
 } from '../../../interface/discovery/agentHarness.interface';
 import {
   addableSkills,
-  additionsSummary,
   allowedLevels,
   budgetErrors,
   contextBudgetPercent,
@@ -419,32 +418,6 @@ describe('agentHarness.utils', () => {
       expect(errors.cacheTtlMinutes).toBe('notPositive');
       expect(errors.characterBudget).toBe('outOfRange');
       expect(errors.perTurnTokenBudget).toBe('notPositive');
-    });
-  });
-
-  it('summarises what a persona adds to the default', () => {
-    expect(
-      additionsSummary({
-        context: {
-          rules: [
-            pickedRule('glossaryTerm', ['t1', 't2']),
-            pickedRule('metric', ['m1']),
-            PERSONA_RULE,
-          ],
-        },
-        guardrails: [{ id: 'cert', level: GuardrailLevel.Block }],
-        skills: [
-          { enabled: true, name: 'explain-metric' },
-          { enabled: false, name: 'write-sql' },
-        ],
-      })
-    ).toEqual({
-      articles: 0,
-      glossaryTerms: 2,
-      guardrails: 1,
-      metrics: 1,
-      rules: 1,
-      skills: 1,
     });
   });
 

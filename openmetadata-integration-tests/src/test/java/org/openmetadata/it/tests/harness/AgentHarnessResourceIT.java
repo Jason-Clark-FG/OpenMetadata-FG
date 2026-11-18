@@ -33,6 +33,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceAccessMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.openmetadata.schema.api.context.AgentHarnessAdditions;
 import org.openmetadata.schema.api.context.AgentHarnessPersonaSummary;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AgentHarnessState;
@@ -251,6 +252,24 @@ class AgentHarnessResourceIT {
     assertThat(drafted.getStatus()).isEqualTo(AgentHarnessStatus.DRAFT);
     assertThat(drafted.getHarnessId()).isEqualTo(harness.getPublished().getId());
     assertThat(drafted.getEnabled()).isTrue();
+    assertThat(inherited.getAdditions()).isNull();
+  }
+
+  @Test
+  void thePersonaListCountsWhatAPublishedHarnessAddsWithoutPerRowReads() {
+    Persona persona = createPersona(uniqueName("harness_list_additions"), List.of());
+    AgentHarnessState created = createPersonaHarness(persona);
+    publish(
+        created.getPublished().getId(),
+        withRule(created.getDraft(), "Orders"),
+        created.getDraftRevision());
+
+    AgentHarnessAdditions additions = allPersonaSummaries().get(persona.getId()).getAdditions();
+
+    assertThat(additions.getRules()).isEqualTo(1);
+    assertThat(additions.getGlossaryTerms()).isZero();
+    assertThat(additions.getSkills()).isZero();
+    assertThat(additions.getGuardrails()).isZero();
   }
 
   @Test

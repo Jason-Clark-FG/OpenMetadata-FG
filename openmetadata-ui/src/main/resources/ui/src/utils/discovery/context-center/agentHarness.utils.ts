@@ -55,7 +55,6 @@ import {
   DeliveryGroup,
   DeliveryRow,
   GuardrailRow,
-  HarnessAdditions,
   HarnessBudgetErrors,
   HarnessSource,
   PickableSource,
@@ -365,20 +364,6 @@ export const hasBudgetErrors = (errors: HarnessBudgetErrors): boolean =>
       errors.perTurnTokenBudget ||
       Object.keys(errors.events).length
   );
-
-/** What a persona harness's own spec adds to the default. */
-export const additionsSummary = (spec: AgentHarnessSpec): HarnessAdditions => {
-  const counts = sourceCounts(ownRules(spec));
-
-  return {
-    articles: counts[HarnessSource.Articles].pickedIds.length,
-    glossaryTerms: counts[HarnessSource.GlossaryTerms].pickedIds.length,
-    guardrails: spec.guardrails?.length ?? 0,
-    metrics: counts[HarnessSource.Metrics].pickedIds.length,
-    rules: ownRules(spec).filter(({ picked }) => !picked).length,
-    skills: (spec.skills ?? []).filter(({ enabled }) => enabled).length,
-  };
-};
 
 export const deliveryGroups = (events: HookEvent[]): DeliveryGroup[] => {
   const groups = new Set(events.map((event) => DELIVERY_GROUP_OF_EVENT[event]));

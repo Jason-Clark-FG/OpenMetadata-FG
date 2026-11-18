@@ -79,16 +79,6 @@ export interface HarnessBudgetErrors {
   events: Partial<Record<HookEvent, BudgetError>>;
 }
 
-/** What a persona harness adds to the default, for the list's Harness column. */
-export interface HarnessAdditions {
-  glossaryTerms: number;
-  metrics: number;
-  articles: number;
-  rules: number;
-  skills: number;
-  guardrails: number;
-}
-
 /** One Instructions tab skill row, as it applies to this harness with local edits. */
 export interface SkillRow {
   name: string;
