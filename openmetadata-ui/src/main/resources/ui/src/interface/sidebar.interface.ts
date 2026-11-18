@@ -16,6 +16,8 @@
 export interface LeftSidebarItem {
   key: string;
   isBeta?: boolean;
+  /** Marks a recently added item with a "New" badge after its title. */
+  isNew?: boolean;
   title: string;
   redirect_url?: string;
   icon: SvgComponent;

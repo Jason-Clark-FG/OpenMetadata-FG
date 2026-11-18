@@ -12,9 +12,11 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { ROUTES } from '../../../constants/constants';
 import {
   LOGOUT_ITEM,
   SETTING_ITEM,
+  SIDEBAR_LIST,
 } from '../../../constants/LeftSidebar.constants';
 import LeftSidebarItem from './LeftSidebarItem.component';
 
@@ -103,5 +105,25 @@ describe('LeftSidebar Items', () => {
     fireEvent.click(screen.getByTestId('app-bar-item-logout'));
 
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('badges the Agent Harness entry as new and the settings entry not', () => {
+    const [agentHarness] = SIDEBAR_LIST.flatMap(
+      (item) => item.children ?? []
+    ).filter(({ key }) => key === ROUTES.CONTEXT_CENTER_AGENT_HARNESS);
+
+    render(
+      <BrowserRouter>
+        <LeftSidebarItem data={agentHarness} />
+        <LeftSidebarItem data={SETTING_ITEM} />
+      </BrowserRouter>
+    );
+
+    expect(screen.getByTestId('app-bar-item-agent-harness')).toHaveTextContent(
+      'label.agent-harnesslabel.new'
+    );
+    expect(screen.getByTestId('app-bar-item-settings')).not.toHaveTextContent(
+      'label.new'
+    );
   });
 });

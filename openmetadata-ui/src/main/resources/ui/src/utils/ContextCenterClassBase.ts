@@ -37,6 +37,9 @@ export interface ContextCenterBreadcrumbItem {
   ariaLabel?: string;
 }
 
+const withTab = (path: string, tab?: string) =>
+  tab ? `${path}?tab=${encodeURIComponent(tab)}` : path;
+
 class ContextCenterClassBase {
   public setEmbeddedMode(_flag: boolean): void {
     // no-op in base; overridden in Collate
@@ -95,14 +98,30 @@ class ContextCenterClassBase {
     return ROUTES.CONTEXT_CENTER_MEMORIES;
   }
 
+  /** The AI Context pages became the Agent Harness; their old links land there. */
   public getAIContextListPath(): string {
-    return ROUTES.CONTEXT_CENTER_AI_CONTEXT;
+    return this.getAgentHarnessListPath();
   }
 
   public getAIContextPath(personaFqn: string): string {
-    return ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL.replace(
-      PLACEHOLDER_ROUTE_FQN,
-      getEncodedFqn(personaFqn)
+    return this.getAgentHarnessPersonaPath(personaFqn);
+  }
+
+  public getAgentHarnessListPath(): string {
+    return ROUTES.CONTEXT_CENTER_AGENT_HARNESS;
+  }
+
+  public getAgentHarnessDefaultPath(tab?: string): string {
+    return withTab(ROUTES.CONTEXT_CENTER_AGENT_HARNESS_DEFAULT, tab);
+  }
+
+  public getAgentHarnessPersonaPath(personaFqn: string, tab?: string): string {
+    return withTab(
+      ROUTES.CONTEXT_CENTER_AGENT_HARNESS_PERSONA.replace(
+        PLACEHOLDER_ROUTE_FQN,
+        getEncodedFqn(personaFqn)
+      ),
+      tab
     );
   }
 
