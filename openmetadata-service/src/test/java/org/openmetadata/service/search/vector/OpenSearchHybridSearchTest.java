@@ -36,13 +36,12 @@ import os.org.opensearch.client.opensearch.generic.OpenSearchGenericClient;
 import os.org.opensearch.client.opensearch.generic.Request;
 import os.org.opensearch.client.opensearch.generic.Response;
 
-/** The one hybrid query: what it asks the cluster, and how its hits come back. */
+/** The hybrid search: what its two legs ask the cluster, and how their hits come back. */
 class OpenSearchHybridSearchTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final String LEXICAL = "{\"match\":{\"name\":\"customer lifetime value\"}}";
-  private static final String PIPELINE =
-      "{\"phase_results_processors\":[{\"score-ranker-processor\":{}}]}";
+  private static final HybridRanking RANKING = new HybridRanking(0.6, 0.4, 30);
 
   private OpenSearchGenericClient genericClient;
   private OpenSearchVectorService service;
@@ -81,14 +80,24 @@ class OpenSearchHybridSearchTest {
   }
 
   private static HybridSearchRequest request(final String accessFilter) {
+    return request(List.of("table", "tableColumn", "glossaryTerm"), accessFilter);
+  }
+
+  private static HybridSearchRequest request(
+      final List<String> entityTypes, final String accessFilter) {
     return new HybridSearchRequest(
         "customer lifetime value",
         LEXICAL,
-        List.of("dataAssetEmbeddings", "tableColumn"),
-        Map.of("entityType", List.of("table", "tableColumn")),
+        "all",
+        "dataAssetEmbeddings",
+        entityTypes,
         accessFilter,
         5,
         null);
+  }
+
+  private JsonNode sentBody(final int index) throws IOException {
+    return JSON.readTree(requests.get(index).getBody().orElseThrow().bodyAsString());
   }
 
   @Test
@@ -103,23 +112,57 @@ class OpenSearchHybridSearchTest {
     assertThat(plain).doesNotContain("ignore_unmapped");
   }
 
+  /**
+   * OpenSearch ranks each leg of a {@code hybrid} query within each shard before RRF fuses them, so
+   * over an alias of many single-shard indexes every index's best hit took first place and they
+   * tied. Each leg is asked on its own instead, ranked over its whole scope, and fused here.
+   */
   @Test
-  void oneQueryAsksByWordsAndByMeaningOverTheEmbeddingsAndColumnIndexesWithTheInlinePipeline()
+  void theWordsAndTheMeaningAreAskedSeparatelyOverTheScopeAndNoClusterPipelineRanksThem()
       throws IOException {
     clusterAnswers(200, "{\"hits\":{\"hits\":[]}}");
 
-    service.hybridSearch(request(), PIPELINE);
+    service.hybridSearch(request(), RANKING);
 
-    final Request sent = requests.getFirst();
-    assertThat(sent.getEndpoint()).isEqualTo("/dataAssetEmbeddings,tableColumn/_search");
-    final JsonNode body = JSON.readTree(sent.getBody().orElseThrow().bodyAsString());
-    final JsonNode legs = body.path("query").path("hybrid").path("queries");
-    assertThat(legs).hasSize(2);
-    assertThat(legs.get(0).toString()).contains("customer lifetime value", "tableColumn");
-    assertThat(legs.get(1).path("knn").path("embedding").path("ignore_unmapped").asBoolean())
-        .isTrue();
-    assertThat(body.path("search_pipeline")).isEqualTo(JSON.readTree(PIPELINE));
-    assertThat(body.path("size").asInt()).isGreaterThanOrEqualTo(5);
+    assertThat(requests)
+        .extracting(Request::getEndpoint)
+        .containsExactly("/all/_search", "/dataAssetEmbeddings/_search");
+    final JsonNode words = sentBody(0);
+    final JsonNode meaning = sentBody(1);
+    assertThat(words.path("query").path("bool").path("must").toString())
+        .contains("customer lifetime value");
+    assertThat(words.path("query").path("bool").path("filter").toString())
+        .contains("{\"term\":{\"deleted\":false}}")
+        .contains("{\"terms\":{\"entityType\":[\"table\",\"tableColumn\",\"glossaryTerm\"]}}");
+    final JsonNode knn = meaning.path("query").path("knn").path("embedding");
+    assertThat(knn.path("ignore_unmapped").asBoolean()).isTrue();
+    assertThat(knn.path("filter").toString())
+        .contains("\"entityType\":[\"table\",\"glossaryTerm\"]")
+        .doesNotContain("tableColumn");
+    for (final JsonNode body : List.of(words, meaning)) {
+      assertThat(body.has("search_pipeline")).isFalse();
+      assertThat(body.path("query").has("hybrid")).isFalse();
+      assertThat(body.path("size").asInt()).isGreaterThanOrEqualTo(5);
+    }
+  }
+
+  @Test
+  void aScopeWithNoTypeThatCarriesEmbeddingsIsAskedOnlyByWords() throws IOException {
+    clusterAnswers(200, "{\"hits\":{\"hits\":[]}}");
+
+    service.hybridSearch(request(List.of("tableColumn", "tag"), null), RANKING);
+
+    assertThat(requests).extracting(Request::getEndpoint).containsExactly("/all/_search");
+  }
+
+  @Test
+  void theWordQueryMatchesTheWholeQuestionOrAnyOfItsWords() throws IOException {
+    final JsonNode anyOf =
+        JSON.readTree(
+            HybridSearchQuery.anyOf(List.of(LEXICAL, "{\"match\":{\"name\":\"spend\"}}")));
+
+    assertThat(anyOf.path("bool").path("should")).hasSize(2);
+    assertThat(anyOf.path("bool").path("minimum_should_match").asInt()).isEqualTo(1);
   }
 
   @Test
@@ -127,18 +170,14 @@ class OpenSearchHybridSearchTest {
       throws IOException {
     clusterAnswers(200, "{\"hits\":{\"hits\":[]}}");
 
-    service.hybridSearch(request(DOMAIN_FILTER), PIPELINE);
-    service.hybridSearch(request(null), PIPELINE);
+    service.hybridSearch(request(DOMAIN_FILTER), RANKING);
+    service.hybridSearch(request(null), RANKING);
 
-    final JsonNode filtered =
-        JSON.readTree(requests.get(0).getBody().orElseThrow().bodyAsString())
-            .path("query")
-            .path("hybrid")
-            .path("queries");
-    assertThat(filtered.get(0).path("bool").path("filter").toString()).contains("d-7");
-    assertThat(filtered.get(1).path("knn").path("embedding").path("filter").toString())
+    assertThat(sentBody(0).path("query").path("bool").path("filter").toString()).contains("d-7");
+    assertThat(sentBody(1).path("query").path("knn").path("embedding").path("filter").toString())
         .contains("d-7");
-    assertThat(requests.get(1).getBody().orElseThrow().bodyAsString()).doesNotContain("d-7");
+    assertThat(sentBody(2).toString()).doesNotContain("d-7");
+    assertThat(sentBody(3).toString()).doesNotContain("d-7");
   }
 
   @Test
@@ -154,7 +193,7 @@ class OpenSearchHybridSearchTest {
         ]}}
         """);
 
-    final List<Map<String, Object>> hits = service.hybridSearch(request(), PIPELINE);
+    final List<Map<String, Object>> hits = service.hybridSearch(request(), RANKING);
 
     assertThat(hits)
         .extracting(hit -> hit.get("parentId"), hit -> hit.get("entityType"))
@@ -166,7 +205,7 @@ class OpenSearchHybridSearchTest {
   void aClusterThatCannotRunTheQueryIsAHybridSearchFailure() throws IOException {
     clusterAnswers(400, "{\"error\":{\"type\":\"illegal_argument_exception\"}}");
 
-    assertThatThrownBy(() -> service.hybridSearch(request(), PIPELINE))
+    assertThatThrownBy(() -> service.hybridSearch(request(), RANKING))
         .isInstanceOf(HybridSearchException.class);
   }
 }

@@ -123,10 +123,49 @@ class CatalogStartingPointsTest {
     assertThat(found.semanticSearchSkipped()).isNull();
     assertThat(hybrid.questions)
         .containsExactly("How much do our clients spend with us over time?");
-    assertThat(hybrid.sizes).containsExactly(5);
+    assertThat(hybrid.words).containsExactly(List.of("client", "spend", "over", "time"));
+    assertThat(hybrid.entityTypes).containsExactly(List.of());
+    assertThat(hybrid.sizes).containsExactly(15);
     assertThat(hybrid.callers).containsExactly(CALLER);
     assertThat(semantic.calls).isEmpty();
     assertThat(keyword.calls).isEmpty();
+  }
+
+  /**
+   * A find answer is where to start, and each kind of node is a different way in: a term says what
+   * a word means, a table holds the data, a column answers "which column". Each kind's best hit
+   * comes before any kind's second, in rank order.
+   */
+  @Test
+  void hybridHitsComeBackEachKindsBestFirstThenEachKindsSecond() throws Exception {
+    final UUID orders = UUID.randomUUID();
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                columnHit(UUID.randomUUID(), "shop.orders.order_total", orders, "shop.orders"),
+                columnHit(UUID.randomUUID(), "shop.orders.subtotal", orders, "shop.orders"),
+                columnHit(UUID.randomUUID(), "shop.orders.tax_paid", orders, "shop.orders"),
+                hybridHit(orders, "table", "shop.orders"),
+                hybridHit(UUID.randomUUID(), "glossaryTerm", "g.Revenue"),
+                hybridHit(UUID.randomUUID(), "table", "shop.stg_orders")));
+
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+            .search(
+                AUTHORIZER,
+                CALLER,
+                new KnowledgeGraphCall.Find("total revenue per month", List.of(), 5));
+
+    assertThat(found.hits())
+        .extracting(SearchHit::fullyQualifiedName)
+        .containsExactly(
+            "shop.orders.order_total",
+            "shop.orders",
+            "g.Revenue",
+            "shop.orders.subtotal",
+            "shop.stg_orders",
+            "shop.orders.tax_paid");
   }
 
   @Test
@@ -174,6 +213,21 @@ class CatalogStartingPointsTest {
   }
 
   @Test
+  void hybridSearchIsAskedForTheTypesTheCallerNamedAndAOneWordQuestionHasNoSeparateWords()
+      throws Exception {
+    final RecordingHybrid hybrid = new RecordingHybrid(List.of());
+
+    new CatalogStartingPoints(() -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+        .search(
+            AUTHORIZER,
+            CALLER,
+            new KnowledgeGraphCall.Find("orders", List.of("table", "aiGovernancePolicy"), 5));
+
+    assertThat(hybrid.entityTypes).containsExactly(List.of("table", "aiGovernancePolicy"));
+    assertThat(hybrid.words).containsExactly(List.of());
+  }
+
+  @Test
   void aHybridSearchThatFailsLeavesTheWordSearchToAnswerAndSaysSemanticSearchWasSkipped()
       throws Exception {
     final CatalogStartingPoints points =
@@ -181,7 +235,7 @@ class CatalogStartingPointsTest {
             () -> true,
             () -> semantic,
             () -> keyword,
-            (question, filters, size, caller) -> {
+            (question, words, entityTypes, size, caller) -> {
               throw new HybridSearchException("cluster rejected the hybrid query", null);
             },
             EVERY_HIT_VISIBLE);
@@ -218,7 +272,7 @@ class CatalogStartingPointsTest {
   }
 
   private static final CatalogStartingPoints.HybridCatalogSearch NO_HYBRID =
-      (question, filters, size, caller) -> Optional.empty();
+      (question, words, entityTypes, size, caller) -> Optional.empty();
   private static final SemanticSearchTool.HitVisibility EVERY_HIT_VISIBLE =
       (authorizer, caller, hit) -> true;
 
@@ -226,6 +280,8 @@ class CatalogStartingPointsTest {
   private static final class RecordingHybrid implements CatalogStartingPoints.HybridCatalogSearch {
     private final List<Map<String, Object>> rows;
     private final List<String> questions = new ArrayList<>();
+    private final List<List<String>> words = new ArrayList<>();
+    private final List<List<String>> entityTypes = new ArrayList<>();
     private final List<Integer> sizes = new ArrayList<>();
     private final List<CatalogSecurityContext> callers = new ArrayList<>();
 
@@ -236,10 +292,13 @@ class CatalogStartingPointsTest {
     @Override
     public Optional<List<Map<String, Object>>> search(
         final String question,
-        final Map<String, List<String>> filters,
+        final List<String> questionWords,
+        final List<String> types,
         final int size,
         final CatalogSecurityContext caller) {
       questions.add(question);
+      words.add(questionWords);
+      entityTypes.add(types);
       sizes.add(size);
       callers.add(caller);
       return Optional.of(rows);

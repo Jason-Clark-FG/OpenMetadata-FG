@@ -22,12 +22,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The request and the reading of a hybrid search: a word leg and a KNN leg in one {@code hybrid}
- * query, ranked by the RRF pipeline inlined in the request, and its hits folded to one per entity
- * in rank order. A chunk hit names its entity in {@code parentId}, an entity document in {@code
- * id}; every returned hit carries the entity in {@code parentId}.
+ * The requests and the reading of a hybrid search's two legs, each its own search ranked over its
+ * whole scope, and each leg's hits folded to one per entity in rank order. A chunk hit names its
+ * entity in {@code parentId}, an entity document in {@code id}; every returned hit carries the
+ * entity in {@code parentId}.
  */
-final class HybridSearchQuery {
+public final class HybridSearchQuery {
 
   /** Chunks of one entity can take several of the ranked places before it is folded. */
   static final int CHUNK_OVERFETCH = 3;
@@ -42,18 +42,31 @@ final class HybridSearchQuery {
     return "/" + String.join(",", indexes) + "/_search";
   }
 
-  static String body(
-      final String lexicalLeg, final String knnLeg, final int size, final String rrfPipeline) {
+  static String body(final String leg, final int size) {
     try {
       final ObjectNode body = JSON.createObjectNode();
       body.put("size", size * CHUNK_OVERFETCH);
       body.putObject("_source").putArray("excludes").add("embedding").add("columns");
-      final ArrayNode legs = body.putObject("query").putObject("hybrid").putArray("queries");
-      legs.add(JSON.readTree(lexicalLeg)).add(JSON.readTree(knnLeg));
-      body.set("search_pipeline", JSON.readTree(rrfPipeline));
+      body.set("query", JSON.readTree(leg));
       return JSON.writeValueAsString(body);
     } catch (JsonProcessingException invalid) {
       throw new IllegalArgumentException("A hybrid search leg is not valid JSON", invalid);
+    }
+  }
+
+  /** A query any one of {@code queries} satisfies, scored by all of those that match. */
+  public static String anyOf(final List<String> queries) {
+    try {
+      final ObjectNode bool = JSON.createObjectNode();
+      final ObjectNode clauses = bool.putObject("bool");
+      final ArrayNode should = clauses.putArray("should");
+      for (final String query : queries) {
+        should.add(JSON.readTree(query));
+      }
+      clauses.put("minimum_should_match", 1);
+      return JSON.writeValueAsString(bool);
+    } catch (JsonProcessingException invalid) {
+      throw new IllegalArgumentException("A hybrid word query is not valid JSON", invalid);
     }
   }
 

@@ -71,6 +71,11 @@ public class OpenSearchVectorService implements VectorIndexService {
   private static final int OVER_FETCH_MULTIPLIER = 2;
   public static final String HYBRID_PIPELINE_NAME = "hybrid-rrf";
 
+  /** The RRF rank constant of the hybrid pipeline and of {@link HybridRanking}. */
+  public static final int RRF_RANK_CONSTANT = 30;
+
+  private static final String ENTITY_TYPE_FIELD = "entityType";
+
   private static volatile OpenSearchVectorService instance;
 
   private final OpenSearchClient client;
@@ -151,7 +156,7 @@ public class OpenSearchVectorService implements VectorIndexService {
         MAPPER
             .createObjectNode()
             .put("technique", "rrf")
-            .put("rank_constant", 30)
+            .put("rank_constant", RRF_RANK_CONSTANT)
             .set("parameters", MAPPER.createObjectNode().set("weights", weights));
     var scoreRanker =
         MAPPER
@@ -1593,41 +1598,56 @@ public class OpenSearchVectorService implements VectorIndexService {
   }
 
   /**
-   * Runs one hybrid search: the request's word query and a KNN query over the question's
-   * embedding, in one {@code hybrid} query over the request's indexes, ranked by {@code
-   * rrfPipeline} inlined in the request. Returns at most {@code size} entities in rank order.
+   * The words and the meaning of the question, each searched on its own and ranked over its whole
+   * scope, fused by {@code ranking}. The meaning leg asks only for the types that carry embeddings,
+   * and is not asked when none does.
    */
   public List<Map<String, Object>> hybridSearch(
-      final HybridSearchRequest request, final String rrfPipeline) {
+      final HybridSearchRequest request, final HybridRanking ranking) {
     try {
-      final String knnLeg =
-          VectorSearchQueryBuilder.buildHybridQuery(
-              embeddingClient.embedQuery(request.query()),
-              new VectorSearchParameters(
-                  null,
-                  request.filters(),
-                  0,
-                  0,
-                  request.size() * HybridSearchQuery.CHUNK_OVERFETCH,
-                  0.0,
-                  null,
-                  request.subjectContext(),
-                  request.accessFilter()));
-      final String body =
-          HybridSearchQuery.body(
-              HybridSearchQuery.lexicalLeg(
-                  request.lexicalQuery(), request.filters(), request.accessFilter()),
-              knnLeg,
-              request.size(),
-              rrfPipeline);
-      return HybridSearchQuery.entities(
-          executeGenericRequest("POST", HybridSearchQuery.endpoint(request.indexes()), body),
-          request.size());
+      final Map<String, List<String>> scope = Map.of(ENTITY_TYPE_FIELD, request.entityTypes());
+      final List<Map<String, Object>> byWords =
+          leg(
+              request.wordIndex(),
+              HybridSearchQuery.lexicalLeg(request.lexicalQuery(), scope, request.accessFilter()),
+              request.size());
+      final List<String> embedded =
+          request.entityTypes().stream().filter(AvailableEntityTypes::isVectorIndexable).toList();
+      final List<Map<String, Object>> byMeaning =
+          embedded.isEmpty()
+              ? List.of()
+              : leg(request.meaningIndex(), knnLeg(request, embedded), request.size());
+      return ranking.fuse(byWords, byMeaning, request.size());
     } catch (JsonProcessingException unreadable) {
       throw new HybridSearchException("The hybrid search response could not be read", unreadable);
     } catch (RuntimeException failed) {
       throw new HybridSearchException("Hybrid search failed: " + failed.getMessage(), failed);
     }
+  }
+
+  private List<Map<String, Object>> leg(final String index, final String query, final int size)
+      throws JsonProcessingException {
+    return HybridSearchQuery.entities(
+        executeGenericRequest(
+            "POST",
+            HybridSearchQuery.endpoint(List.of(index)),
+            HybridSearchQuery.body(query, size)),
+        size * HybridSearchQuery.CHUNK_OVERFETCH);
+  }
+
+  private String knnLeg(final HybridSearchRequest request, final List<String> embedded) {
+    return VectorSearchQueryBuilder.buildHybridQuery(
+        embeddingClient.embedQuery(request.query()),
+        new VectorSearchParameters(
+            null,
+            Map.of(ENTITY_TYPE_FIELD, embedded),
+            0,
+            0,
+            request.size() * HybridSearchQuery.CHUNK_OVERFETCH,
+            0.0,
+            null,
+            request.subjectContext(),
+            request.accessFilter()));
   }
 
   @Override

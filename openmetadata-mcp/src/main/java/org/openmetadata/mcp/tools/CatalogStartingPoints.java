@@ -14,6 +14,7 @@
 package org.openmetadata.mcp.tools;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +40,9 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 /**
  * Runs the catalog search the server already has, as the caller. With semantic search on and an
- * OpenSearch backend, one hybrid search matches the question by words and by meaning, ranked by
- * the configured RRF pipeline, so columns (which match only by words) come back beside tables and
+ * OpenSearch backend, one hybrid search matches the question and its words by words and the
+ * question by meaning over the types asked (the data asset types when none are), fused with the
+ * configured RRF weights, so columns (which match only by words) come back beside tables and
  * terms. With semantic search on and no hybrid search (Elasticsearch), {@code semantic_search} and
  * the word search both run and their hits alternate, meaning first. With semantic search off, the
  * word search runs alone. When semantic search fails, the word search answers alone and the hits
@@ -60,6 +62,9 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
   private static final int MAX_WORDS = 8;
 
+  /** How many hybrid hits per card asked for are ranked, so each kind can take its turn. */
+  private static final int KIND_POOL = 3;
+
   private static final String TABLE = "table";
   private static final String TYPE = "type";
   private static final String COLUMN_INDEX = "tableColumn";
@@ -70,12 +75,16 @@ final class CatalogStartingPoints implements StartingPoints {
   private final HybridCatalogSearch hybridSearch;
   private final SemanticSearchTool.HitVisibility hitVisibility;
 
-  /** One hybrid search as the caller, or empty when this server cannot run one. */
+  /**
+   * One hybrid search as the caller over {@code entityTypes} (the server's default scope when
+   * empty), or empty when this server cannot run one.
+   */
   @FunctionalInterface
   interface HybridCatalogSearch {
     Optional<List<Map<String, Object>>> search(
         String question,
-        Map<String, List<String>> filters,
+        List<String> words,
+        List<String> entityTypes,
         int size,
         CatalogSecurityContext caller);
   }
@@ -102,26 +111,18 @@ final class CatalogStartingPoints implements StartingPoints {
     this.hitVisibility = Objects.requireNonNull(hitVisibility);
   }
 
-  /**
-   * Over the embeddings alias and the column index, which holds no embeddings, filtered by the
-   * caller's search access policies as keyword search is.
-   */
+  /** Filtered by the caller's search access policies as keyword search is. */
   private static Optional<List<Map<String, Object>>> serverHybridSearch(
       final String question,
-      final Map<String, List<String>> filters,
+      final List<String> words,
+      final List<String> entityTypes,
       final int size,
       final CatalogSecurityContext caller) {
     final SearchRepository search = Entity.getSearchRepository();
     return search.getVectorIndexService() == null
         ? Optional.empty()
         : search.hybridSearch(
-            question,
-            List.of(
-                search.getVectorIndexService().getIndexAlias(),
-                search.getIndexOrAliasName(COLUMN_INDEX)),
-            filters,
-            size,
-            DefaultAuthorizer.getSubjectContext(caller));
+            question, words, entityTypes, size, DefaultAuthorizer.getSubjectContext(caller));
   }
 
   /**
@@ -160,14 +161,34 @@ final class CatalogStartingPoints implements StartingPoints {
       throws IOException {
     try {
       final Optional<List<Map<String, Object>>> hybrid =
-          hybridSearch.search(find.question(), hybridFilters(find), find.limit(), securityContext);
+          hybridSearch.search(
+              find.question(),
+              words.size() > 1 ? words : List.of(),
+              find.catalogTypes(),
+              find.limit() * KIND_POOL,
+              securityContext);
       return hybrid.isPresent()
-          ? CatalogHits.of(viewable(authorizer, securityContext, hybrid.get()))
+          ? CatalogHits.of(byKind(viewable(authorizer, securityContext, hybrid.get())))
           : merged(authorizer, securityContext, find, words);
     } catch (HybridSearchException failed) {
       return CatalogHits.skipped(
           keywordHits(authorizer, securityContext, find, words), failed.getMessage());
     }
+  }
+
+  /**
+   * Each kind's best hit, in rank order, then each kind's second, and so on: a term, a table and a
+   * column are different ways into one question, and a run of one kind would crowd the others out.
+   */
+  static List<SearchHit> byKind(final List<SearchHit> ranked) {
+    final Map<String, Integer> seen = new HashMap<>();
+    final List<Integer> rounds =
+        ranked.stream().map(hit -> seen.merge(hit.entityType(), 1, Integer::sum)).toList();
+    return IntStream.range(0, ranked.size())
+        .boxed()
+        .sorted(Comparator.comparing(rounds::get))
+        .map(ranked::get)
+        .toList();
   }
 
   /** Without hybrid search: meaning hits and word hits alternate, meaning first, each once. */
@@ -203,11 +224,6 @@ final class CatalogStartingPoints implements StartingPoints {
                     .map(hits -> hits.get(index)))
         .distinct()
         .toList();
-  }
-
-  private static Map<String, List<String>> hybridFilters(final KnowledgeGraphCall.Find find) {
-    final List<String> catalogTypes = find.catalogTypes();
-    return catalogTypes.isEmpty() ? Map.of() : Map.of(ENTITY_TYPE, catalogTypes);
   }
 
   private List<SearchHit> viewable(

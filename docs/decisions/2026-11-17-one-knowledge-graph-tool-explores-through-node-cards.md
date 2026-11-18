@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -256,3 +256,48 @@ Measured on tables with 30 stored, described relationships: a card went from 5,5
 (`notCovered` 3,136 of them, `reachable` 2,019, facts 185, identity 128) to 2,420; a default `find`
 of 10 such tables from 10 cards in 62,773 characters (over Claude Code's limit) to 10 cards in
 34,461. A glossary term card went from 1,634 to 660.
+
+## Amendment 2026-11-18. Hybrid legs are ranked over their whole scope; find covers data assets
+
+On a live OpenSearch 3.4.0 server the v7 hybrid search answered three data questions with seeded
+AI-governance frameworks and policies, and with no glossary term or column. Two causes. The
+`score-ranker-processor` ranks each leg of a `hybrid` query within each shard, and the
+`dataAssetEmbeddings` alias is about thirty single-shard indexes, so every index's best KNN hit
+ranked first and all of them tied (`0.4 / 31`), ordered by index name. And the word leg sent the
+whole sentence to the data asset query, whose clauses need every word, so it matched nothing. This
+amendment replaces the v7 bullet for OpenSearch.
+
+- **Two searches, fused here.** The word leg and the KNN leg are each an ordinary search, ranked
+  over their whole scope, and `HybridRanking` fuses them by reciprocal rank with the configured
+  keyword and semantic weights and the pipeline's rank constant (30,
+  `OpenSearchVectorService.RRF_RANK_CONSTANT`). No cluster pipeline ranks them.
+- **Words.** The word leg asks the data asset query for the whole question or any of its words (the
+  words v5 reads), so a question matches what its words name.
+- **Scope.** Both legs are held to the types the caller asked for, else to the data asset types:
+  the members of the `dataAsset` alias, which keyword search covers (tables, columns, glossary
+  terms, dashboards, charts, data models, metrics, pipelines, topics, tags and the rest). Test
+  cases and suites, governance frameworks and policies, domains, glossaries and context memory are
+  outside it; a caller reaches them by naming their type, and test cases from a table along
+  `om:testsEntity` (incoming). The word leg searches the global alias, the KNN leg the embeddings
+  alias, each filtered by the scope; the KNN leg asks only for the types that carry embeddings
+  (`AvailableEntityTypes`) and is skipped when none does.
+- **Ranking.** A type without embeddings (a column, a tag) cannot be found by meaning, so its word
+  rank stands for both legs instead of counting as a miss. A column found by words is a word match
+  for its table too.
+- **Kinds take turns.** `find` asks for three hybrid hits per card it can return and orders them by
+  kind: each kind's best hit in rank order, then each kind's second. A term, a table and a column are
+  different ways into one question; a run of one kind crowded the others out.
+
+`HybridRankingTest` holds the fusion rules with the live rankings of one question;
+`OpenSearchHybridSearchTest` holds the two requests, their scope and filters, and that neither is a
+`hybrid` query or names a pipeline; `HybridSearchScopeTest` holds the default scope against the
+shipped index mapping. The v7 entry points are now `SearchRepository.hybridSearch(question, words,
+entityTypes, size, subject)` and `OpenSearchVectorService.hybridSearch(HybridSearchRequest,
+HybridRanking)`.
+
+## Amendment 2026-11-18. A query serves the nodes it names
+
+`cite` refused a column the model had read with `SELECT ?p ?o WHERE { <column> ?p ?o }`: the query
+step recorded only the IRIs its rows bound, and no row binds the subject the query was about. A
+query step now also serves the IRIs its pattern names as a subject, an object or a `VALUES` entry,
+when it returned rows.
