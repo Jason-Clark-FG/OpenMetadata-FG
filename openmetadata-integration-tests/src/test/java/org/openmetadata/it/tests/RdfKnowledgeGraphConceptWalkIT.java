@@ -330,11 +330,14 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
         .ignoreExceptions()
         .untilAsserted(
             () ->
-                assertThat(
-                        expand(run, walk.conceptIri(), BOUND_ASSET, OUTGOING)
-                            .path("expansions")
-                            .isEmpty())
-                    .isTrue());
+                assertThat(expand(run, walk.conceptIri(), BOUND_ASSET, OUTGOING).path("expansions"))
+                    .isNotEmpty()
+                    .allSatisfy(
+                        group -> {
+                          assertThat(group.path("total").asLong(-1)).isZero();
+                          assertThat(group.path("listed")).isEmpty();
+                          assertThat(group.path("nodes")).isEmpty();
+                        }));
     final JsonNode columns = expand(run, walk.tableIri(), HAS_COLUMN, OUTGOING);
     assertThat(reachable(card(columns, walk.boundColumnIri()), BOUND_COLUMN, INCOMING)).isEmpty();
     assertThat(reachable(tableCardFound(walk), BOUND_ASSET, INCOMING)).isEmpty();
