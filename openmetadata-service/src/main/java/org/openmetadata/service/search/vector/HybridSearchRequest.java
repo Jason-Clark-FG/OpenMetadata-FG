@@ -18,13 +18,16 @@ import org.openmetadata.service.security.policyevaluator.SubjectContext;
 
 /**
  * One hybrid search: the question, the word query the search settings build for it, the indexes
- * or aliases to search, the filters both legs apply, how many entities to return, and the caller.
+ * or aliases to search, the filters both legs apply, the caller's search access filter (the clause
+ * keyword search adds for this caller; null when keyword search adds none), how many entities to
+ * return, and the caller.
  */
 public record HybridSearchRequest(
     String query,
     String lexicalQuery,
     List<String> indexes,
     Map<String, List<String>> filters,
+    String accessFilter,
     int size,
     SubjectContext subjectContext) {
 

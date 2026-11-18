@@ -73,12 +73,20 @@ class OpenSearchHybridSearchTest {
             });
   }
 
+  private static final String DOMAIN_FILTER =
+      "{\"bool\":{\"should\":[{\"term\":{\"domains.id\":\"d-7\"}}]}}";
+
   private static HybridSearchRequest request() {
+    return request(null);
+  }
+
+  private static HybridSearchRequest request(final String accessFilter) {
     return new HybridSearchRequest(
         "customer lifetime value",
         LEXICAL,
         List.of("dataAssetEmbeddings", "tableColumn"),
         Map.of("entityType", List.of("table", "tableColumn")),
+        accessFilter,
         5,
         null);
   }
@@ -112,6 +120,25 @@ class OpenSearchHybridSearchTest {
         .isTrue();
     assertThat(body.path("search_pipeline")).isEqualTo(JSON.readTree(PIPELINE));
     assertThat(body.path("size").asInt()).isGreaterThanOrEqualTo(5);
+  }
+
+  @Test
+  void bothLegsCarryTheCallersSearchAccessFilterAndNoFilterWhenTheCallerHasNone()
+      throws IOException {
+    clusterAnswers(200, "{\"hits\":{\"hits\":[]}}");
+
+    service.hybridSearch(request(DOMAIN_FILTER), PIPELINE);
+    service.hybridSearch(request(null), PIPELINE);
+
+    final JsonNode filtered =
+        JSON.readTree(requests.get(0).getBody().orElseThrow().bodyAsString())
+            .path("query")
+            .path("hybrid")
+            .path("queries");
+    assertThat(filtered.get(0).path("bool").path("filter").toString()).contains("d-7");
+    assertThat(filtered.get(1).path("knn").path("embedding").path("filter").toString())
+        .contains("d-7");
+    assertThat(requests.get(1).getBody().orElseThrow().bodyAsString()).doesNotContain("d-7");
   }
 
   @Test

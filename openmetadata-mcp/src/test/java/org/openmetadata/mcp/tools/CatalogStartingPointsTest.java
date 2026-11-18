@@ -124,6 +124,7 @@ class CatalogStartingPointsTest {
     assertThat(hybrid.questions)
         .containsExactly("How much do our clients spend with us over time?");
     assertThat(hybrid.sizes).containsExactly(5);
+    assertThat(hybrid.callers).containsExactly(CALLER);
     assertThat(semantic.calls).isEmpty();
     assertThat(keyword.calls).isEmpty();
   }
@@ -180,7 +181,7 @@ class CatalogStartingPointsTest {
             () -> true,
             () -> semantic,
             () -> keyword,
-            (question, filters, size) -> {
+            (question, filters, size, caller) -> {
               throw new HybridSearchException("cluster rejected the hybrid query", null);
             },
             EVERY_HIT_VISIBLE);
@@ -217,7 +218,7 @@ class CatalogStartingPointsTest {
   }
 
   private static final CatalogStartingPoints.HybridCatalogSearch NO_HYBRID =
-      (question, filters, size) -> Optional.empty();
+      (question, filters, size, caller) -> Optional.empty();
   private static final SemanticSearchTool.HitVisibility EVERY_HIT_VISIBLE =
       (authorizer, caller, hit) -> true;
 
@@ -226,6 +227,7 @@ class CatalogStartingPointsTest {
     private final List<Map<String, Object>> rows;
     private final List<String> questions = new ArrayList<>();
     private final List<Integer> sizes = new ArrayList<>();
+    private final List<CatalogSecurityContext> callers = new ArrayList<>();
 
     private RecordingHybrid(final List<Map<String, Object>> rows) {
       this.rows = rows;
@@ -233,9 +235,13 @@ class CatalogStartingPointsTest {
 
     @Override
     public Optional<List<Map<String, Object>>> search(
-        final String question, final Map<String, List<String>> filters, final int size) {
+        final String question,
+        final Map<String, List<String>> filters,
+        final int size,
+        final CatalogSecurityContext caller) {
       questions.add(question);
       sizes.add(size);
+      callers.add(caller);
       return Optional.of(rows);
     }
   }

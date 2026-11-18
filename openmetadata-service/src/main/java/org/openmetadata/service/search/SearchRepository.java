@@ -1083,9 +1083,24 @@ public class SearchRepository {
                             dataAssetWordQuery(query, size),
                             indexes,
                             filters,
+                            accessFilter(subjectContext),
                             size,
                             subjectContext),
                         pipeline));
+  }
+
+  /**
+   * The caller's search access filter, exactly as keyword search builds it. A filter that cannot be
+   * built fails the hybrid search, so the caller falls back to keyword search instead of searching
+   * without it.
+   */
+  private String accessFilter(final SubjectContext subjectContext) {
+    try {
+      return searchClient.searchAccessFilter(subjectContext).orElse(null);
+    } catch (RuntimeException failed) {
+      throw new HybridSearchException(
+          "the caller's search access filter could not be built: " + failed.getMessage(), failed);
+    }
   }
 
   private static String dataAssetWordQuery(final String query, final int size) {

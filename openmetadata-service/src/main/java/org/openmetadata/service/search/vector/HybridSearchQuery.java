@@ -57,8 +57,14 @@ final class HybridSearchQuery {
     }
   }
 
-  /** The word query, held to the same filters as the KNN leg: live documents of the types asked. */
-  static String lexicalLeg(final String lexicalQuery, final Map<String, List<String>> filters) {
+  /**
+   * The word query, held to the same filters as the KNN leg: live documents of the types asked,
+   * and the caller's search access filter when there is one.
+   */
+  static String lexicalLeg(
+      final String lexicalQuery,
+      final Map<String, List<String>> filters,
+      final String accessFilter) {
     try {
       final ObjectNode bool = JSON.createObjectNode();
       final ObjectNode clauses = bool.putObject("bool");
@@ -70,6 +76,9 @@ final class HybridSearchQuery {
             final ArrayNode terms = filter.addObject().putObject("terms").putArray(field);
             values.forEach(terms::add);
           });
+      if (accessFilter != null) {
+        filter.add(JSON.readTree(accessFilter));
+      }
       return JSON.writeValueAsString(bool);
     } catch (JsonProcessingException invalid) {
       throw new IllegalArgumentException("The hybrid word query is not valid JSON", invalid);

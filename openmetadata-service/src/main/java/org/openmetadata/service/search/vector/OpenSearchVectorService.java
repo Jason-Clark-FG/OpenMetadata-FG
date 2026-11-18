@@ -1612,10 +1612,11 @@ public class OpenSearchVectorService implements VectorIndexService {
                   0.0,
                   null,
                   request.subjectContext(),
-                  null));
+                  request.accessFilter()));
       final String body =
           HybridSearchQuery.body(
-              HybridSearchQuery.lexicalLeg(request.lexicalQuery(), request.filters()),
+              HybridSearchQuery.lexicalLeg(
+                  request.lexicalQuery(), request.filters(), request.accessFilter()),
               knnLeg,
               request.size(),
               rrfPipeline);

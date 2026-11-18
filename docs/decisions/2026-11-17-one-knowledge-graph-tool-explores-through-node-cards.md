@@ -205,9 +205,12 @@ alone. Each mode found what the other missed, and the caller could not tell whic
   KNN leg `VectorSearchQueryBuilder.buildHybridQuery`, ranked by the RRF pipeline inlined from
   `getHybridRrfPipelineDefinition` (the configured keyword and semantic weights). It searches the
   `dataAssetEmbeddings` alias and the column index together; the KNN leg sets `ignore_unmapped`,
-  so a shard without embeddings contributes its word matches instead of failing the query. Hits
-  fold to one per entity in rank order. Each is kept only if the caller may view it, a column by
-  its table.
+  so a shard without embeddings contributes its word matches instead of failing the query. Both
+  legs carry the caller's search access filter, built by `OpenSearchRbacQueries` exactly as keyword
+  search builds it (none for an admin or with search access control off, match-none for a caller
+  whose policies allow nothing); a filter that cannot be built fails the hybrid search, so `find`
+  falls back to the word search and says so. Hits fold to one per entity in rank order. Each is
+  kept only if the caller may view it, a column by its table.
 - **Semantic search on, Elasticsearch** (no hybrid ranking there): `semantic_search` and the word
   search both run, and their hits alternate, meaning first, each entity once.
 - **Semantic search off:** the word search alone, as before.

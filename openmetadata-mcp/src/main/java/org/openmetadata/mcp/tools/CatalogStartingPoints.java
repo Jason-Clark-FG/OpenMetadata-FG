@@ -34,6 +34,7 @@ import org.openmetadata.service.rdf.explore.TermWords;
 import org.openmetadata.service.search.SearchRepository;
 import org.openmetadata.service.search.vector.HybridSearchException;
 import org.openmetadata.service.security.Authorizer;
+import org.openmetadata.service.security.DefaultAuthorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 /**
@@ -69,11 +70,14 @@ final class CatalogStartingPoints implements StartingPoints {
   private final HybridCatalogSearch hybridSearch;
   private final SemanticSearchTool.HitVisibility hitVisibility;
 
-  /** One hybrid search, or empty when this server cannot run one. */
+  /** One hybrid search as the caller, or empty when this server cannot run one. */
   @FunctionalInterface
   interface HybridCatalogSearch {
     Optional<List<Map<String, Object>>> search(
-        String question, Map<String, List<String>> filters, int size);
+        String question,
+        Map<String, List<String>> filters,
+        int size,
+        CatalogSecurityContext caller);
   }
 
   CatalogStartingPoints() {
@@ -98,9 +102,15 @@ final class CatalogStartingPoints implements StartingPoints {
     this.hitVisibility = Objects.requireNonNull(hitVisibility);
   }
 
-  /** Over the embeddings alias and the column index, which holds no embeddings. */
+  /**
+   * Over the embeddings alias and the column index, which holds no embeddings, filtered by the
+   * caller's search access policies as keyword search is.
+   */
   private static Optional<List<Map<String, Object>>> serverHybridSearch(
-      final String question, final Map<String, List<String>> filters, final int size) {
+      final String question,
+      final Map<String, List<String>> filters,
+      final int size,
+      final CatalogSecurityContext caller) {
     final SearchRepository search = Entity.getSearchRepository();
     return search.getVectorIndexService() == null
         ? Optional.empty()
@@ -111,7 +121,7 @@ final class CatalogStartingPoints implements StartingPoints {
                 search.getIndexOrAliasName(COLUMN_INDEX)),
             filters,
             size,
-            null);
+            DefaultAuthorizer.getSubjectContext(caller));
   }
 
   /**
@@ -150,7 +160,7 @@ final class CatalogStartingPoints implements StartingPoints {
       throws IOException {
     try {
       final Optional<List<Map<String, Object>>> hybrid =
-          hybridSearch.search(find.question(), hybridFilters(find), find.limit());
+          hybridSearch.search(find.question(), hybridFilters(find), find.limit(), securityContext);
       return hybrid.isPresent()
           ? CatalogHits.of(viewable(authorizer, securityContext, hybrid.get()))
           : merged(authorizer, securityContext, find, words);
