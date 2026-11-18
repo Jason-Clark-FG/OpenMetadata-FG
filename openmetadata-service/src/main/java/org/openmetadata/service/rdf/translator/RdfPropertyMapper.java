@@ -277,7 +277,7 @@ public class RdfPropertyMapper {
   }
 
   private static boolean isTestCase(EntityInterface<?> entity) {
-    return RdfTestResultMapper.TEST_CASE.equals(entity.getEntityReference().getType());
+    return Entity.TEST_CASE.equals(entity.getEntityReference().getType());
   }
 
   private void mapDocumentToRdf(

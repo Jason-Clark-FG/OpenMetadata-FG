@@ -117,10 +117,7 @@ public final class RdfOwnedResources {
     }
     owned.addAll(objects(graph, entity, HAS_CONSTRAINT));
     owned.addAll(objects(graph, entity, HAS_QUALITY_MEASUREMENT));
-    for (Node result : objects(graph, entity, HAS_TEST_RESULT)) {
-      owned.add(result);
-      owned.addAll(objects(graph, result, HAS_RESULT_VALUE));
-    }
+    owned.addAll(testResults(graph, entity));
     final Set<Node> columns =
         descendants(graph, objects(graph, entity, HAS_COLUMN), HAS_CHILD_COLUMN);
     owned.addAll(columns);
@@ -128,6 +125,13 @@ public final class RdfOwnedResources {
       owned.addAll(objects(graph, column, HAS_QUALITY_MEASUREMENT));
     }
     owned.addAll(listCells(graph, entity));
+    return owned;
+  }
+
+  private static Set<Node> testResults(final Graph graph, final Node entity) {
+    final Set<Node> results = objects(graph, entity, HAS_TEST_RESULT);
+    final Set<Node> owned = new HashSet<>(results);
+    results.forEach(result -> owned.addAll(objects(graph, result, HAS_RESULT_VALUE)));
     return owned;
   }
 

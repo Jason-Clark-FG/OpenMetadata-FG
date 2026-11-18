@@ -48,10 +48,13 @@ public final class RdfQualityEvidence {
 
   /** Attaches the evidence of one page of {@code entityType} entities, with one read per kind. */
   public void attach(final String entityType, final List<? extends EntityInterface<?>> entities) {
-    if (Entity.TABLE.equals(entityType)) {
-      attachProfiles(entities.stream().map(Table.class::cast).toList());
-    } else if (Entity.TEST_CASE.equals(entityType)) {
-      attachLatestResults(entities.stream().map(TestCase.class::cast).toList());
+    switch (entityType) {
+      case Entity.TABLE -> attachProfiles(entities.stream().map(Table.class::cast).toList());
+      case Entity.TEST_CASE -> attachLatestResults(
+          entities.stream().map(TestCase.class::cast).toList());
+      default -> {
+        // Only tables, their columns and test cases carry quality evidence.
+      }
     }
   }
 

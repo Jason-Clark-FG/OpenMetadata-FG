@@ -13,6 +13,7 @@
 package org.openmetadata.service.rdf.translator;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.MissingNode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +37,6 @@ import org.openmetadata.service.resources.feeds.MessageParser.EntityLink;
  * emitted.
  */
 final class RdfTestResultMapper {
-  static final String TEST_CASE = "testCase";
   private static final String OM_NS = "https://open-metadata.org/ontology/";
   private static final String DQV_VALUE = "http://www.w3.org/ns/dqv#value";
   private static final String GENERATED_AT = "http://www.w3.org/ns/prov#generatedAtTime";
@@ -107,21 +107,37 @@ final class RdfTestResultMapper {
   }
 
   private static void emitResultValues(final JsonNode result, final Resource resultNode) {
-    final Model model = resultNode.getModel();
-    final JsonNode values = RdfJsonNode.array(result, "testResultValue").orElse(null);
-    for (int index = 0; values != null && index < values.size(); index++) {
-      final JsonNode value = values.get(index);
-      final Resource valueNode = model.createResource(resultNode.getURI() + "/value/" + index);
-      resultNode.addProperty(model.createProperty(OM_NS, "hasResultValue"), valueNode);
-      valueNode.addProperty(RDF.type, model.createResource(OM_NS + "TestResultValue"));
-      text(value, "name").ifPresent(name -> valueNode.addProperty(RDFS.label, name));
-      text(value, "value")
-          .ifPresent(observed -> valueNode.addProperty(model.createProperty(DQV_VALUE), observed));
+    final JsonNode values =
+        RdfJsonNode.array(result, "testResultValue").orElse(MissingNode.getInstance());
+    for (int index = 0; index < values.size(); index++) {
+      emitResultValue(values.get(index), resultNode, index);
     }
   }
 
+  private static void emitResultValue(
+      final JsonNode value, final Resource resultNode, final int index) {
+    final Model model = resultNode.getModel();
+    final Resource valueNode = model.createResource(resultNode.getURI() + "/value/" + index);
+    resultNode.addProperty(model.createProperty(OM_NS, "hasResultValue"), valueNode);
+    valueNode.addProperty(RDF.type, model.createResource(OM_NS + "TestResultValue"));
+    text(value, "name").ifPresent(name -> valueNode.addProperty(RDFS.label, name));
+    text(value, "value")
+        .ifPresent(observed -> valueNode.addProperty(model.createProperty(DQV_VALUE), observed));
+  }
+
+  /** A malformed link links nothing rather than failing the test case's whole projection. */
   private static Optional<EntityLink> entityLink(final JsonNode testCase) {
-    return text(testCase, "entityLink").map(EntityLink::parse);
+    return text(testCase, "entityLink").flatMap(RdfTestResultMapper::parseLink);
+  }
+
+  private static Optional<EntityLink> parseLink(final String link) {
+    Optional<EntityLink> parsed;
+    try {
+      parsed = Optional.of(EntityLink.parse(link));
+    } catch (IllegalArgumentException malformed) {
+      parsed = Optional.empty();
+    }
+    return parsed;
   }
 
   private static Optional<String> text(final JsonNode parent, final String field) {
