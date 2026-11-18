@@ -31,13 +31,19 @@ import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.explore.SearchHit;
 import org.openmetadata.service.rdf.explore.TermWords;
+import org.openmetadata.service.search.SearchRepository;
+import org.openmetadata.service.search.vector.HybridSearchException;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 /**
- * Runs the catalog search the server already has, as the caller: {@code semantic_search} when
- * vector embeddings are enabled, {@code search_metadata} otherwise. Each tool applies its own
- * visibility rules, so the hits are exactly what the caller would get from it.
+ * Runs the catalog search the server already has, as the caller. With semantic search on and an
+ * OpenSearch backend, one hybrid search matches the question by words and by meaning, ranked by
+ * the configured RRF pipeline, so columns (which match only by words) come back beside tables and
+ * terms. With semantic search on and no hybrid search (Elasticsearch), {@code semantic_search} and
+ * the word search both run and their hits alternate, meaning first. With semantic search off, the
+ * word search runs alone. When semantic search fails, the word search answers alone and the hits
+ * say so. Every hit is one the caller may view.
  */
 final class CatalogStartingPoints implements StartingPoints {
 
@@ -53,24 +59,59 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
   private static final int MAX_WORDS = 8;
 
+  private static final String TABLE = "table";
+  private static final String TYPE = "type";
+  private static final String COLUMN_INDEX = "tableColumn";
+
   private final BooleanSupplier vectorSearchEnabled;
   private final Supplier<McpTool> semanticSearch;
   private final Supplier<McpTool> keywordSearch;
+  private final HybridCatalogSearch hybridSearch;
+  private final SemanticSearchTool.HitVisibility hitVisibility;
+
+  /** One hybrid search, or empty when this server cannot run one. */
+  @FunctionalInterface
+  interface HybridCatalogSearch {
+    Optional<List<Map<String, Object>>> search(
+        String question, Map<String, List<String>> filters, int size);
+  }
 
   CatalogStartingPoints() {
     this(
         () -> Entity.getSearchRepository().isVectorEmbeddingEnabled(),
         SemanticSearchTool::new,
-        SearchMetadataTool::new);
+        SearchMetadataTool::new,
+        CatalogStartingPoints::serverHybridSearch,
+        SemanticSearchTool::isViewable);
   }
 
   CatalogStartingPoints(
       final BooleanSupplier vectorSearchEnabled,
       final Supplier<McpTool> semanticSearch,
-      final Supplier<McpTool> keywordSearch) {
+      final Supplier<McpTool> keywordSearch,
+      final HybridCatalogSearch hybridSearch,
+      final SemanticSearchTool.HitVisibility hitVisibility) {
     this.vectorSearchEnabled = Objects.requireNonNull(vectorSearchEnabled);
     this.semanticSearch = Objects.requireNonNull(semanticSearch);
     this.keywordSearch = Objects.requireNonNull(keywordSearch);
+    this.hybridSearch = Objects.requireNonNull(hybridSearch);
+    this.hitVisibility = Objects.requireNonNull(hitVisibility);
+  }
+
+  /** Over the embeddings alias and the column index, which holds no embeddings. */
+  private static Optional<List<Map<String, Object>>> serverHybridSearch(
+      final String question, final Map<String, List<String>> filters, final int size) {
+    final SearchRepository search = Entity.getSearchRepository();
+    return search.getVectorIndexService() == null
+        ? Optional.empty()
+        : search.hybridSearch(
+            question,
+            List.of(
+                search.getVectorIndexService().getIndexAlias(),
+                search.getIndexOrAliasName(COLUMN_INDEX)),
+            filters,
+            size,
+            null);
   }
 
   /**
@@ -79,27 +120,107 @@ final class CatalogStartingPoints implements StartingPoints {
    * searched whole and then word by word, and the hits are ranked by {@link CatalogRanking}.
    */
   @Override
-  public List<SearchHit> search(
+  public CatalogHits search(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find)
       throws IOException {
     final List<String> words = TermWords.of(find.question()).stream().limit(MAX_WORDS).toList();
-    return words.isEmpty() ? List.of() : hitsFor(authorizer, securityContext, find, words);
+    return words.isEmpty()
+        ? CatalogHits.of(List.of())
+        : hitsFor(authorizer, securityContext, find, words);
   }
 
-  private List<SearchHit> hitsFor(
+  private CatalogHits hitsFor(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find,
       final List<String> words)
       throws IOException {
     return vectorSearchEnabled.getAsBoolean()
-        ? hits(
-            requireSucceeded(
-                semanticSearch.get().execute(authorizer, securityContext, semanticArguments(find))),
-            PARENT_ID)
-        : keywordHits(authorizer, securityContext, find, words);
+        ? meaningAndWords(authorizer, securityContext, find, words)
+        : CatalogHits.of(keywordHits(authorizer, securityContext, find, words));
+  }
+
+  private CatalogHits meaningAndWords(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final List<String> words)
+      throws IOException {
+    try {
+      final Optional<List<Map<String, Object>>> hybrid =
+          hybridSearch.search(find.question(), hybridFilters(find), find.limit());
+      return hybrid.isPresent()
+          ? CatalogHits.of(viewable(authorizer, securityContext, hybrid.get()))
+          : merged(authorizer, securityContext, find, words);
+    } catch (HybridSearchException failed) {
+      return CatalogHits.skipped(
+          keywordHits(authorizer, securityContext, find, words), failed.getMessage());
+    }
+  }
+
+  /** Without hybrid search: meaning hits and word hits alternate, meaning first, each once. */
+  private CatalogHits merged(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final List<String> words)
+      throws IOException {
+    final List<SearchHit> byWords = keywordHits(authorizer, securityContext, find, words);
+    try {
+      final List<SearchHit> byMeaning =
+          hits(
+              requireSucceeded(
+                  semanticSearch
+                      .get()
+                      .execute(authorizer, securityContext, semanticArguments(find))),
+              PARENT_ID);
+      return CatalogHits.of(alternate(byMeaning, byWords));
+    } catch (IllegalStateException failed) {
+      return CatalogHits.skipped(byWords, failed.getMessage());
+    }
+  }
+
+  private static List<SearchHit> alternate(
+      final List<SearchHit> first, final List<SearchHit> second) {
+    return IntStream.range(0, Math.max(first.size(), second.size()))
+        .boxed()
+        .flatMap(
+            index ->
+                Stream.of(first, second)
+                    .filter(hits -> index < hits.size())
+                    .map(hits -> hits.get(index)))
+        .distinct()
+        .toList();
+  }
+
+  private static Map<String, List<String>> hybridFilters(final KnowledgeGraphCall.Find find) {
+    final List<String> catalogTypes = find.catalogTypes();
+    return catalogTypes.isEmpty() ? Map.of() : Map.of(ENTITY_TYPE, catalogTypes);
+  }
+
+  private List<SearchHit> viewable(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final List<Map<String, Object>> rows) {
+    return rows.stream()
+        .filter(row -> hitVisibility.isViewable(authorizer, securityContext, visibleAs(row)))
+        .flatMap(row -> hit(row, PARENT_ID))
+        .toList();
+  }
+
+  /** What a hit's visibility is judged by: a column by its table, any other hit by itself. */
+  static Map<String, Object> visibleAs(final Map<String, Object> hit) {
+    return COLUMN_INDEX.equals(hit.get(ENTITY_TYPE)) && hit.get(TABLE) instanceof Map<?, ?> table
+        ? Map.of(
+            ENTITY_TYPE,
+            Objects.toString(table.get(TYPE), TABLE),
+            PARENT_ID,
+            Objects.toString(table.get(ID), ""),
+            FULLY_QUALIFIED_NAME,
+            Objects.toString(table.get(FULLY_QUALIFIED_NAME), ""))
+        : hit;
   }
 
   private List<SearchHit> keywordHits(

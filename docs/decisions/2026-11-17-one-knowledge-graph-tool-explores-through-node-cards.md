@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -193,3 +193,34 @@ the single entry point this tool exists to be.
   expand, query only for what cards cannot give, cite once.
 - **Description.** The tool description is written for a model that has no other tool, within
   1,600 characters (it was 2,390, now 1,479); `RdfToolDescriptionVocabularyTest` holds both.
+
+## Amendment 2026-11-18. With semantic search on, the catalog half is one hybrid search
+
+With embeddings switched on, the catalog half sent the question to semantic search alone, and the
+column index holds no embeddings, so no column card came back; with them off, it matched words
+alone. Each mode found what the other missed, and the caller could not tell which ran.
+
+- **Semantic search on, OpenSearch:** one hybrid search, `SearchRepository.hybridSearch`. Its word
+  leg is the data asset query the search settings build (`OpenSearchSourceBuilderFactory`), its
+  KNN leg `VectorSearchQueryBuilder.buildHybridQuery`, ranked by the RRF pipeline inlined from
+  `getHybridRrfPipelineDefinition` (the configured keyword and semantic weights). It searches the
+  `dataAssetEmbeddings` alias and the column index together; the KNN leg sets `ignore_unmapped`,
+  so a shard without embeddings contributes its word matches instead of failing the query. Hits
+  fold to one per entity in rank order. Each is kept only if the caller may view it, a column by
+  its table.
+- **Semantic search on, Elasticsearch** (no hybrid ranking there): `semantic_search` and the word
+  search both run, and their hits alternate, meaning first, each entity once.
+- **Semantic search off:** the word search alone, as before.
+- **Failure.** When the hybrid search or `semantic_search` fails, the word search answers alone and
+  the find response carries `semanticSearchSkipped` with the reason.
+- **Order.** The catalog hits, in whichever order the path gives them, alternate with ontology
+  terms as before, a term first; limits, the budget and `moreMatched` are unchanged.
+
+`SearchRepository.hybridSearch(query, indexes, filters, size, subject)` and
+`OpenSearchVectorService.hybridSearch(HybridSearchRequest, pipeline)` are the one hybrid search in
+OpenMetadata, placed so the commercial `HybridSearchService` can call them instead of its own
+request assembly. For that it would need the request to carry what it adds today: a lexical leg
+of its own (the shard-fair query), the governance `function_score` wrapper on the KNN leg,
+aggregations, `from` and `preference`, and its parent-grouping window. Only a live OpenSearch
+cluster with embeddings can show the ranking itself; the unit tests cover the request and the
+choice of path.

@@ -20,10 +20,12 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.rdf.explore.SearchHit;
+import org.openmetadata.service.search.vector.HybridSearchException;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
@@ -57,29 +59,193 @@ class CatalogStartingPointsTest {
                   Map.of("entityType", "dashboard", "fullyQualifiedName", "bi.revenue"))));
 
   private CatalogStartingPoints startingPoints(final boolean vectorSearchEnabled) {
-    return new CatalogStartingPoints(() -> vectorSearchEnabled, () -> semantic, () -> keyword);
+    return new CatalogStartingPoints(
+        () -> vectorSearchEnabled, () -> semantic, () -> keyword, NO_HYBRID, EVERY_HIT_VISIBLE);
   }
 
   @Test
-  void vectorSearchFindsTheStartingPointsWhenEmbeddingsAreEnabled() throws Exception {
-    final List<SearchHit> hits =
-        startingPoints(true)
+  void withoutHybridSearchMeaningAndWordHitsAreMergedMeaningFirstWithoutDuplicates()
+      throws Exception {
+    final UUID lifetimeSpend = UUID.randomUUID();
+    final RecordingSearch meaning =
+        new RecordingSearch(
+            Map.of(
+                "results",
+                List.of(
+                    semanticHit(ORDERS, "table", "warehouse.shop.public.orders"),
+                    semanticHit(lifetimeSpend, "glossaryTerm", "g.Lifetime Spend"))));
+
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true, () -> meaning, () -> keyword, NO_HYBRID, EVERY_HIT_VISIBLE)
             .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of("table"), 3));
 
-    assertThat(hits)
-        .containsExactly(new SearchHit("table", "warehouse.shop.public.orders", ORDERS));
-    assertThat(keyword.calls).isEmpty();
-    assertThat(semantic.calls.getFirst())
+    assertThat(found.hits())
+        .containsExactly(
+            new SearchHit("table", "warehouse.shop.public.orders", ORDERS),
+            new SearchHit("glossaryTerm", "g.Lifetime Spend", lifetimeSpend),
+            new SearchHit("tableColumn", "warehouse.shop.public.orders.id", null));
+    assertThat(found.semanticSearchSkipped()).isNull();
+    assertThat(meaning.calls.getFirst())
         .containsEntry("query", "orders")
         .containsEntry("size", 3)
         .containsEntry("filters", Map.of("entityType", List.of("table")));
+    assertThat(keyword.calls).isNotEmpty();
+  }
+
+  @Test
+  void withHybridSearchOneQueryAnswersWithTablesColumnsAndTermsAndNothingElseRuns()
+      throws Exception {
+    final UUID customers = UUID.randomUUID();
+    final UUID spend = UUID.randomUUID();
+    final UUID term = UUID.randomUUID();
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                hybridHit(customers, "table", "shop.customers"),
+                columnHit(spend, "shop.orders.lifetime_spend", customers, "shop.orders"),
+                hybridHit(term, "glossaryTerm", "g.Lifetime Spend")));
+
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+            .search(
+                AUTHORIZER,
+                CALLER,
+                new KnowledgeGraphCall.Find(
+                    "How much do our clients spend with us over time?", List.of(), 5));
+
+    assertThat(found.hits())
+        .containsExactly(
+            new SearchHit("table", "shop.customers", customers),
+            new SearchHit("tableColumn", "shop.orders.lifetime_spend", spend),
+            new SearchHit("glossaryTerm", "g.Lifetime Spend", term));
+    assertThat(found.semanticSearchSkipped()).isNull();
+    assertThat(hybrid.questions)
+        .containsExactly("How much do our clients spend with us over time?");
+    assertThat(hybrid.sizes).containsExactly(5);
+    assertThat(semantic.calls).isEmpty();
+    assertThat(keyword.calls).isEmpty();
+  }
+
+  @Test
+  void aHybridHitTheCallerCannotSeeIsLeftOutAndAColumnIsJudgedByItsTable() throws Exception {
+    final UUID customers = UUID.randomUUID();
+    final UUID hidden = UUID.randomUUID();
+    final List<Map<String, Object>> judged = new ArrayList<>();
+    final RecordingHybrid hybrid =
+        new RecordingHybrid(
+            List.of(
+                columnHit(UUID.randomUUID(), "shop.customers.email", customers, "shop.customers"),
+                hybridHit(hidden, "table", "shop.secret")));
+
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true,
+                () -> semantic,
+                () -> keyword,
+                hybrid,
+                (authorizer, caller, hit) -> {
+                  judged.add(hit);
+                  return !hidden.toString().equals(hit.get("parentId"));
+                })
+            .search(
+                AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("customer email", List.of(), 5));
+
+    assertThat(found.hits())
+        .extracting(SearchHit::fullyQualifiedName)
+        .containsExactly("shop.customers.email");
+    assertThat(CatalogStartingPoints.visibleAs(judged.getFirst()))
+        .containsEntry("entityType", "table")
+        .containsEntry("parentId", customers.toString())
+        .containsEntry("fullyQualifiedName", "shop.customers");
+  }
+
+  @Test
+  void withSemanticSearchOffHybridSearchIsNeverAsked() throws Exception {
+    final RecordingHybrid hybrid = new RecordingHybrid(List.of());
+
+    new CatalogStartingPoints(() -> false, () -> semantic, () -> keyword, hybrid, EVERY_HIT_VISIBLE)
+        .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5));
+
+    assertThat(hybrid.questions).isEmpty();
+    assertThat(keyword.calls).isNotEmpty();
+  }
+
+  @Test
+  void aHybridSearchThatFailsLeavesTheWordSearchToAnswerAndSaysSemanticSearchWasSkipped()
+      throws Exception {
+    final CatalogStartingPoints points =
+        new CatalogStartingPoints(
+            () -> true,
+            () -> semantic,
+            () -> keyword,
+            (question, filters, size) -> {
+              throw new HybridSearchException("cluster rejected the hybrid query", null);
+            },
+            EVERY_HIT_VISIBLE);
+
+    final CatalogHits found =
+        points.search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5));
+
+    assertThat(found.hits())
+        .contains(new SearchHit("tableColumn", "warehouse.shop.public.orders.id", null));
+    assertThat(found.semanticSearchSkipped()).contains("cluster rejected the hybrid query");
+  }
+
+  private static Map<String, Object> semanticHit(
+      final UUID id, final String entityType, final String fqn) {
+    return Map.of("parentId", id.toString(), "entityType", entityType, "fullyQualifiedName", fqn);
+  }
+
+  private static Map<String, Object> hybridHit(
+      final UUID id, final String entityType, final String fqn) {
+    return semanticHit(id, entityType, fqn);
+  }
+
+  private static Map<String, Object> columnHit(
+      final UUID id, final String fqn, final UUID table, final String tableFqn) {
+    return Map.of(
+        "parentId",
+        id.toString(),
+        "entityType",
+        "tableColumn",
+        "fullyQualifiedName",
+        fqn,
+        "table",
+        Map.of("id", table.toString(), "type", "table", "fullyQualifiedName", tableFqn));
+  }
+
+  private static final CatalogStartingPoints.HybridCatalogSearch NO_HYBRID =
+      (question, filters, size) -> Optional.empty();
+  private static final SemanticSearchTool.HitVisibility EVERY_HIT_VISIBLE =
+      (authorizer, caller, hit) -> true;
+
+  /** Answers every hybrid search with the same ranked rows, and remembers what it was asked. */
+  private static final class RecordingHybrid implements CatalogStartingPoints.HybridCatalogSearch {
+    private final List<Map<String, Object>> rows;
+    private final List<String> questions = new ArrayList<>();
+    private final List<Integer> sizes = new ArrayList<>();
+
+    private RecordingHybrid(final List<Map<String, Object>> rows) {
+      this.rows = rows;
+    }
+
+    @Override
+    public Optional<List<Map<String, Object>>> search(
+        final String question, final Map<String, List<String>> filters, final int size) {
+      questions.add(question);
+      sizes.add(size);
+      return Optional.of(rows);
+    }
   }
 
   @Test
   void keywordSearchFindsTheStartingPointsOtherwiseAndAsksForIds() throws Exception {
     final List<SearchHit> hits =
         startingPoints(false)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5));
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5))
+            .hits();
 
     assertThat(hits)
         .containsExactly(
@@ -97,7 +263,8 @@ class CatalogStartingPointsTest {
   void aHitWithoutTheIdentityItsNodeIsMintedFromIsLeftOut() throws Exception {
     final List<SearchHit> hits =
         startingPoints(false)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5));
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 5))
+            .hits();
 
     assertThat(hits).extracting(SearchHit::entityType).doesNotContain("dashboard");
   }
@@ -108,7 +275,8 @@ class CatalogStartingPointsTest {
         .search(
             AUTHORIZER,
             CALLER,
-            new KnowledgeGraphCall.Find("orders", List.of("table", "dashboard"), 5));
+            new KnowledgeGraphCall.Find("orders", List.of("table", "dashboard"), 5))
+        .hits();
 
     assertThat(keyword.calls.getFirst().get("queryFilter").toString())
         .contains("\"terms\"", "\"entityType\"", "\"table\"", "\"dashboard\"");
@@ -144,8 +312,10 @@ class CatalogStartingPointsTest {
                 List.of(dashboard(revenue))));
 
     final List<SearchHit> hits =
-        new CatalogStartingPoints(() -> false, () -> semantic, () -> search)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find(sentence, List.of("table"), 5));
+        new CatalogStartingPoints(
+                () -> false, () -> semantic, () -> search, NO_HYBRID, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find(sentence, List.of("table"), 5))
+            .hits();
 
     assertThat(search.queries())
         .containsExactly(sentence, "table", "hold", "customer", "data", "trust", "order");
@@ -165,8 +335,10 @@ class CatalogStartingPointsTest {
     final QuerySearch search = new QuerySearch(Map.of());
 
     final List<SearchHit> hits =
-        new CatalogStartingPoints(() -> false, () -> semantic, () -> search)
-            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("what is it", List.of(), 5));
+        new CatalogStartingPoints(
+                () -> false, () -> semantic, () -> search, NO_HYBRID, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("what is it", List.of(), 5))
+            .hits();
 
     assertThat(hits).isEmpty();
     assertThat(search.calls).isEmpty();
@@ -186,19 +358,36 @@ class CatalogStartingPointsTest {
   }
 
   @Test
-  void aFailedSearchIsAFailureNotAnEmptyResult() {
+  void aFailedWordSearchIsAFailureNotAnEmptyResult() {
     final CatalogStartingPoints failing =
         new CatalogStartingPoints(
-            () -> true,
-            () -> new RecordingSearch(Map.of("error", "embedding backend down")),
-            () -> keyword);
+            () -> false,
+            () -> semantic,
+            () -> new RecordingSearch(Map.of("error", "search cluster down")),
+            NO_HYBRID,
+            EVERY_HIT_VISIBLE);
 
     assertThatThrownBy(
             () ->
                 failing.search(
                     AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 1)))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("embedding backend down");
+        .hasMessageContaining("search cluster down");
+  }
+
+  @Test
+  void aFailedSemanticSearchLeavesTheWordSearchToAnswerAndSaysItWasSkipped() throws Exception {
+    final CatalogHits found =
+        new CatalogStartingPoints(
+                () -> true,
+                () -> new RecordingSearch(Map.of("error", "embedding backend down")),
+                () -> keyword,
+                NO_HYBRID,
+                EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 1));
+
+    assertThat(found.hits()).isNotEmpty();
+    assertThat(found.semanticSearchSkipped()).contains("embedding backend down");
   }
 
   /** Answers each query with its own results, as a search engine would. */

@@ -44,7 +44,6 @@ import org.openmetadata.service.rdf.explore.RelationshipAbout;
 import org.openmetadata.service.rdf.explore.RunContext;
 import org.openmetadata.service.rdf.explore.RunTrace;
 import org.openmetadata.service.rdf.explore.RunTraceStore;
-import org.openmetadata.service.rdf.explore.SearchHit;
 import org.openmetadata.service.rdf.explore.SqlRunTraceStore;
 import org.openmetadata.service.rdf.explore.TraceEdge;
 import org.openmetadata.service.rdf.explore.TraceNode;
@@ -107,7 +106,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   /**
    * {@code properties} says once what each property the cards name is. {@code moreMatched} counts
    * matched nodes left out. {@code termLookupSkipped} is present only when ontology terms could not
-   * be looked for, so their absence proves nothing.
+   * be looked for, so their absence proves nothing; {@code semanticSearchSkipped} when semantic
+   * search was on and did not take part, so the catalog hits are word matches only.
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record FindResponse(
@@ -116,7 +116,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       List<NodeCard> nodes,
       Map<String, RelationshipAbout> properties,
       int moreMatched,
-      String termLookupSkipped)
+      String termLookupSkipped,
+      String semanticSearchSkipped)
       implements Response {}
 
   /** {@code properties} as in find; {@code nextCursor} is null on the last page. */
@@ -176,6 +177,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final KnowledgeGraphCall.Find find)
       throws IOException {
     requireReadyProjectionForNonAdmin(securityContext);
+    final CatalogHits catalog = catalogHits(authorizer, securityContext, find);
     final FindResult found =
         explorer(securityContext, repository)
             .find(
@@ -185,24 +187,25 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
                     find.termKinds(),
                     find.limit(),
                     ResponseBudget.defaultBudgetChars()),
-                catalogHits(authorizer, securityContext, find));
+                catalog.hits());
     return new FindResponse(
         run.run(),
         Operation.FIND,
         found.nodes(),
         found.properties(),
         found.moreMatched(),
-        found.termLookupSkipped());
+        found.termLookupSkipped(),
+        catalog.semanticSearchSkipped());
   }
 
-  private List<SearchHit> catalogHits(
+  private CatalogHits catalogHits(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find)
       throws IOException {
     return find.searchesCatalog()
         ? startingPoints.search(authorizer, securityContext, find)
-        : List.of();
+        : CatalogHits.of(List.of());
   }
 
   private ExpandResponse expand(

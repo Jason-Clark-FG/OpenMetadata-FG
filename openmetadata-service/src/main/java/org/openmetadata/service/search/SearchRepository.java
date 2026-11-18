@@ -177,9 +177,12 @@ import org.openmetadata.service.search.lineage.LineageDomainFilter;
 import org.openmetadata.service.search.nlq.NLQService;
 import org.openmetadata.service.search.nlq.NLQServiceFactory;
 import org.openmetadata.service.search.opensearch.OpenSearchClient;
+import org.openmetadata.service.search.opensearch.OpenSearchSourceBuilderFactory;
 import org.openmetadata.service.search.scripts.SoftDeleteScript;
 import org.openmetadata.service.search.security.PrivateSearchFields;
 import org.openmetadata.service.search.vector.ElasticSearchVectorService;
+import org.openmetadata.service.search.vector.HybridSearchException;
+import org.openmetadata.service.search.vector.HybridSearchRequest;
 import org.openmetadata.service.search.vector.OpenSearchVectorService;
 import org.openmetadata.service.search.vector.VectorDocBuilder;
 import org.openmetadata.service.search.vector.VectorEmbeddingHandler;
@@ -1055,6 +1058,43 @@ public class SearchRepository {
     double[] weights = resolveHybridWeights();
     return Optional.of(
         OpenSearchVectorService.buildHybridRrfPipelineDefinition(weights[0], weights[1]));
+  }
+
+  /**
+   * One hybrid search over {@code indexes}: the question by words, with the data asset query the
+   * search settings build for it, and by meaning, ranked by the configured RRF weights. Empty when
+   * this server cannot run one (semantic search off, or an Elasticsearch backend), so the caller
+   * chooses its own fallback; a search that was attempted and failed throws {@link
+   * HybridSearchException}. The returned hits name their entity in {@code parentId}.
+   */
+  public Optional<List<Map<String, Object>>> hybridSearch(
+      final String query,
+      final List<String> indexes,
+      final Map<String, List<String>> filters,
+      final int size,
+      final SubjectContext subjectContext) {
+    return getHybridRrfPipelineDefinition()
+        .map(
+            pipeline ->
+                ((OpenSearchVectorService) vectorIndexService)
+                    .hybridSearch(
+                        new HybridSearchRequest(
+                            query,
+                            dataAssetWordQuery(query, size),
+                            indexes,
+                            filters,
+                            size,
+                            subjectContext),
+                        pipeline));
+  }
+
+  private static String dataAssetWordQuery(final String query, final int size) {
+    final SearchSettings settings =
+        SettingsCache.getSetting(SettingsType.SEARCH_SETTINGS, SearchSettings.class);
+    return new OpenSearchSourceBuilderFactory(settings)
+        .buildDataAssetSearchBuilderV2(SearchConstants.DATA_ASSET, query, 0, size, false, false)
+        .query()
+        .toJsonString();
   }
 
   /** Effective {keyword, semantic} weights: search settings when present, else config defaults. */

@@ -14,15 +14,13 @@
 package org.openmetadata.mcp.tools;
 
 import java.io.IOException;
-import java.util.List;
-import org.openmetadata.service.rdf.explore.SearchHit;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 /** Turns the words of a {@code find} into catalog search hits, as the caller is allowed to see them. */
 @FunctionalInterface
 interface StartingPoints {
-  List<SearchHit> search(
+  CatalogHits search(
       Authorizer authorizer, CatalogSecurityContext securityContext, KnowledgeGraphCall.Find find)
       throws IOException;
 }

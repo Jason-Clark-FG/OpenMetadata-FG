@@ -95,9 +95,10 @@ class KnowledgeGraphToolTest {
         () -> repository,
         projectionState,
         (authorizer, caller, find) ->
-            List.of(
-                new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID),
-                new SearchHit("table", "warehouse.shop.public.customers", CUSTOMERS_ID)),
+            CatalogHits.of(
+                List.of(
+                    new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID),
+                    new SearchHit("table", "warehouse.shop.public.customers", CUSTOMERS_ID))),
         () -> traces,
         Clock.systemUTC());
   }
@@ -113,7 +114,8 @@ class KnowledgeGraphToolTest {
             () -> RdfProjectionState.READY,
             (authorizer, caller, find) -> {
               searched.add(find);
-              return List.of(new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID));
+              return CatalogHits.of(
+                  List.of(new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID)));
             },
             () -> traces,
             Clock.systemUTC());
@@ -300,7 +302,7 @@ class KnowledgeGraphToolTest {
         new KnowledgeGraphTool(
             () -> untouched,
             () -> RdfProjectionState.READY,
-            (authorizer, caller, find) -> List.of(),
+            (authorizer, caller, find) -> CatalogHits.of(List.of()),
             () -> traces,
             Clock.systemUTC());
     final Authorizer denying = RdfToolAuthorization.denyingAuthorizer();
@@ -331,7 +333,7 @@ class KnowledgeGraphToolTest {
         new KnowledgeGraphTool(
             () -> null,
             () -> RdfProjectionState.READY,
-            (authorizer, caller, find) -> List.of(),
+            (authorizer, caller, find) -> CatalogHits.of(List.of()),
             () -> traces,
             Clock.systemUTC());
 
@@ -369,6 +371,31 @@ class KnowledgeGraphToolTest {
     assertThat(response.nodes()).extracting(NodeCard::id).containsExactly(ORDERS, CUSTOMERS);
     assertThat(response.termLookupSkipped()).contains("maximum response size");
     assertThat(JsonUtils.pojoToJson(response)).contains("\"termLookupSkipped\"");
+  }
+
+  @Test
+  void aFindWhoseSemanticSearchDidNotTakePartSaysSo() throws IOException {
+    callersAreAdministrators(false);
+    final KnowledgeGraphTool tool =
+        new KnowledgeGraphTool(
+            () -> repository,
+            () -> RdfProjectionState.READY,
+            (authorizer, caller, find) ->
+                CatalogHits.skipped(
+                    List.of(new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID)),
+                    "embedding backend down"),
+            () -> traces,
+            Clock.systemUTC());
+
+    final KnowledgeGraphTool.FindResponse response =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(GRANTED, CALLER, Map.of("operation", "find", "question", "orders"));
+
+    assertThat(response.nodes()).extracting(NodeCard::id).containsExactly(ORDERS);
+    assertThat(response.semanticSearchSkipped()).contains("embedding backend down");
+    assertThat(JsonUtils.pojoToJson(response)).contains("\"semanticSearchSkipped\"");
+    assertThat(JsonUtils.pojoToJson(call(Map.of("operation", "find", "question", "orders"))))
+        .doesNotContain("semanticSearchSkipped");
   }
 
   @Test

@@ -2,6 +2,7 @@ package org.openmetadata.service.search.vector;
 
 import static org.openmetadata.service.search.opensearch.OsUtils.loadVectorIndexMapping;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -1588,6 +1589,43 @@ public class OpenSearchVectorService implements VectorIndexService {
           .append('_')
           .append(i)
           .append("\"}}\n");
+    }
+  }
+
+  /**
+   * Runs one hybrid search: the request's word query and a KNN query over the question's
+   * embedding, in one {@code hybrid} query over the request's indexes, ranked by {@code
+   * rrfPipeline} inlined in the request. Returns at most {@code size} entities in rank order.
+   */
+  public List<Map<String, Object>> hybridSearch(
+      final HybridSearchRequest request, final String rrfPipeline) {
+    try {
+      final String knnLeg =
+          VectorSearchQueryBuilder.buildHybridQuery(
+              embeddingClient.embedQuery(request.query()),
+              new VectorSearchParameters(
+                  null,
+                  request.filters(),
+                  0,
+                  0,
+                  request.size() * HybridSearchQuery.CHUNK_OVERFETCH,
+                  0.0,
+                  null,
+                  request.subjectContext(),
+                  null));
+      final String body =
+          HybridSearchQuery.body(
+              HybridSearchQuery.lexicalLeg(request.lexicalQuery(), request.filters()),
+              knnLeg,
+              request.size(),
+              rrfPipeline);
+      return HybridSearchQuery.entities(
+          executeGenericRequest("POST", HybridSearchQuery.endpoint(request.indexes()), body),
+          request.size());
+    } catch (JsonProcessingException unreadable) {
+      throw new HybridSearchException("The hybrid search response could not be read", unreadable);
+    } catch (RuntimeException failed) {
+      throw new HybridSearchException("Hybrid search failed: " + failed.getMessage(), failed);
     }
   }
 
