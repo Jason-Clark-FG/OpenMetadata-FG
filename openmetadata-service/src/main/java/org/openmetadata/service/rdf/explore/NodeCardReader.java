@@ -15,6 +15,7 @@ package org.openmetadata.service.rdf.explore;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -119,22 +120,49 @@ public final class NodeCardReader {
   }
 
   private Map<String, List<Reachable>> readReachable(final List<String> nodes) {
-    return SparqlRows.parse(graph.select(ExplorationQueries.reachable(nodes))).stream()
-        .collect(
-            Collectors.groupingBy(
-                row -> SparqlRows.iri(row, ExplorationQueries.NODE),
-                Collectors.mapping(
-                    this::reachable,
-                    Collectors.collectingAndThen(
-                        Collectors.toList(),
-                        entries -> entries.stream().sorted(REACHABLE_ORDER).toList()))));
+    final Map<String, Map<RelationshipKey, Long>> totals = new LinkedHashMap<>();
+    final Map<RelationshipKey, Map<String, Long>> statuses = new HashMap<>();
+    for (final QuerySolution row :
+        SparqlRows.parse(
+            graph.select(ExplorationQueries.reachable(nodes, vocabulary.statusProperties())))) {
+      final RelationshipKey key = RelationshipKey.of(row, vocabulary);
+      final long count = row.getLiteral(ExplorationQueries.COUNT).getLong();
+      if (row.contains(ExplorationQueries.STATUS)) {
+        statuses.computeIfAbsent(key, ignored -> new HashMap<>()).put(statusKey(row), count);
+      } else {
+        totals.computeIfAbsent(key.node(), ignored -> new LinkedHashMap<>()).put(key, count);
+      }
+    }
+    final Map<String, List<Reachable>> reachable = new HashMap<>();
+    totals.forEach(
+        (node, counts) ->
+            reachable.put(
+                node,
+                counts.entrySet().stream()
+                    .map(
+                        entry ->
+                            new Reachable(
+                                entry.getKey().relationship(),
+                                entry.getKey().direction(),
+                                entry.getValue(),
+                                statuses.getOrDefault(entry.getKey(), Map.of())))
+                    .sorted(REACHABLE_ORDER)
+                    .toList()));
+    return reachable;
   }
 
-  private Reachable reachable(final QuerySolution row) {
-    final String predicate = SparqlRows.iri(row, ExplorationQueries.PREDICATE);
-    return new Reachable(
-        vocabulary.compact(predicate),
-        Direction.fromValue(row.getLiteral(ExplorationQueries.DIRECTION).getString()),
-        row.getLiteral(ExplorationQueries.COUNT).getLong());
+  private String statusKey(final QuerySolution row) {
+    return Reachable.statusKey(
+        vocabulary.compact(SparqlRows.iri(row, ExplorationQueries.STATUS)),
+        row.getLiteral(ExplorationQueries.VALUE).getString());
+  }
+
+  private record RelationshipKey(String node, String relationship, Direction direction) {
+    static RelationshipKey of(final QuerySolution row, final OntologyVocabulary vocabulary) {
+      return new RelationshipKey(
+          SparqlRows.iri(row, ExplorationQueries.NODE),
+          vocabulary.compact(SparqlRows.iri(row, ExplorationQueries.PREDICATE)),
+          Direction.fromValue(row.getLiteral(ExplorationQueries.DIRECTION).getString()));
+    }
   }
 }

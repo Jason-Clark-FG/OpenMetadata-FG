@@ -60,10 +60,16 @@ final class PropertyDescriptions {
         + JsonUtils.pojoToJson(vocabulary.aboutNamed(name)).length();
   }
 
-  /** The properties a card names: its relationships and the properties of its values. */
+  /**
+   * The properties a card names: its relationships, the status properties they count by, and the
+   * properties of its values.
+   */
   static Set<String> namesOf(final NodeCard card) {
     return Stream.of(
             card.reachable().stream().map(Reachable::relationship),
+            card.reachable().stream()
+                .flatMap(entry -> entry.status().keySet().stream())
+                .map(Reachable::statusProperty),
             card.values().stream().map(CardValue::property),
             card.bookkeeping().stream())
         .flatMap(names -> names)

@@ -14,6 +14,8 @@
 package org.openmetadata.service.rdf.explore;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.openmetadata.service.rdf.RdfIriValidator;
 
@@ -87,10 +89,23 @@ final class ExplorationQueries {
                 CardValue.VALUE_LIMIT);
   }
 
+  static final String STATUS = "status";
+
   static String reachable(final Collection<String> nodes) {
+    return reachable(nodes, Map.of());
+  }
+
+  /**
+   * One row per node, direction and relationship with the count of distinct nodes on the other
+   * side; with {@code statusProperties} (status properties by class), also one row per status
+   * property and value of those nodes, {@code ?status} bound, counting the nodes that have it. A
+   * relationship they have counts under the empty value. One read either way.
+   */
+  static String reachable(
+      final Collection<String> nodes, final Map<String, List<String>> statusProperties) {
     final String values = iris(nodes);
-    return PREFIXES
-        + """
+    final String totals =
+        """
         SELECT ?node ?direction ?predicate (COUNT(DISTINCT ?other) AS ?count) WHERE {
           { VALUES ?node { %1$s }
             ?node ?predicate ?other . FILTER(isIRI(?other)) BIND("outgoing" AS ?direction) }
@@ -101,6 +116,43 @@ final class ExplorationQueries {
         } GROUP BY ?node ?direction ?predicate
         """
             .formatted(values);
+    return PREFIXES
+        + (statusProperties.isEmpty()
+            ? totals
+            : """
+              SELECT ?node ?direction ?predicate ?status ?value ?count WHERE {
+                { %s }
+                UNION
+                { %s }
+              }
+              """
+                .formatted(totals, statuses(values, statusPairs(statusProperties))));
+  }
+
+  private static String statuses(final String nodes, final String pairs) {
+    return """
+        SELECT ?node ?direction ?predicate ?status ?value (COUNT(DISTINCT ?other) AS ?count) WHERE {
+          { VALUES ?node { %1$s } VALUES (?class ?status) { %2$s }
+            ?node ?predicate ?other . ?other a ?class ; ?status ?state .
+            BIND("outgoing" AS ?direction) }
+          UNION
+          { VALUES ?node { %1$s } VALUES (?class ?status) { %2$s }
+            ?other ?predicate ?node . ?other a ?class ; ?status ?state .
+            BIND("incoming" AS ?direction) }
+          FILTER(?predicate != rdf:type)
+          BIND(IF(isLiteral(?state), STR(?state), "") AS ?value)
+        } GROUP BY ?node ?direction ?predicate ?status ?value
+        """
+        .formatted(nodes, pairs);
+  }
+
+  private static String statusPairs(final Map<String, List<String>> statusProperties) {
+    return statusProperties.entrySet().stream()
+        .flatMap(
+            entry ->
+                entry.getValue().stream()
+                    .map(property -> "(%s %s)".formatted(iri(entry.getKey()), iri(property))))
+        .collect(Collectors.joining(" "));
   }
 
   /** One row per far node, ordered so pages never overlap; one row beyond the page shows more. */

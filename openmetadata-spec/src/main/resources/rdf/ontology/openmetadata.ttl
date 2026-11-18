@@ -2478,6 +2478,14 @@ om:projectionStatus a owl:AnnotationProperty ;
     rdfs:label "projection status" ;
     rdfs:comment "Whether a property is asserted by the metadata projection (Stored) or is vocabulary for custom inference/external data only (InferenceOnly). This annotation does not enable inference." .
 
+om:statusProperty a owl:AnnotationProperty ;
+    rdfs:label "status property" ;
+    rdfs:comment "A property whose value says how a node of the annotated class stands, such as a test case's latest result. A knowledge_graph card counts the nodes on the other side of a relationship by it: by value for a value, by presence for a relationship. It is an annotation and entails nothing." .
+
+om:TestCase om:statusProperty om:latestResultStatus, om:hasOpenIncident .
+
+om:TestCaseIncident om:statusProperty om:incidentState .
+
 om:Stored rdfs:label "stored" ;
     rdfs:comment "Asserted when the corresponding metadata field or relationship is populated. Queryable with inference=none; optional fields need not exist on every entity." .
 

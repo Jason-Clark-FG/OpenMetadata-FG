@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -301,3 +301,19 @@ HybridRanking)`.
 step recorded only the IRIs its rows bound, and no row binds the subject the query was about. A
 query step now also serves the IRIs its pattern names as a subject, an object or a `VALUES` entry,
 when it returned rows.
+
+## Amendment 2026-11-18. Cards say how healthy and how trusted a node is
+
+In 56 sessions no run mentioned the failing test or open incident on the table it was asked about:
+the card said `om:testsEntity` 11 and nothing more.
+
+- **Status counts.** The ontology marks, with the annotation `om:statusProperty`, the properties
+  that say how a node of a class stands: `om:latestResultStatus` and `om:hasOpenIncident` for
+  `om:TestCase`, `om:incidentState` for `om:TestCaseIncident`. A `reachable` entry whose far nodes
+  are of such a class carries `status`, counting them by it: `property=value` for a value,
+  `property` alone for a relationship they have. The `orders` card now reads
+  `om:testsEntity incoming 11, status {om:hasOpenIncident 3, om:latestResultStatus=Failed 4,
+  om:latestResultStatus=Success 7}`. The counts come from the same read as `reachable`; a new kind
+  of node gets them by being annotated, not by code.
+- **Trust in the facts.** `facts` carries `status` (`om:entityStatus`, such as Deprecated) beside
+  `tier` and `certification`.

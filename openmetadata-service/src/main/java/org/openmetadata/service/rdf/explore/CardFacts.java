@@ -33,6 +33,7 @@ final class CardFacts {
   private Integer descriptionLength;
   private String tier;
   private String certification;
+  private String status;
   private String service;
   private Long dailyUsage;
   private Long weeklyUsage;
@@ -67,6 +68,10 @@ final class CardFacts {
 
   void setCertification(final FactValue value) {
     certification = value.value();
+  }
+
+  void setStatus(final FactValue value) {
+    status = value.value();
   }
 
   void addOwner(final FactValue value) {
@@ -115,6 +120,7 @@ final class CardFacts {
         descriptionLength,
         tier,
         certification,
+        status,
         List.copyOf(owners),
         service,
         usage.isEmpty() ? null : usage);

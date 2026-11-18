@@ -16,7 +16,11 @@ package org.openmetadata.service.rdf.explore;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
+import java.io.StringReader;
 import java.util.List;
+import java.util.Map;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.utils.JsonUtils;
 
@@ -124,5 +128,92 @@ class NodeCardReaderTest {
 
     assertThat(cards).extracting(NodeCard::id).containsExactly(RAW, ORDERS);
     assertThat(graph.queries()).hasSize(3);
+  }
+
+  static final String TESTED =
+      """
+      <%1$s> a om:Table ; rdfs:label "orders" ; om:entityStatus "Deprecated" .
+      <%2$stestCase/fresh> a om:TestCase ; om:testsEntity <%1$s> ;
+          om:latestResultStatus "Failed" ; om:hasOpenIncident <%2$sincident/1> .
+      <%2$stestCase/unique> a om:TestCase ; om:testsEntity <%1$s> ; om:latestResultStatus "Failed" .
+      <%2$stestCase/rows> a om:TestCase ; om:testsEntity <%1$s> ; om:latestResultStatus "Success" .
+      <%2$stestCase/never> a om:TestCase ; om:testsEntity <%1$s> .
+      <%2$sincident/1> a om:TestCaseIncident ; om:incidentState "Assigned" .
+      """
+          .formatted(ORDERS, BASE + "entity/");
+
+  @Test
+  void aRelationshipCountsTheNodesOnItsOtherSideByTheStatusTheOntologyMarksForThem() {
+    final InMemoryGraph graph = InMemoryGraph.ofTurtle(TESTED);
+    final List<NodeCard> cards =
+        reader(graph).read(List.of(ORDERS, BASE + "entity/testCase/fresh"));
+
+    assertThat(cards.getFirst().reachable())
+        .filteredOn(entry -> entry.relationship().equals("om:testsEntity"))
+        .singleElement()
+        .satisfies(
+            tests -> {
+              assertThat(tests.direction()).isEqualTo(Direction.INCOMING);
+              assertThat(tests.count()).isEqualTo(4L);
+              assertThat(tests.status())
+                  .containsExactly(
+                      Map.entry("om:hasOpenIncident", 1L),
+                      Map.entry("om:latestResultStatus=Failed", 2L),
+                      Map.entry("om:latestResultStatus=Success", 1L));
+            });
+    assertThat(cards.getLast().reachable())
+        .filteredOn(entry -> entry.relationship().equals("om:hasOpenIncident"))
+        .singleElement()
+        .extracting(Reachable::status)
+        .isEqualTo(Map.of("om:incidentState=Assigned", 1L));
+    assertThat(cards.getLast().reachable())
+        .filteredOn(entry -> entry.relationship().equals("om:testsEntity"))
+        .singleElement()
+        .extracting(Reachable::status)
+        .isEqualTo(Map.of());
+    assertThat(PropertyDescriptions.namesOf(cards.getFirst()))
+        .contains("om:latestResultStatus", "om:hasOpenIncident");
+    assertThat(graph.queries()).hasSize(3);
+  }
+
+  @Test
+  void aCardSaysHowTrustedItsNodeIsAmongItsFacts() {
+    final NodeCard card = reader(InMemoryGraph.ofTurtle(TESTED)).read(List.of(ORDERS)).getFirst();
+
+    assertThat(card.facts().status()).isEqualTo("Deprecated");
+    assertThat(card.values()).extracting(CardValue::property).doesNotContain("om:entityStatus");
+  }
+
+  @Test
+  void anyClassTheOntologyGivesAStatusPropertyIsCountedByIt() {
+    final Model ontology = ModelFactory.createDefaultModel();
+    ontology.read(
+        new StringReader(
+            """
+            @prefix om: <https://open-metadata.org/ontology/> .
+            @prefix ex: <https://example.org/> .
+            ex:Ticket om:statusProperty ex:state .
+            """),
+        null,
+        "TTL");
+    final String table = BASE + "entity/table/0b0b0b0b-0000-0000-0000-000000000009";
+    final InMemoryGraph graph =
+        InMemoryGraph.ofTurtle(
+            """
+            <%s> a om:Table .
+            <https://example.org/t1> a <https://example.org/Ticket> ;
+                <https://example.org/state> "open" ; om:about <%s> .
+            """
+                .formatted(table, table));
+
+    final NodeCard card =
+        new NodeCardReader(graph, new OntologyVocabulary(ontology), BASE)
+            .read(List.of(table))
+            .getFirst();
+
+    assertThat(card.reachable())
+        .singleElement()
+        .extracting(Reachable::status)
+        .isEqualTo(Map.of("ex:state=open", 1L));
   }
 }

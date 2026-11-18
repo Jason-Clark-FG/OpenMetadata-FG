@@ -30,6 +30,7 @@ enum FactPredicate {
   DESCRIPTION("http://purl.org/dc/terms/description", CardFacts::setDescription),
   TIER(Names.OM + "hasTier", CardFacts::setTier),
   CERTIFICATION(Names.OM + "certificationLevel", CardFacts::setCertification),
+  STATUS(Names.OM + "entityStatus", CardFacts::setStatus),
   OWNER(Names.OM + "hasOwner", CardFacts::addOwner),
   SERVICE(Names.OM + "belongsToService", CardFacts::setService),
   USAGE_DAILY(Names.OM + "usageDailyCount", CardFacts::setDailyUsage),

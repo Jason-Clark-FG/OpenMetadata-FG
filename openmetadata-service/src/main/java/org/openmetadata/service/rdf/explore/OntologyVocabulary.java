@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.jena.rdf.model.Model;
@@ -55,6 +58,8 @@ public final class OntologyVocabulary {
   private static final String OM = "https://open-metadata.org/ontology/";
   private static final Property PROJECTION_STATUS =
       ResourceFactory.createProperty(OM, "projectionStatus");
+  private static final Property STATUS_PROPERTY =
+      ResourceFactory.createProperty(OM, "statusProperty");
   private static final Resource STORED = ResourceFactory.createResource(OM + "Stored");
   private static final Resource INFERENCE_ONLY =
       ResourceFactory.createResource(OM + "InferenceOnly");
@@ -66,12 +71,14 @@ public final class OntologyVocabulary {
   private final Map<String, RelationshipAbout> abouts;
   private final Map<String, Set<String>> classAncestors;
   private final List<UnprojectedProperty> unprojected;
+  private final Map<String, List<String>> statusProperties;
 
   OntologyVocabulary(final Model ontology) {
     prefixes = PrefixMapping.Factory.create().setNsPrefixes(ontology).lock();
     abouts = Map.copyOf(readAbouts(ontology));
     classAncestors = Map.copyOf(readClassAncestors(ontology));
     unprojected = readUnprojected(ontology);
+    statusProperties = readStatusProperties(ontology);
   }
 
   private static final class StandardTerms {
@@ -134,6 +141,14 @@ public final class OntologyVocabulary {
         .filter(property -> property.appliesTo(classes))
         .map(property -> new NotCovered(property.name(), property.label()))
         .toList();
+  }
+
+  /**
+   * For each class the ontology gives one, the properties ({@code om:statusProperty}) that say how
+   * a node of that class stands, such as a test case's latest result.
+   */
+  public Map<String, List<String>> statusProperties() {
+    return statusProperties;
   }
 
   public String compact(final String iri) {
@@ -203,6 +218,22 @@ public final class OntologyVocabulary {
   private static String localName(final String iri) {
     final String name = ResourceFactory.createResource(iri).getLocalName();
     return nullOrEmpty(name) ? iri : name;
+  }
+
+  private static Map<String, List<String>> readStatusProperties(final Model ontology) {
+    final Map<String, List<String>> result = new TreeMap<>();
+    ontology
+        .listStatements(null, STATUS_PROPERTY, (RDFNode) null)
+        .filterKeep(
+            statement ->
+                statement.getSubject().isURIResource() && statement.getObject().isURIResource())
+        .forEach(
+            statement ->
+                result
+                    .computeIfAbsent(statement.getSubject().getURI(), ignored -> new ArrayList<>())
+                    .add(statement.getResource().getURI()));
+    result.replaceAll((type, properties) -> properties.stream().sorted().toList());
+    return Collections.unmodifiableMap(result);
   }
 
   private static Map<String, Set<String>> readClassAncestors(final Model ontology) {
