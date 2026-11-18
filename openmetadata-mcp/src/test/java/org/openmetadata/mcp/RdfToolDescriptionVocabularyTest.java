@@ -133,7 +133,8 @@ class RdfToolDescriptionVocabularyTest {
 
     assertThat(description)
         .contains("'status'", "om:latestResultStatus=Failed", "om:hasOpenIncident", "Deprecated")
-        .contains("om:testsEntity", "in one call", "'rows'", "'noRows'");
+        .contains("om:testsEntity", "in one call", "'rows'", "'noRows'")
+        .contains("'listed'", "short form", "full cards are a subset", "'matched'", "'rest'");
   }
 
   private static String parameterDescription(final McpSchema.Tool tool, final String name) {

@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -386,3 +386,28 @@ applied evenly. A question about a deprecated asset is when the catalog must sho
 one showed no answer lost to a deprecated look-alike ranking first. The card says
 `status: Deprecated` in its facts; that is where trust is stated. Test cases stay searched by
 meaning (v13).
+
+## Amendment 2026-11-19. A listing is complete, or says in words what it left out
+
+Round 3 (eight root-cause questions, three runs each) followed cards as intended and scored lower,
+23 of 48 against 31: a page of cards is partial more often than the model notices. A default page
+held 8 of `orders`' 11 tests, a lowered `maxChars` 1 to 3, and only `nextCursor` said so; three R8
+runs each read 3 passing tests and none paged, and one R1 run wrote "No data-quality test covers
+this case" from 2 of 11. One R2 run read five `find` cards with 11 more matched and wrote that the
+catalog had nothing. R3 spelled `raw.raw_orders.ordered_at` and got a table of that name in
+another dataset.
+
+- **expand lists every far node.** Each group gives `total`, every far node in short form
+  (`listed`: id, name, type, and the values of its class's `om:statusProperty`, such as
+  `om:latestResultStatus` and `om:hasOpenIncident`), the ids carded on this page (`nodes`), and
+  `rest`, a sentence for what is left out with the call that reads it. Lists are paid for before
+  any card, one far node per group in turn, up to 200 per group; a list the response cannot hold
+  says how many are listed and gives the exact query for the rest. A relationship asked with no
+  far node says `total` 0. Listed nodes are served to the run, so `cite` accepts them.
+- **find says what it left out.** `matched` counts what find collected, `rest` says how many have
+  cards and to ask again with a larger limit, `entityTypes` or a more specific question.
+- **A smaller size is the default.** `maxChars` below 40,000 is read as 40,000: in 20 of 38
+  expands the model lowered it to save context and read a fragment. It now only asks for more.
+- **A qualified name resolves exactly.** A dotted name in the question is read as the end of a
+  fully qualified name; the assets it names, and the table of a named column, are looked up through
+  the caller's own search and come first on every path.
