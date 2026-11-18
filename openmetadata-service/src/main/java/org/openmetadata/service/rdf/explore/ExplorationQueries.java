@@ -200,50 +200,55 @@ final class ExplorationQueries {
         .formatted(iris(nodes), iris(relationships), pattern, direction.value());
   }
 
-  /** One row per node, relationship and direction asked: how many distinct far nodes it has. */
-  static String expansionTotals(final ExpandRequest request) {
+  private static String totalsSelect(final ExpandRequest request) {
     final String branches =
         request.directions().stream()
             .sorted()
             .map(direction -> expansionBranch(request, direction))
             .collect(Collectors.joining("\n  UNION\n  "));
-    return PREFIXES
-        + """
+    return """
         SELECT ?node ?predicate ?direction (COUNT(DISTINCT ?other) AS ?count) WHERE {
           %s
         } GROUP BY ?node ?predicate ?direction
         """
-            .formatted(branches);
+        .formatted(branches);
   }
 
   /** The first {@code cap} far nodes of each node, relationship and direction, in id order. */
-  static String listedFarNodes(final ExpandRequest request, final int cap) {
-    final String groups =
-        request.nodes().stream()
-            .flatMap(
-                node ->
-                    request.relationships().stream()
-                        .flatMap(
-                            relationship ->
-                                request.directions().stream()
-                                    .sorted()
-                                    .map(
-                                        direction ->
-                                            "{ SELECT ?node ?predicate ?direction ?other WHERE { %s }"
-                                                    .formatted(
-                                                        branch(
-                                                            List.of(node),
-                                                            List.of(relationship),
-                                                            direction))
-                                                + " ORDER BY ?other LIMIT %d }".formatted(cap))))
-            .collect(Collectors.joining("\n  UNION\n  "));
+  private static String listedSelects(final ExpandRequest request, final int cap) {
+    return request.nodes().stream()
+        .flatMap(
+            node ->
+                request.relationships().stream()
+                    .flatMap(
+                        relationship ->
+                            request.directions().stream()
+                                .sorted()
+                                .map(
+                                    direction -> listedSelect(node, relationship, direction, cap))))
+        .collect(Collectors.joining("\n  UNION\n  "));
+  }
+
+  private static String listedSelect(
+      final String node, final String relationship, final Direction direction, final int cap) {
+    return "{ SELECT ?node ?predicate ?direction ?other WHERE { %s } ORDER BY ?other LIMIT %d }"
+        .formatted(branch(List.of(node), List.of(relationship), direction), cap);
+  }
+
+  /**
+   * One read for an expansion's outline: a row per group with its far-node count ({@code ?count}
+   * bound), and a row per listed far node, the first {@code cap} of each group.
+   */
+  static String expansionOutline(final ExpandRequest request, final int cap) {
     return PREFIXES
         + """
-        SELECT ?node ?predicate ?direction ?other WHERE {
-          %s
+        SELECT ?node ?predicate ?direction ?other ?count WHERE {
+          { %s }
+          UNION
+          { %s }
         }
         """
-            .formatted(groups);
+            .formatted(totalsSelect(request), listedSelects(request, cap));
   }
 
   static final String FIELD = "field";

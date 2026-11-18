@@ -325,4 +325,19 @@ class GraphExpansionTest {
         .contains("OFFSET " + group.listed().size());
     assertThat((long) JsonUtils.pojoToJson(page).length()).isLessThanOrEqualTo(8_000 + 4_000);
   }
+
+  /**
+   * Reads take a per-caller admission slot: one outline read gives every group's count and list,
+   * and complete lists give the page's rows, so an expand reads the graph five times, three of
+   * them for the cards.
+   */
+  @Test
+  void anExpandWhoseListsAreCompleteReadsTheGraphFiveTimes() {
+    final InMemoryGraph graph = InMemoryGraph.ofTurtle(TESTS);
+
+    new GraphExpansion(graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical())
+        .expand(testsOfOrders(List.of(OM + "testsEntity"), UNBOUNDED));
+
+    assertThat(graph.queries()).hasSize(5);
+  }
 }

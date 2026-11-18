@@ -61,9 +61,11 @@ public final class GraphExpansion {
    */
   public ExpandPage expand(final ExpandRequest request) {
     final List<GroupKey> keys = groupKeys(request);
-    final Map<GroupKey, List<FarNode>> listed = fitLists(keys, readListed(request), request);
+    final Outline outline = readOutline(request);
+    final Map<GroupKey, List<FarNode>> listed = fitLists(keys, outline.ids(), request);
     final long listChars = listChars(keys, listed);
-    final List<ExpansionRow> rows = readRows(request);
+    final List<ExpansionRow> rows =
+        outline.isComplete() ? rowsOf(keys, outline.ids(), request) : readRows(request);
     final List<ExpansionRow> candidates = rows.subList(0, Math.min(rows.size(), request.limit()));
     final Map<String, NodeCard> cardsById = cardsOf(candidates);
     final List<ExpansionRow> page =
@@ -80,7 +82,7 @@ public final class GraphExpansion {
             .toList();
     final Integer nextOffset = rows.size() > page.size() ? request.offset() + page.size() : null;
     final List<ExpansionGroup> groups =
-        groups(keys, readTotals(request), listed, carded(page), nextOffset, request.offset());
+        groups(keys, outline.totals(), listed, carded(page), nextOffset, request.offset());
     return new ExpandPage(
         groups,
         pageCards,
@@ -215,21 +217,51 @@ public final class GraphExpansion {
                 LinkedHashMap::new));
   }
 
-  private Map<GroupKey, List<String>> readListed(final ExpandRequest request) {
+  /** Each group's far-node count and its first {@link #LIST_CAP} far nodes, in one read. */
+  private Outline readOutline(final ExpandRequest request) {
+    final Map<GroupKey, Long> totals = new HashMap<>();
     final Map<GroupKey, List<String>> ids = new LinkedHashMap<>();
-    SparqlRows.parse(graph.select(ExplorationQueries.listedFarNodes(request, LIST_CAP)))
-        .forEach(
-            row ->
-                ids.computeIfAbsent(key(row), ignored -> new ArrayList<>())
-                    .add(SparqlRows.iri(row, ExplorationQueries.OTHER)));
+    for (final QuerySolution row :
+        SparqlRows.parse(graph.select(ExplorationQueries.expansionOutline(request, LIST_CAP)))) {
+      if (row.contains(ExplorationQueries.COUNT)) {
+        totals.put(key(row), row.getLiteral(ExplorationQueries.COUNT).getLong());
+      } else {
+        ids.computeIfAbsent(key(row), ignored -> new ArrayList<>())
+            .add(SparqlRows.iri(row, ExplorationQueries.OTHER));
+      }
+    }
     ids.values().forEach(list -> list.sort(Comparator.naturalOrder()));
-    return ids;
+    return new Outline(totals, ids);
   }
 
-  private Map<GroupKey, Long> readTotals(final ExpandRequest request) {
-    return SparqlRows.parse(graph.select(ExplorationQueries.expansionTotals(request))).stream()
-        .collect(
-            Collectors.toMap(this::key, row -> row.getLiteral(ExplorationQueries.COUNT).getLong()));
+  /**
+   * The page's rows from complete lists, in the order the expansion query gives them (node,
+   * relationship, direction, far node), so no further read is needed for them.
+   */
+  private static List<ExpansionRow> rowsOf(
+      final List<GroupKey> keys,
+      final Map<GroupKey, List<String>> ids,
+      final ExpandRequest request) {
+    final List<ExpansionRow> all =
+        keys.stream()
+            .flatMap(
+                key ->
+                    ids.getOrDefault(key, List.of()).stream()
+                        .map(
+                            other ->
+                                new ExpansionRow(
+                                    key.node(), key.relationship(), key.direction(), other)))
+            .toList();
+    final int from = Math.min(request.offset(), all.size());
+    return all.subList(from, Math.min(all.size(), from + request.limit() + 1));
+  }
+
+  private record Outline(Map<GroupKey, Long> totals, Map<GroupKey, List<String>> ids) {
+    boolean isComplete() {
+      return totals.entrySet().stream()
+          .allMatch(
+              entry -> ids.getOrDefault(entry.getKey(), List.of()).size() == entry.getValue());
+    }
   }
 
   private GroupKey key(final QuerySolution row) {
