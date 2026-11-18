@@ -117,6 +117,50 @@ downstream of the source column take 330 ms in memory, and 11 pages of 250 rows 
 
 `om:hasChildColumn` is stored for nested table columns; traversing to their owning asset needs no inference.
 
+## Quality evidence
+
+The graph carries the latest profile of each table and column and the latest result of each test
+case, on live writes and on reindex alike. History stays in the profile and test results APIs.
+See ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence.
+
+```turtle
+<table> dqv:hasQualityMeasurement <table/measurement/RowCountMetric> .
+<table/measurement/RowCountMetric> a dqv:QualityMeasurement ;
+    dqv:isMeasurementOf om:RowCountMetric ;
+    dqv:computedOn <table> ;
+    dqv:value 1200.0 ;
+    prov:generatedAtTime "2026-11-18T06:00:00Z"^^xsd:dateTime .
+
+<testCase> om:testsEntity <table> ;
+    om:testsColumn <https://open-metadata.org/entity/column/svc.db.schema.orders.amount> ;
+    om:hasTestResult <testCase/result/latest> .
+<testCase/result/latest> a om:TestCaseResult ;
+    om:testResultStatus "Failed" ;
+    prov:generatedAtTime "2026-11-18T06:05:00Z"^^xsd:dateTime ;
+    om:failedRows 12 ;
+    om:minBound 0.0 ;
+    om:hasResultValue <testCase/result/latest/value/0> .
+<testCase/result/latest/value/0> a om:TestResultValue ;
+    rdfs:label "min" ;
+    dqv:value "-3" .
+```
+
+Columns measure values, nulls (count and proportion), distinct and unique counts, mean, min and max
+(numeric columns only) and string lengths; tables measure rows, columns and size. A profile or
+result write replaces the previous values exactly, and deleting a table, column or test case
+removes its evidence. Columns tagged `PII.Sensitive`, and fields beneath one, carry no profile, and
+tests on them carry no result, as for an API caller without PII access. Failing tests on a table:
+
+```sparql
+PREFIX om: <https://open-metadata.org/ontology/>
+SELECT ?test ?status ?ranAt WHERE {
+  ?test om:testsEntity ?table ; om:hasTestResult ?result .
+  ?table om:fullyQualifiedName "svc.db.schema.orders" .
+  ?result om:testResultStatus ?status ; <http://www.w3.org/ns/prov#generatedAtTime> ?ranAt .
+  FILTER(?status != "Success")
+}
+```
+
 ## Domain membership
 
 An asset's `domains` are projected as `om:belongsToDomain`, the predicate already used

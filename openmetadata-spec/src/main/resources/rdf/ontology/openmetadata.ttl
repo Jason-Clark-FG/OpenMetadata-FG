@@ -413,6 +413,150 @@ om:TestCase a owl:Class ;
     rdfs:label "Test Case" ;
     rdfs:subClassOf om:Entity .
 
+om:TestCaseResult a owl:Class ;
+    rdfs:label "Test Case Result" ;
+    rdfs:comment "The latest run of a test case: its status, when it ran, what it observed and the bounds it was judged against. The graph keeps only the latest run; older runs stay in the test results API." .
+
+om:TestResultValue a owl:Class ;
+    rdfs:label "Test Result Value" ;
+    rdfs:comment "One value a test run observed, such as the null count or the minimum it measured, named by rdfs:label with the observed value as dqv:value." .
+
+om:testsEntity a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "tests entity" ;
+    rdfs:comment "The table a test case checks. Follow it backwards from a table to find every test on it, column tests included; a column test also carries om:testsColumn. Written only while the table is in the catalog." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:Table .
+
+om:testsColumn a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "tests column" ;
+    rdfs:comment "The column a column-level test case checks, the same column IRI om:hasColumn names. Absent for table-level tests." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:Column .
+
+om:testsEntityFQN a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "tests entity FQN" ;
+    rdfs:comment "Fully qualified name of the table or column a test case checks, matching that asset's om:fullyQualifiedName." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range xsd:string .
+
+om:hasTestResult a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has test result" ;
+    rdfs:comment "The latest result of a test case. Read it before trusting the data the test covers: a Failed status means the last run found the data outside the test's bounds. There is at most one; it is replaced when a newer run arrives and removed with the test case. Results of tests on PII-sensitive columns are not projected." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:TestCaseResult .
+
+om:testResultStatus a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "test result status" ;
+    rdfs:comment "Outcome of the latest run: Success, Failed, Aborted or Queued. The run time is prov:generatedAtTime on the same result." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:string .
+
+om:testResultMessage a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "test result message" ;
+    rdfs:comment "The run's own summary of what it found, as the test framework wrote it." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:string .
+
+om:passedRows a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "passed rows" ;
+    rdfs:comment "Rows that met the test in the latest run, for tests that count rows." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:long .
+
+om:failedRows a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "failed rows" ;
+    rdfs:comment "Rows that broke the test in the latest run, for tests that count rows. A filter that should exclude bad rows can use it to estimate how many it removes." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:long .
+
+om:minBound a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "minimum bound" ;
+    rdfs:comment "Lowest value the latest run accepted: the threshold the observed values were judged against, after any failure tolerance. The test's configured parameters are on the test case as om:hasParameterValue." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:double .
+
+om:maxBound a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "maximum bound" ;
+    rdfs:comment "Highest value the latest run accepted: the threshold the observed values were judged against, after any failure tolerance." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range xsd:double .
+
+om:hasResultValue a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has result value" ;
+    rdfs:comment "A value the latest run observed, such as the measured null count or minimum. Each carries its name as rdfs:label and the observed value, as the framework reported it, as a dqv:value string." ;
+    rdfs:domain om:TestCaseResult ;
+    rdfs:range om:TestResultValue .
+
+om:hasParameterValue a owl:DatatypeProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has parameter value" ;
+    rdfs:comment "The test case's configured parameters, such as minValue or allowedValues, as one JSON array of name and value pairs." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range xsd:string .
+
+om:RowCountMetric a dqv:Metric ;
+    rdfs:label "row count" ;
+    rdfs:comment "Rows in the table when it was last profiled. Profile measures hang off a table or column through dqv:hasQualityMeasurement; each names its metric with dqv:isMeasurementOf, carries dqv:value and prov:generatedAtTime, and only the latest profile is kept." .
+
+om:ColumnCountMetric a dqv:Metric ;
+    rdfs:label "column count" ;
+    rdfs:comment "Columns the profiler saw in the table." .
+
+om:SizeInBytesMetric a dqv:Metric ;
+    rdfs:label "size in bytes" ;
+    rdfs:comment "Storage size of the table when it was last profiled." .
+
+om:ValuesCountMetric a dqv:Metric ;
+    rdfs:label "values count" ;
+    rdfs:comment "Values the profiler counted in the column." .
+
+om:NullCountMetric a dqv:Metric ;
+    rdfs:label "null count" ;
+    rdfs:comment "Null values in the column." .
+
+om:NullProportionMetric a dqv:Metric ;
+    rdfs:label "null proportion" ;
+    rdfs:comment "Share of the column's values that are null, from 0 to 1." .
+
+om:DistinctCountMetric a dqv:Metric ;
+    rdfs:label "distinct count" ;
+    rdfs:comment "Distinct values in the column; a low count suggests a categorical column to filter or group by." .
+
+om:UniqueCountMetric a dqv:Metric ;
+    rdfs:label "unique count" ;
+    rdfs:comment "Values that occur exactly once in the column." .
+
+om:MinMetric a dqv:Metric ;
+    rdfs:label "minimum" ;
+    rdfs:comment "Smallest value in a numeric column. Not projected for non-numeric columns or PII-sensitive ones." .
+
+om:MaxMetric a dqv:Metric ;
+    rdfs:label "maximum" ;
+    rdfs:comment "Largest value in a numeric column. Not projected for non-numeric columns or PII-sensitive ones." .
+
+om:MeanMetric a dqv:Metric ;
+    rdfs:label "mean" ;
+    rdfs:comment "Average value of a numeric column." .
+
+om:MinLengthMetric a dqv:Metric ;
+    rdfs:label "minimum length" ;
+    rdfs:comment "Shortest string length in a text column." .
+
+om:MaxLengthMetric a dqv:Metric ;
+    rdfs:label "maximum length" ;
+    rdfs:comment "Longest string length in a text column." .
+
 #################################################################
 # DCAT 3 Alignment Classes
 #################################################################

@@ -3,8 +3,6 @@ package org.openmetadata.service.rdf.translator;
 import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -15,12 +13,14 @@ import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
 
 /**
- * Emits {@code dqv:QualityMeasurement} triples from OpenMetadata table and column profiles.
+ * Emits the latest table and column profile as {@code dqv:QualityMeasurement} triples, so SPARQL
+ * can answer "tables with fewer than N rows" or "columns whose null ratio exceeds 5%".
  *
- * <p>OpenMetadata historically stored these as opaque JSON literals, which makes them
- * unqueryable. This mapper turns each numeric profile field into a navigable measurement so
- * SPARQL can answer "tables with completeness &lt; 95%", "columns whose null count exceeded N",
- * etc.
+ * <p>The graph holds the latest profile only (ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence).
+ * Each measure has one IRI per subject and metric, so a newer profile changes values in place and
+ * the entity write that owns the measurement replaces it exactly. The measure set is bounded to
+ * what a model uses to write filters and judge data; min and max are emitted only when numeric,
+ * because a non-numeric bound is a data value with no single datatype.
  */
 public final class RdfQualityMapper {
 
@@ -28,39 +28,24 @@ public final class RdfQualityMapper {
   private static final String DQV_NS = "http://www.w3.org/ns/dqv#";
   private static final String PROV_NS = "http://www.w3.org/ns/prov#";
 
-  // Maps the JSON field name on Table.profile / Column.profile to the metric URI under om:.
-  // Only numeric metrics are emitted as dqv:value literals; min/max are skipped because their
-  // type is polymorphic (string / number / dateTime) and a single dqv:value triple can't express
-  // that without losing the datatype.
   private static final Map<String, String> TABLE_METRICS =
       Map.of(
           "rowCount", "RowCountMetric",
           "columnCount", "ColumnCountMetric",
           "sizeInByte", "SizeInBytesMetric");
 
-  private static final Map<String, String> COLUMN_METRICS = buildColumnMetricMap();
-
-  private static Map<String, String> buildColumnMetricMap() {
-    return Map.ofEntries(
-        Map.entry("valuesCount", "ValuesCountMetric"),
-        Map.entry("validCount", "ValidCountMetric"),
-        Map.entry("nullCount", "NullCountMetric"),
-        Map.entry("nullProportion", "NullProportionMetric"),
-        Map.entry("missingCount", "MissingCountMetric"),
-        Map.entry("missingPercentage", "MissingPercentageMetric"),
-        Map.entry("uniqueCount", "UniqueCountMetric"),
-        Map.entry("uniqueProportion", "UniqueProportionMetric"),
-        Map.entry("distinctCount", "DistinctCountMetric"),
-        Map.entry("distinctProportion", "DistinctProportionMetric"),
-        Map.entry("duplicateCount", "DuplicateCountMetric"),
-        Map.entry("mean", "MeanMetric"),
-        Map.entry("sum", "SumMetric"),
-        Map.entry("stddev", "StddevMetric"),
-        Map.entry("variance", "VarianceMetric"),
-        Map.entry("median", "MedianMetric"),
-        Map.entry("minLength", "MinLengthMetric"),
-        Map.entry("maxLength", "MaxLengthMetric"));
-  }
+  private static final Map<String, String> COLUMN_METRICS =
+      Map.ofEntries(
+          Map.entry("valuesCount", "ValuesCountMetric"),
+          Map.entry("nullCount", "NullCountMetric"),
+          Map.entry("nullProportion", "NullProportionMetric"),
+          Map.entry("distinctCount", "DistinctCountMetric"),
+          Map.entry("uniqueCount", "UniqueCountMetric"),
+          Map.entry("min", "MinMetric"),
+          Map.entry("max", "MaxMetric"),
+          Map.entry("mean", "MeanMetric"),
+          Map.entry("minLength", "MinLengthMetric"),
+          Map.entry("maxLength", "MaxLengthMetric"));
 
   private RdfQualityMapper() {}
 
@@ -101,8 +86,7 @@ public final class RdfQualityMapper {
       String metricLocalName, JsonNode value, MeasurementContext context) {
     Model model = context.model();
     MeasurementVocabulary vocabulary = context.vocabulary();
-    String measurementUri =
-        measurementUri(context.subject().getURI(), metricLocalName, context.timestamp());
+    String measurementUri = measurementUri(context.subject().getURI(), metricLocalName);
     Resource measurement = model.createResource(measurementUri);
     measurement.addProperty(RDF.type, vocabulary.measurementClass());
     measurement.addProperty(
@@ -128,16 +112,9 @@ public final class RdfQualityMapper {
     }
   }
 
-  /**
-   * Mints a deterministic URI for a dqv:QualityMeasurement so that re-emit overwrites prior
-   * triples instead of creating orphans. Each (subject, metric, timestamp) tuple maps to exactly
-   * one URI. Missing timestamps fall back to "latest" so back-to-back emits without a profile
-   * timestamp are idempotent.
-   */
-  static String measurementUri(String subjectUri, String metricLocalName, String timestamp) {
-    String slot = nullOrEmpty(timestamp) ? "latest" : timestamp;
-    String encodedSlot = URLEncoder.encode(slot, StandardCharsets.UTF_8);
-    return subjectUri + "/measurement/" + metricLocalName + "/" + encodedSlot;
+  /** One measurement IRI per subject and metric: the graph carries the latest profile only. */
+  static String measurementUri(String subjectUri, String metricLocalName) {
+    return subjectUri + "/measurement/" + metricLocalName;
   }
 
   private static String readTimestamp(JsonNode profile) {

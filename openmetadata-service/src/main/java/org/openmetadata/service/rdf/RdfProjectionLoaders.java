@@ -12,6 +12,7 @@
  */
 package org.openmetadata.service.rdf;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -27,8 +28,9 @@ import org.openmetadata.service.jdbi3.CoreRelationshipDAOs.EntityRelationshipObj
 /**
  * Reads the current metadata a live-write replay projects. Replays load state when they run rather
  * than carrying payloads, so a delayed replay never restores an obsolete snapshot. The entity
- * loader reads live entities only and fails as not found for a soft-deleted one, which the replay
- * turns into a delete: the graph projects the live catalog.
+ * loader reads live entities only, with their latest profiles and test results, and fails as not
+ * found for a soft-deleted one, which the replay turns into a delete: the graph projects the live
+ * catalog.
  */
 record RdfProjectionLoaders(
     BiFunction<String, UUID, EntityInterface<?>> entityLoader,
@@ -47,10 +49,21 @@ record RdfProjectionLoaders(
 
   static RdfProjectionLoaders defaults() {
     return new RdfProjectionLoaders(
-        RdfProjectionLoaders::loadEntity,
+        withQualityEvidence(RdfProjectionLoaders::loadEntity, RdfQualityEvidence.database()),
         RdfProjectionLoaders::loadLineageDetails,
         () -> new OntologyActiveGraph(Entity.getCollectionDAO()),
         RdfEntityLiveness.database());
+  }
+
+  /** Reads entities with {@code loader} and loads their latest quality evidence onto them. */
+  static BiFunction<String, UUID, EntityInterface<?>> withQualityEvidence(
+      final BiFunction<String, UUID, EntityInterface<?>> loader,
+      final RdfQualityEvidence evidence) {
+    return (entityType, entityId) -> {
+      final EntityInterface<?> entity = loader.apply(entityType, entityId);
+      evidence.attach(entityType, List.of(entity));
+      return entity;
+    };
   }
 
   private static EntityInterface<?> loadEntity(final String entityType, final UUID entityId) {

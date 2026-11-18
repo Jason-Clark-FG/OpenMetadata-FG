@@ -26,6 +26,8 @@ public final class RdfOwnedResources {
   private static final Node HAS_CONSTRAINT = NodeFactory.createURI(OM_NS + "hasConstraint");
   private static final Node HAS_QUALITY_MEASUREMENT =
       NodeFactory.createURI("http://www.w3.org/ns/dqv#hasQualityMeasurement");
+  private static final Node HAS_TEST_RESULT = NodeFactory.createURI(OM_NS + "hasTestResult");
+  private static final Node HAS_RESULT_VALUE = NodeFactory.createURI(OM_NS + "hasResultValue");
 
   private RdfOwnedResources() {}
 
@@ -53,6 +55,14 @@ public final class RdfOwnedResources {
           ?entity (<https://open-metadata.org/ontology/hasConstraint>
                    |<http://www.w3.org/ns/dqv#hasQualityMeasurement>) ?subject .
           ?subject ?p ?o
+        }
+        UNION {
+          ?entity <https://open-metadata.org/ontology/hasTestResult> ?result .
+          { ?result ?p ?o . BIND(?result AS ?subject) }
+          UNION {
+            ?result <https://open-metadata.org/ontology/hasResultValue> ?subject .
+            ?subject ?p ?o
+          }
         }
         UNION {
           ?entity <https://open-metadata.org/ontology/hasColumn> ?topColumn .
@@ -107,6 +117,10 @@ public final class RdfOwnedResources {
     }
     owned.addAll(objects(graph, entity, HAS_CONSTRAINT));
     owned.addAll(objects(graph, entity, HAS_QUALITY_MEASUREMENT));
+    for (Node result : objects(graph, entity, HAS_TEST_RESULT)) {
+      owned.add(result);
+      owned.addAll(objects(graph, result, HAS_RESULT_VALUE));
+    }
     final Set<Node> columns =
         descendants(graph, objects(graph, entity, HAS_COLUMN), HAS_CHILD_COLUMN);
     owned.addAll(columns);

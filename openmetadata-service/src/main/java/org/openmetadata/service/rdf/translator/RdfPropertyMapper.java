@@ -11,8 +11,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -64,20 +64,16 @@ public class RdfPropertyMapper {
   private static final Set<String> STRUCTURED_PROPERTIES =
       Set.of("lifeCycle", "customProperties", "extension", "certification");
 
-  // Properties that never belong in the graph, for four reasons:
+  // Properties that never belong in the graph, for three reasons:
   //   1. Audit/helper data with no place in the graph: changeDescription, votes.
-  //   2. Embedded time-series data with no structured RDF equivalent, belonging in the time-series
-  //      store rather than the knowledge graph: testCaseResult. A testCase carries its latest
-  //      testCaseResult inline; serializing it would push per-run test-result time-series into the
-  //      graph on every reindex/update.
-  //   3. Authentication material, which must not become SPARQL-queryable metadata:
+  //   2. Authentication material, which must not become SPARQL-queryable metadata:
   //      identityProviderSubject is the IdP's 'sub' claim, stored only to bind an account to one
   //      provider identity. It carries no discovery value and is an identity correlator. Contrast
   //      user email, which reaches the graph only through a deliberate foaf:mbox mapping. The
   //      CREDENTIAL_PROPERTIES below carry stored secrets: a service's connection, a pipeline's
   //      source config and server connection, a user's password hash or bot token.
   //      ADR:2026-10-30-the-rdf-projection-never-carries-stored-secrets
-  //   4. Per-user UI state with no metadata meaning: isFirstTimeUser only decides whether the
+  //   3. Per-user UI state with no metadata meaning: isFirstTimeUser only decides whether the
   //      first-login welcome screen shows.
   //
   // These must not be fetched at all — see isIndexableEntityField.
@@ -90,21 +86,26 @@ public class RdfPropertyMapper {
           "authenticationMechanism");
   private static final Set<String> NON_GRAPH_PROPERTIES =
       Stream.concat(
-              Stream.of("changeDescription", "votes", "testCaseResult", "isFirstTimeUser"),
+              Stream.of("changeDescription", "votes", "isFirstTimeUser"),
               CREDENTIAL_PROPERTIES.stream())
           .collect(Collectors.toUnmodifiableSet());
+
+  // Fields the graph carries but the entity read must not load: the RDF projection loads the
+  // latest test result from the results table itself (RdfQualityEvidence), where a test case read
+  // would look it up in search first.
+  private static final Set<String> EVIDENCE_LOADED_PROPERTIES = Set.of("testCaseResult");
 
   // Properties that DO belong in the graph but are emitted by a dedicated structured-emission step
   // (emitStructuredProperties) rather than the generic field loop, so the generic loop must not
   // also write them as opaque JSON literals: tableConstraints (emitTableConstraints, needs the
   // parent table FQN to mint constrained-column URIs), profile (RdfQualityMapper DQV measurements),
   // pipelineStatus (RdfActivityMapper prov:Activity), usageSummary (RdfUsageMapper usage-count
-  // triples).
+  // triples), testCaseResult (RdfTestResultMapper, the latest result node).
   //
   // Skipping the generic loop is NOT a reason to skip fetching them: the dedicated mappers read the
   // same entity JSON, so a field that is not loaded silently emits nothing.
   private static final Set<String> DEDICATED_MAPPER_PROPERTIES =
-      Set.of("tableConstraints", "profile", "pipelineStatus", "usageSummary");
+      Set.of("tableConstraints", "profile", "pipelineStatus", "usageSummary", "testCaseResult");
 
   // The generic field-mapping loop skips both groups, for the two different reasons above.
   private static final Set<String> IGNORED_PROPERTIES =
@@ -174,6 +175,10 @@ public class RdfPropertyMapper {
           OM_NS + "hasColumn",
           OM_NS + "hasConstraint",
           "http://www.w3.org/ns/dqv#hasQualityMeasurement",
+          // A test case's target and latest result, which a later write can drop or move.
+          OM_NS + "testsEntity",
+          OM_NS + "testsColumn",
+          OM_NS + "hasTestResult",
           // Remove stale roles from unreleased glossary realizations on the next entity write.
           OM_NS + "hasPrimaryStore",
           OM_NS + "hasDerivedAsset",
@@ -223,7 +228,8 @@ public class RdfPropertyMapper {
    * pipeline status and usage from the graph.
    */
   public static boolean isIndexableEntityField(String fieldName) {
-    return !NON_GRAPH_PROPERTIES.contains(fieldName);
+    return !NON_GRAPH_PROPERTIES.contains(fieldName)
+        && !EVIDENCE_LOADED_PROPERTIES.contains(fieldName);
   }
 
   /**
@@ -232,7 +238,7 @@ public class RdfPropertyMapper {
   public void mapEntityToRdf(EntityInterface<?> entity, Resource entityResource, Model model) {
     JsonNode entityJson = document(Objects.requireNonNull(entity, "entity"));
     liveReferences.apply(entityJson);
-    mapDocumentToRdf(entity, entityJson, entityResource, model);
+    mapDocumentToRdf(entity, entityJson, liveReferences.lookup(), entityResource, model);
   }
 
   /**
@@ -246,19 +252,40 @@ public class RdfPropertyMapper {
       Resource entityResource,
       Model model) {
     liveReferences.apply(entityJson, labels);
-    mapDocumentToRdf(entity, entityJson, entityResource, model);
+    mapDocumentToRdf(entity, entityJson, labels, entityResource, model);
   }
 
   JsonNode document(EntityInterface<?> entity) {
     return objectMapper.valueToTree(entity);
   }
 
-  LiveTagLookup resolveLabelsTogether(Collection<JsonNode> documents) {
-    return liveReferences.resolveTogether(documents);
+  /**
+   * Resolves together the labels of a page's documents and the tables its test cases test, so the
+   * page links each test case to its table without a lookup per test case.
+   */
+  LiveTagLookup resolveLabelsTogether(Map<EntityInterface<?>, JsonNode> documents) {
+    final Set<String> testedTables = new HashSet<>();
+    documents.forEach(
+        (entity, document) -> {
+          if (isTestCase(entity)) {
+            RdfTestResultMapper.testedTableFqn(document).ifPresent(testedTables::add);
+          }
+        });
+    return liveReferences.resolveTogether(
+        documents.values(),
+        testedTables.isEmpty() ? Map.of() : Map.of(Entity.TABLE, Set.copyOf(testedTables)));
+  }
+
+  private static boolean isTestCase(EntityInterface<?> entity) {
+    return RdfTestResultMapper.TEST_CASE.equals(entity.getEntityReference().getType());
   }
 
   private void mapDocumentToRdf(
-      EntityInterface<?> entity, JsonNode entityJson, Resource entityResource, Model model) {
+      EntityInterface<?> entity,
+      JsonNode entityJson,
+      LiveTagLookup liveEntities,
+      Resource entityResource,
+      Model model) {
     EntityInterface<?> requiredEntity = Objects.requireNonNull(entity, "entity");
     Resource requiredResource = Objects.requireNonNull(entityResource, "entityResource");
     Model requiredModel = Objects.requireNonNull(model, "model");
@@ -278,6 +305,13 @@ public class RdfPropertyMapper {
     }
 
     emitStructuredProperties(requiredEntity, entityJson, requiredResource, requiredModel);
+    if (isTestCase(requiredEntity)) {
+      RdfTestResultMapper.emit(
+          entityJson,
+          liveEntities,
+          new RdfTestResultMapper.MappingTarget(requiredResource, requiredModel),
+          baseUri);
+    }
     addStandardProperties(requiredEntity, requiredResource, requiredModel);
   }
 

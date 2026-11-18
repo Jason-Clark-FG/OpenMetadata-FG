@@ -70,5 +70,35 @@
         "unapplied": []
       }
     }
+  },
+  {
+    "type": "testCase",
+    "fields": {
+      "fullyQualifiedName": "service.db.schema.fixture.id.id_not_null",
+      "entityLink": "<#E::table::service.db.schema.fixture::columns::id>",
+      "entityFQN": "service.db.schema.fixture.id",
+      "parameterValues": [
+        {
+          "name": "columnName",
+          "value": "id"
+        }
+      ],
+      "testCaseResult": {
+        "timestamp": 1000,
+        "testCaseStatus": "Failed",
+        "result": "Found 1 null value",
+        "sampleData": "a sampled row never reaches the graph",
+        "passedRows": 9,
+        "failedRows": 1,
+        "minBound": 0.0,
+        "maxBound": 0.0,
+        "testResultValue": [
+          {
+            "name": "nullCount",
+            "value": "1"
+          }
+        ]
+      }
+    }
   }
 ]
