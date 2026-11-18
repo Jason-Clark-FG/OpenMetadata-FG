@@ -62,7 +62,8 @@ Non-goals:
 | Asset AI Context (identity, knowledge, lineage, type-specific structure, with a context budget) | `type/aiContext.json`, `GetEntityTool` | Asset source |
 | Concept routing: question → glossary terms, metrics, articles → candidate assets; bounded concept resolution | `AIContextFinder` (`FindContextTool`), `ConceptContextBuilder` | Prompt-time retrieval |
 | User and company context | `GetUserContextTool`, `CompanyContextTool` | Session-start sources |
-| Query Runner: runs SQL on a service (Snowflake, Databricks, …) as the user, with transpilation and a guardrail row limit; per-user runner configuration with an admin-chosen `authType` (Collate) | `entity/automations/queryRunnerRequest.json`, `response/queryRunnerResponse.json`, `ingestion/src/metadata/automations/` | Stage 7 of the answer harness |
+| Query Runner workflow behind Collate's SQL Studio: runs SQL on a service (Snowflake, Databricks, …) as the user, with transpilation and a guardrail row limit; per-user runner configuration with an admin-chosen `authType`; runs readable only by their requester | `entity/automations/queryRunnerRequest.json`, `response/queryRunnerResponse.json`, ADR:2026-11-13-a-query-runner-workflow-is-read-only-by-its-requester | Stage 7 executor in Collate |
+| OpenMetadata generates SQL and never runs it | ADR:2026-10-21-ontology-live-data-execution-is-a-collate-extension | Stage 7 executor in OpenMetadata is the host's connector |
 | Table and column profiles, sample data, test cases and results, incidents (`testCaseResolutionStatus`: `New`, `Ack`, `Assigned`, `Resolved`) | `tests/*`, table profile APIs | Stages 4 and 5 |
 | Ontology over RDF: concept context, ontology description, SPARQL | `GetConceptContextTool`, `OntologyDescribeTool`, `SparqlQueryTool` | Stage 2 |
 | Metric expression → columns | `aicontext/MetricColumnResolver` | Stage 3 |
@@ -129,7 +130,8 @@ Six parts:
 4. **Distribution** (§9): `om-context`, one signed binary that wires itself into every agent
    installed on a machine (§9.1, §9.5); persona-driven MCP `instructions` and resources; and the
    enterprise rollout that makes it the default for every employee (§9.6).
-5. **Answer harness** (§7): a stateful session (`start_answer`, `run_query`, `finish_answer`) that
+5. **Answer harness** (§7): a stateful session (`start_answer`, `validate_query`, `run_query` or `report_result`,
+   `finish_answer`) that
    takes a business question through approved concepts, data, profile, trust checks, execution,
    and a cited answer, and turns steering into memories.
 6. **Admin and Context Center UI** (§10): the persona context editor extended with delivery,
@@ -410,7 +412,7 @@ flowchart LR
 | 4 | **Inspect shape** | Read the profile of the chosen columns: row count, null and distinct ratios, min and max, value distribution (is Texas stored as `TX`, `Texas`, or a region id?), and freshness. Sample values only where the persona allows and the user has the sample-data permission | Table and column profiles, sample data |
 | 5 | **Check trust** | Find failing data quality tests on the chosen tables and columns, open incidents (`testCaseResolutionStatus` in `New`, `Ack`, or `Assigned`), freshness against the expected schedule, and deprecated or PII-tagged columns. Per harness configuration, warn, ask, or stop | Test cases and results, incidents, tags, guardrails (§5.3) |
 | 6 | **Plan query** | The agent writes the SQL, starting from the metric expression and the profile. The server validates it before execution: only tables from the plan (or a warning), PII columns per guardrail, a time filter where the question has one, the row limit, and dialect transpilation | SQL table extraction (lineage parser), guardrails, Query Runner transpile |
-| 7 | **Execute** | Run the query on the service where the data lives (Snowflake, Databricks, BigQuery, …) **as the user**, with the user's own warehouse credentials, never a shared admin account. Timeout and row cap from the harness | Query Runner automation workflow (`queryRunnerRequest`, per-user runner configuration with admin-chosen `authType`) |
+| 7 | **Execute** | Run the validated query where the data lives (Snowflake, Databricks, BigQuery, …) **as the user**, never with a shared admin account. Who executes depends on the deployment (§7.2a): in Collate, SQL Studio; in OpenMetadata, the host agent's own warehouse connector | Collate: SQL Studio (Query Runner workflow, per-user runner configuration). OpenMetadata: none; it returns validated SQL (ADR:2026-10-21-ontology-live-data-execution-is-a-collate-extension) |
 | 8 | **Answer and cite** | The agent states the answer. The server returns a citation block it assembles itself, so citations cannot be invented: definitions used (with approval status and version), tables and columns, filters and time window, the SQL, data freshness, DQ issues, open incidents, and a link to the full trace | Answer trace (§7.4) |
 | 9 | **Learn from steering** | When the user corrects or steers ("exclude trial accounts", "I mean fiscal quarters", "Texas is `region_code = 'TX'`"), turn it into a memory linked to the assets and concepts in the plan (§7.5) | Context Center memories, review flow |
 
@@ -423,7 +425,7 @@ the model remembering to call eight tools in order:
 | Server (deterministic, governed) | Host model (language and judgement) |
 |---|---|
 | Concept binding candidates and scores, routing, profile lookup, trust checks | Interpreting the question, choosing between close candidates, asking the user |
-| SQL validation against the plan, execution as the user | Writing the SQL |
+| SQL validation against the plan; execution as the user in SQL Studio (Collate) | Writing the SQL; running it through its own warehouse connector when that is the executor |
 | Citation block and trace | Writing the answer in prose |
 | Turning a detected correction into a memory proposal | Recognizing that the user steered |
 
@@ -432,9 +434,44 @@ This is exposed as a small **stateful answer session** instead of many independe
 | MCP tool | Does |
 |---|---|
 | `start_answer(question, refines?)` | Runs stages 1–5 under the caller's harness and returns a **brief**: the bound concepts with their definitions and approval status, open ambiguities, the chosen table(s) with columns, joins, and profile hints, trust warnings, and an `answerId`. `refines` links a follow-up to the answer it corrects |
-| `run_query(answerId, sql)` | Stage 6 and 7. Returns rows, the executed SQL, duration, and annotations (for example "column `state` has 3% nulls, excluded by your filter") |
+| `validate_query(answerId, sql)` | Stage 6. Checks the SQL against the plan and guardrails, transpiles it to the service's dialect, and returns the approved SQL with a `queryToken` (a hash of the approved SQL bound to the answer) and the executor to use |
+| `run_query(answerId, queryToken)` | Stage 7 when the executor is SQL Studio. Returns rows, the executed SQL, duration, and annotations (for example "column `state` has 3% nulls, excluded by your filter") |
+| `report_result(answerId, queryToken, executedSql, rowCount, summary)` | Stage 7 when the host's connector executed. Records what ran so the trace and citations stay complete |
 | `finish_answer(answerId, answer)` | Stage 8. Returns the citation block and the trace link, rendered as an MCP Apps view where the host supports it |
 | `remember` | Stage 9, explicit form (§8.2) |
+
+### 7.2a Who executes the query
+
+| Deployment | Default executor | Why |
+|---|---|---|
+| **Collate** | **SQL Studio**, always, unless the admin allows otherwise | The customer controls execution in one place: per-user warehouse credentials and auth types set by admins, runs readable only by their requester (ADR:2026-11-13-a-query-runner-workflow-is-read-only-by-its-requester), guardrail row limits, transpilation, query history and audit, and cost and service allowlists. Answers can cite "ran in SQL Studio as you" with a link to the run |
+| **OpenMetadata** | **The host agent's warehouse connector** (for example a Snowflake or Databricks MCP server, or the warehouse connector the organization enabled in Claude or ChatGPT) | OpenMetadata generates SQL and does not run it. The agent already has governed access through its own connector, so OpenMetadata validates the SQL and the agent runs it |
+| Either, with no executor available | **None**: return the validated SQL | The answer says the query was not run and why (no connector, no credentials, or execution disabled) |
+
+Configured per persona, inheriting from the organization default:
+
+```yaml
+answerHarness:
+  query:
+    executor: auto            # auto | sqlStudio | hostConnector | none
+    allowHostConnector: false # Collate only: true lets a persona fall back to the host's connector
+```
+
+`auto` resolves to `sqlStudio` in Collate when the user has a runner configuration for the service,
+else to `hostConnector` if allowed, else to `none`. In OpenMetadata it resolves to `hostConnector`.
+
+Host-connector execution is governed as far as each surface allows:
+
+- **Coding harnesses**: a PreToolUse hook matches the warehouse connector's execute tool, compares
+  the SQL with the approved `queryToken` (normalized SQL hash), and warns or blocks a query that
+  differs from the validated one, per `tablesOutsidePlan`. This is the same hook mechanism as the
+  guardrails in §5.3.
+- **Chat apps**: no hooks. The skill and instructions tell the model to run only the SQL that
+  `validate_query` returned and to call `report_result`. The citation marks the result as "ran
+  through your Snowflake connector; not executed by OpenMetadata", so the user can see the
+  difference.
+- In both cases the trace records the executed SQL as reported; only SQL Studio runs are
+  observed by the server directly.
 
 One call returns the whole context for the question, so on chat surfaces the model makes a single
 decision (call `start_answer`) instead of choosing among 20 tools. On coding harnesses, the
@@ -465,7 +502,8 @@ answerHarness:
     openIncidents: warn
     staleAfter: 24h
   query:
-    execute: true                    # false: return the SQL only
+    executor: auto                   # auto | sqlStudio | hostConnector | none (§7.2a)
+    allowHostConnector: false        # Collate only
     services: [snowflake_prod, databricks_analytics]
     rowLimit: 1000
     timeoutSeconds: 60
@@ -482,7 +520,7 @@ answerHarness:
 ```
 
 Business personas and engineering personas differ mostly in `showSql`, `trace`, `ambiguity`, and
-`query.execute`. The `testQuestions` list is how an admin tunes with evidence: the preview runs
+`query.executor`. The `testQuestions` list is how an admin tunes with evidence: the preview runs
 them and shows which concept, table, and SQL each resolves to, before and after a change.
 
 ### 7.4 Transparency: the answer trace
@@ -504,7 +542,7 @@ How I got this
  3  Data → snowflake_prod.finance.fct_subscriptions (Tier 1, certified), refreshed 2 h ago
  4  ⚠ 1 failing test: customer_id null ratio 0.4% (threshold 0.1%)
  5  ⚠ Open incident #4821 "late subscription events from billing" (Assigned, Severity 2)
- 6  Query ran on Snowflake as you, 1.2 s · View SQL · Full trace in OpenMetadata
+ 6  Ran in SQL Studio on Snowflake as you, 1.2 s · View SQL · Full trace in Collate
 ```
 
 When no approved definition exists, the answer says so ("no certified metric for churn; computed
@@ -537,16 +575,19 @@ Analytics."
 
 ### 7.6 Constraints
 
-- **Latency**: Query Runner runs as an automation workflow on the ingestion runner and reports over
-  a websocket. `run_query` needs a synchronous wait with a timeout and MCP progress notifications.
-- **Credentials**: execution needs per-user warehouse credentials or OAuth to the warehouse. Where a
-  user has none, the harness returns the SQL and says why it did not run.
-- **Data in prompts**: result rows go to the host model's provider. `query.execute` and `rowLimit`
+- **Latency**: SQL Studio runs a Query Runner workflow on the ingestion runner and reports over a
+  websocket. `run_query` needs a synchronous wait with a timeout and MCP progress notifications.
+- **Credentials**: SQL Studio needs the user's runner configuration for the service. Where a user
+  has none and no host connector is allowed, the harness returns the SQL and says why it did not
+  run.
+- **Host-connector results are self-reported**: OpenMetadata cannot verify what a host connector
+  ran beyond the reported SQL and its hash. Citations say so.
+- **Data in prompts**: result rows go to the host model's provider. `query.executor` and `rowLimit`
   are the admin's controls; persona guardrails can deny PII columns from results entirely.
 - **Prompt injection through data**: row values and descriptions are returned as data, never as
   instructions.
-- **OSS and Collate**: the per-user Query Runner configuration lives in Collate. The open design
-  question is whether execution is Collate-only, with OSS returning the validated SQL.
+- **OSS and Collate**: OpenMetadata validates and generates SQL; Collate adds SQL Studio execution,
+  consistent with ADR:2026-10-21-ontology-live-data-execution-is-a-collate-extension.
 
 ## 8. Agent memory: how agents store what they learn
 
@@ -841,9 +882,8 @@ How Context Center content is used, end to end:
    document keeps characters.
 7. Whether a user with several personas gets only the active one, or a merge. Recommendation: the
    active one, with the persona name in every bundle so the user can see which applied.
-8. Answer execution in OSS: whether `run_query` executes in OSS (which has the Query Runner
-   workflow but not the per-user runner configuration) or only in Collate, with OSS returning the
-   validated SQL.
+8. Whether Collate admins may allow host-connector execution at all, and per persona or only
+   organization-wide. Recommendation: off by default, per persona when enabled.
 9. Answer trace retention and contents: default retention (recommendation: 90 days), and whether
    admins may opt in to storing result summaries. Recommendation: never store rows.
 10. Correction detection by plan comparison (§7.5) may propose memories for ordinary follow-ups
@@ -861,5 +901,5 @@ Each phase ends in a state that can be shipped and tested.
 | P2 | `preToolUse` with SQL table extraction, lineage, DQ, and persona guardrails; repo bindings and `om-context sync` files and AGENTS.md section | Guardrail ITs (warn, deny, RBAC); binding detection tests on a dbt fixture |
 | P3 | Persona context editor additions (deliver at, delivery, guardrails, memory, export as skill) with the turn preview; Agent distribution page; signed `.pkg`/`.msi`, Homebrew, winget, shims; adapter manifests for Cursor, VS Code, Gemini CLI; `memoryfs`; `Workspace` scope | Playwright for the editor and turn preview; install/uninstall tests per adapter on macOS, Windows, Linux; memoryfs contract tests |
 | P4 | Answer harness, part 1: `start_answer` (stages 1–5), `finish_answer` with server-built citations, answer traces, `answerHarness` config with calendar and trust policy, MCP Apps citation view | ITs: concept binding prefers approved terms and certified metrics; trust step reports failing tests and open incidents; citations list only plan items; a scripted run of the two example questions on sample data |
-| P5 | Answer harness, part 2: `run_query` through Query Runner as the user (synchronous wait, progress), SQL-to-plan validation, correction detection with `refines`, owner review tasks for disputes, test-questions runner in the UI | ITs: a query outside the plan is warned or denied per config; a correction produces a linked, unapproved memory and an owner task; Playwright for the test-questions runner |
+| P5 | Answer harness, part 2: `validate_query` with `queryToken`; `report_result` and the PreToolUse check on host warehouse connectors; Collate: `run_query` through SQL Studio as the user (synchronous wait, progress); executor resolution; correction detection with `refines`, owner review tasks for disputes, test-questions runner in the UI | ITs: a query outside the plan is warned or denied per config; executor resolution per deployment and persona; a host-executed result is cited as self-reported; a correction produces a linked, unapproved memory and an owner task; Playwright for the test-questions runner |
 | P6 | Eval harness and default-budget tuning; Collate chat on the compiler | Eval report comparing policies |
