@@ -126,6 +126,16 @@ class RdfToolDescriptionVocabularyTest {
     assertThat(parameterDescription(tool, "sparql")).doesNotContain("sparql_query");
   }
 
+  /** Cards carry health and trust, expand is one call, and an empty query is not an absence. */
+  @Test
+  void knowledgeGraphSaysWhatCardsSignalAndThatAnEmptyQueryProvesNothing() {
+    final String description = tools.get("knowledge_graph").description();
+
+    assertThat(description)
+        .contains("'status'", "om:latestResultStatus=Failed", "om:hasOpenIncident", "Deprecated")
+        .contains("om:testsEntity", "in one call", "'rows'", "'noRows'");
+  }
+
   private static String parameterDescription(final McpSchema.Tool tool, final String name) {
     final Map<?, ?> properties = (Map<?, ?>) tool.inputSchema().get("properties");
     return ((Map<?, ?>) properties.get(name)).get("description").toString();

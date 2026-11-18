@@ -150,6 +150,7 @@ class McpOfferedToolsTest {
         initialize(OfferedTools.parse(KNOWLEDGE_GRAPH, registered())).instructions();
 
     assertThat(instructions).contains("knowledge_graph", "find", "expand", "cite");
+    assertThat(instructions).contains("failing tests", "open incidents", "in one call", "noRows");
     assertThat(instructions.length()).isLessThan(800);
     assertThat(initialize(OfferedTools.ALL).instructions()).isNull();
     assertThat(
