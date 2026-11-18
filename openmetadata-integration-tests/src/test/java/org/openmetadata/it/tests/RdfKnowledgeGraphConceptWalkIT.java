@@ -47,6 +47,8 @@ import org.openmetadata.schema.entity.data.Ontology;
 import org.openmetadata.schema.entity.data.OntologyConcept;
 import org.openmetadata.schema.entity.data.OntologyProperty;
 import org.openmetadata.schema.entity.data.Table;
+import org.openmetadata.schema.tests.TestCase;
+import org.openmetadata.schema.tests.type.TestCaseStatus;
 import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
 import org.openmetadata.schema.type.OntologyColumnBinding;
@@ -97,7 +99,7 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     final String run = toTable.path("run").asText();
     assertTableCard(card(toTable, walk.tableIri()));
     final JsonNode backToConcept = expand(run, walk.tableIri(), BOUND_ASSET, INCOMING);
-    assertConceptCard(card(backToConcept, walk.conceptIri()), 1L);
+    assertConceptCard(backToConcept, walk.conceptIri(), 1L);
     final JsonNode columns = expand(run, walk.tableIri(), HAS_COLUMN, OUTGOING);
     assertReachable(card(columns, walk.boundColumnIri()), BOUND_COLUMN, INCOMING, 1L);
     assertThat(reachable(card(columns, walk.keyColumnIri()), BOUND_COLUMN, INCOMING)).isEmpty();
@@ -113,12 +115,14 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     final Walk walk = boundWalk(ns);
 
     final String question = "which tables hold " + walk.concept().getName() + " records";
-    awaitTermFound(question, walk.conceptIri(), card -> assertConceptCard(card, 1L));
+    awaitTermFound(
+        question, walk.conceptIri(), found -> assertConceptCard(found, walk.conceptIri(), 1L));
     unbind(walk.concept(), walk.table(), 1L);
     awaitTermFound(
         question,
         walk.conceptIri(),
-        card -> assertThat(reachable(card, BOUND_ASSET, OUTGOING)).isEmpty());
+        found ->
+            assertThat(reachable(card(found, walk.conceptIri()), BOUND_ASSET, OUTGOING)).isEmpty());
   }
 
   @Test
@@ -130,12 +134,52 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
         awaitTermFound(
             "which column holds the " + walk.property().getDisplayName(),
             walk.propertyIri(),
-            card -> assertReachable(card, BOUND_COLUMN, OUTGOING, 1L));
+            response ->
+                assertReachable(card(response, walk.propertyIri()), BOUND_COLUMN, OUTGOING, 1L));
     final JsonNode column =
         expand(found.path("run").asText(), walk.propertyIri(), BOUND_COLUMN, OUTGOING);
 
     assertThat(farNodes(column, walk.propertyIri(), BOUND_COLUMN, OUTGOING))
         .containsExactly(walk.boundColumnIri());
+  }
+
+  @Test
+  void cardsShowTheQualityEvidenceStoredOnTheirNodesButNoMaskedProfile(final TestNamespace ns)
+      throws Exception {
+    final Table orders = RdfQualityEvidenceFixtures.table(ns);
+    final long now = System.currentTimeMillis();
+    RdfQualityEvidenceFixtures.putProfile(admin(), orders, now - 60_000, 100.0, 4.0);
+    final TestCase onAmount = RdfQualityEvidenceFixtures.columnTest(admin(), ns, orders, "amount");
+    RdfQualityEvidenceFixtures.postResult(
+        admin(), onAmount, now - 30_000, TestCaseStatus.Failed, 3L);
+    final String ordersIri = RdfUtils.entityUri(BASE_URI, "table", orders.getId());
+
+    final JsonNode found =
+        awaitFound(
+            orders.getName(),
+            "table",
+            ordersIri,
+            card -> {
+              assertThat(value(card, "om:profileRowCount").path("value").asText()).isEqualTo("100");
+              assertThat(value(card, "om:profiledAt").path("type").asText()).isEqualTo("dateTime");
+            });
+    final JsonNode columns = expand(found.path("run").asText(), ordersIri, HAS_COLUMN, OUTGOING);
+    final JsonNode amount = card(columns, columnIri(orders, "amount"));
+    final JsonNode email = card(columns, columnIri(orders, "email"));
+
+    assertThat(value(amount, "om:columnDataType").path("value").asText()).isEqualTo("DOUBLE");
+    assertThat(value(amount, "om:profileNullCount").path("value").asText()).isEqualTo("4");
+    assertThat(stream(email.path("values")))
+        .extracting(entry -> entry.path("property").asText())
+        .isNotEmpty()
+        .noneMatch(property -> property.startsWith("om:profile"));
+    awaitFound(
+        onAmount.getName(),
+        "testCase",
+        RdfUtils.entityUri(BASE_URI, "testCase", onAmount.getId()),
+        card ->
+            assertThat(value(card, "om:latestResultStatus").path("value").asText())
+                .isEqualTo("Failed"));
   }
 
   private static Walk boundWalk(final TestNamespace ns) {
@@ -243,6 +287,44 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     return card(found, walk.tableIri());
   }
 
+  private JsonNode awaitFound(
+      final String question,
+      final String entityType,
+      final String iri,
+      final Consumer<JsonNode> expectation) {
+    final List<JsonNode> found = new ArrayList<>();
+    Awaitility.await("find returns the card of " + iri)
+        .atMost(PROJECTION_WAIT)
+        .pollInterval(Duration.ofSeconds(1))
+        .ignoreExceptions()
+        .untilAsserted(
+            () -> {
+              final JsonNode response =
+                  call(
+                      Map.of(
+                          "operation",
+                          "find",
+                          "question",
+                          question,
+                          "entityTypes",
+                          List.of(entityType)));
+              expectation.accept(card(response, iri));
+              found.add(response);
+            });
+    return found.getLast();
+  }
+
+  private static JsonNode value(final JsonNode card, final String property) {
+    return stream(card.path("values"))
+        .filter(entry -> property.equals(entry.path("property").asText()))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("no value " + property + " on " + card));
+  }
+
+  private static String columnIri(final Table table, final String name) {
+    return RdfUtils.columnUri(BASE_URI, table.getFullyQualifiedName() + "." + name);
+  }
+
   private JsonNode awaitTermFound(
       final String question, final String termIri, final Consumer<JsonNode> expectation) {
     final List<JsonNode> found = new ArrayList<>();
@@ -255,7 +337,7 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
               final JsonNode response = call(Map.of("operation", "find", "question", question));
               final JsonNode term = card(response, termIri);
               assertThat(term.path("inGraph").asBoolean()).isTrue();
-              expectation.accept(term);
+              expectation.accept(response);
               found.add(response);
             });
     return found.getLast();
@@ -267,9 +349,11 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     assertReachable(table, HAS_CONSTRAINT, OUTGOING, 1L);
   }
 
-  private static void assertConceptCard(final JsonNode concept, final long boundAssets) {
-    final JsonNode binding = assertReachable(concept, BOUND_ASSET, OUTGOING, boundAssets);
-    assertThat(binding.path("about").path("comment").asText()).isNotBlank();
+  /** The concept's binding is reachable, and the response says once what a binding is. */
+  private static void assertConceptCard(
+      final JsonNode response, final String conceptIri, final long boundAssets) {
+    assertReachable(card(response, conceptIri), BOUND_ASSET, OUTGOING, boundAssets);
+    assertThat(response.path("properties").path(BOUND_ASSET).path("comment").asText()).isNotBlank();
   }
 
   private static void assertTrace(final JsonNode trace, final Walk walk) {
