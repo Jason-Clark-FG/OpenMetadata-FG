@@ -31,6 +31,7 @@ import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
 import org.openmetadata.service.rdf.explore.ExpandPage;
 import org.openmetadata.service.rdf.explore.ExpandRequest;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
+import org.openmetadata.service.rdf.explore.FindRequest;
 import org.openmetadata.service.rdf.explore.FindResult;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
 import org.openmetadata.service.rdf.explore.NodeCard;
@@ -39,6 +40,7 @@ import org.openmetadata.service.rdf.explore.Operation;
 import org.openmetadata.service.rdf.explore.RunContext;
 import org.openmetadata.service.rdf.explore.RunTrace;
 import org.openmetadata.service.rdf.explore.RunTraceStore;
+import org.openmetadata.service.rdf.explore.SearchHit;
 import org.openmetadata.service.rdf.explore.SqlRunTraceStore;
 import org.openmetadata.service.rdf.explore.TraceEdge;
 import org.openmetadata.service.rdf.explore.TraceNode;
@@ -157,10 +159,23 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         explorer(securityContext, repository)
             .find(
                 run,
-                find.question(),
-                startingPoints.search(authorizer, securityContext, find),
-                ResponseBudget.defaultBudgetChars());
+                new FindRequest(
+                    find.question(),
+                    find.termKinds(),
+                    find.limit(),
+                    ResponseBudget.defaultBudgetChars()),
+                catalogHits(authorizer, securityContext, find));
     return new FindResponse(run.run(), Operation.FIND, found.nodes(), found.moreMatched());
+  }
+
+  private List<SearchHit> catalogHits(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find)
+      throws IOException {
+    return find.searchesCatalog()
+        ? startingPoints.search(authorizer, securityContext, find)
+        : List.of();
   }
 
   private ExpandResponse expand(

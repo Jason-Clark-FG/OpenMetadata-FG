@@ -1,11 +1,12 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `RdfToolGatingTest`,
-  `RdfToolDescriptionVocabularyTest`, `ExplorationQueriesTest`, `RdfKnowledgeGraphToolIT`
+  `RdfToolDescriptionVocabularyTest`, `ExplorationQueriesTest`, `OntologyTermsTest`,
+  `KnowledgeGraphExplorerTest`, `CatalogStartingPointsTest`, `RdfKnowledgeGraphToolIT`
 - **Related:** ADR:2026-09-16-agent-sparql-execution,
   ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day,
   ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk
@@ -68,3 +69,35 @@ A host model needs one tool and learns the loop from it: find, read the map, exp
 pass `run` back. Cards cost two graph reads per batch of nodes. A card's `notCovered` grows with
 the ontology's inference-only vocabulary for its type (about 50 properties for a table). Adding an
 operation, changing the card shape or the `notCovered` rule means amending this record.
+
+## Amendment 2026-11-18. Find reaches ontology terms search does not index
+
+Search indexes no ontology concept or property, and the catalog projection leaves them out, so
+`find` could not start from a business word. It now has a second source beside search.
+
+- **Ontology terms by label.** The release graphs (`graph/ontology/<ontologyId>`, which hold only
+  each ontology's active release) are read for classes (`owl:Class`, `skos:Concept`) and
+  properties (`owl:ObjectProperty`, `owl:DatatypeProperty`, `owl:AnnotationProperty`) whose
+  `rdfs:label` or `skos:altLabel` contains the trimmed question, ignoring case. It is a plain
+  substring match: no tokenizing, stemming, ranking beyond the order below, or synonyms beyond the
+  `skos:altLabel` a release writes, so "postal code" does not match a label written "postalCode".
+  A term whose IRI is not http(s) is left out, as no card can address it. A matched term is an
+  ordinary card under its own IRI, so `expand` continues from it.
+- **Binding.** The question is bound as a literal through Jena's `ParameterizedSparqlString`; only
+  constants are formatted into the text. The read takes the same admission guard, asserted-only
+  path and output bound as card reads.
+- **Order.** Each source gives at most `limit` nodes: terms by shortest matching label, then IRI;
+  hits in search order. They alternate, a term first, and when one source runs out the other fills
+  the rest. At most `limit` cards are read, then cut to the response budget as before.
+  `moreMatched` counts the matched nodes of both sources left out; since each source is asked for
+  `limit` nodes, it does not count matches beyond that. Alternating lets a term appear when the
+  catalog has many name matches without terms crowding the catalog out.
+- **`entityTypes`.** Absent: both sources. `ontologyConcept` and `ontologyProperty` choose those
+  kinds of term; every other value is a catalog type. Only catalog types: no term lookup. Only
+  ontology types: no catalog search.
+- **Failure.** A term lookup that times out or exceeds the output bound yields no terms and is
+  logged; the catalog half answers. No active release means no terms.
+
+Known limits: the match reads every label of every active release (`CONTAINS` uses no index), and
+its cost on a very large imported ontology is unmeasured. A response does not say when the term
+lookup was skipped.

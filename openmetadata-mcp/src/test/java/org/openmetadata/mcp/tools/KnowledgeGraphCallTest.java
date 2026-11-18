@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.service.rdf.explore.Direction;
+import org.openmetadata.service.rdf.explore.OntologyTermKind;
 
 class KnowledgeGraphCallTest {
 
@@ -118,6 +119,27 @@ class KnowledgeGraphCallTest {
     assertThat(call.request())
         .isEqualTo(
             new KnowledgeGraphCall.Find("customer orders", List.of("table", "dashboard"), 3));
+  }
+
+  @Test
+  void entityTypesChooseTheCatalogTypesToSearchAndTheOntologyTermsToMatch() {
+    final KnowledgeGraphCall.Find everything = new KnowledgeGraphCall.Find("x", List.of(), 5);
+    final KnowledgeGraphCall.Find catalog =
+        new KnowledgeGraphCall.Find("x", List.of("table", "dashboard"), 5);
+    final KnowledgeGraphCall.Find properties =
+        new KnowledgeGraphCall.Find("x", List.of("ontologyProperty"), 5);
+    final KnowledgeGraphCall.Find mixed =
+        new KnowledgeGraphCall.Find("x", List.of("table", "ontologyConcept"), 5);
+
+    assertThat(everything.termKinds()).containsExactlyInAnyOrder(OntologyTermKind.values());
+    assertThat(everything.searchesCatalog()).isTrue();
+    assertThat(catalog.termKinds()).isEmpty();
+    assertThat(catalog.catalogTypes()).containsExactly("table", "dashboard");
+    assertThat(properties.termKinds()).containsExactly(OntologyTermKind.PROPERTY);
+    assertThat(properties.searchesCatalog()).isFalse();
+    assertThat(mixed.termKinds()).containsExactly(OntologyTermKind.CONCEPT);
+    assertThat(mixed.catalogTypes()).containsExactly("table");
+    assertThat(mixed.searchesCatalog()).isTrue();
   }
 
   @Test

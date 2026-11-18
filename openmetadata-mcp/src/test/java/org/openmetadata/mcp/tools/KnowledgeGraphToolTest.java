@@ -96,6 +96,48 @@ class KnowledgeGraphToolTest {
         Clock.systemUTC());
   }
 
+  @Test
+  void aFindForCatalogTypesSearchesThemAndOneForOntologyTermsOnlySearchesNothing()
+      throws IOException {
+    callersAreAdministrators(false);
+    final List<KnowledgeGraphCall.Find> searched = new ArrayList<>();
+    final KnowledgeGraphTool tool =
+        new KnowledgeGraphTool(
+            () -> repository,
+            () -> RdfProjectionState.READY,
+            (authorizer, caller, find) -> {
+              searched.add(find);
+              return List.of(new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID));
+            },
+            () -> traces,
+            Clock.systemUTC());
+
+    final KnowledgeGraphTool.FindResponse tables =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(
+                GRANTED,
+                CALLER,
+                Map.of("operation", "find", "question", "orders", "entityTypes", List.of("table")));
+    final KnowledgeGraphTool.FindResponse terms =
+        (KnowledgeGraphTool.FindResponse)
+            tool.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "find",
+                    "question",
+                    "orders",
+                    "entityTypes",
+                    List.of("ontologyConcept")));
+
+    assertThat(tables.nodes()).extracting(NodeCard::id).containsExactly(ORDERS);
+    assertThat(searched)
+        .extracting(KnowledgeGraphCall.Find::catalogTypes)
+        .containsExactly(List.of("table"));
+    assertThat(terms.nodes()).isEmpty();
+  }
+
   private KnowledgeGraphTool.Response call(final Map<String, Object> arguments) throws IOException {
     return tool(() -> RdfProjectionState.READY).execute(GRANTED, CALLER, arguments);
   }

@@ -17,6 +17,8 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Explores the knowledge graph for one caller: finds starting nodes, expands relationships, and
@@ -27,6 +29,7 @@ public final class KnowledgeGraphExplorer {
 
   private final OntologyVocabulary vocabulary;
   private final NodeCardReader cards;
+  private final OntologyTerms terms;
   private final GraphExpansion expansion;
   private final NodeIris nodeIris;
   private final RunTraceStore traces;
@@ -40,6 +43,7 @@ public final class KnowledgeGraphExplorer {
       final Clock clock) {
     this.vocabulary = Objects.requireNonNull(vocabulary);
     this.cards = new NodeCardReader(graph, vocabulary, baseUri);
+    this.terms = new OntologyTerms(graph);
     this.expansion = new GraphExpansion(graph, cards, vocabulary);
     this.nodeIris = new NodeIris(baseUri);
     this.traces = Objects.requireNonNull(traces);
@@ -47,24 +51,40 @@ public final class KnowledgeGraphExplorer {
   }
 
   /**
-   * Cards for the search hits, in search order, under the IRIs the projection mints. Hits of one
-   * entity (semantic search returns one per chunk) become one card. The leading cards that fit
-   * {@code maxChars} are returned; {@code moreMatched} counts the rest.
+   * Cards for the ontology terms whose label matches the question and the search hits, under the
+   * IRIs the graph holds them by. The two sources alternate, a term first, and either fills the
+   * places the other leaves; hits of one entity (semantic search returns one per chunk) become one
+   * card. At most {@code limit} cards are read and the leading ones that fit {@code maxChars} are
+   * returned; {@code moreMatched} counts the matched nodes left out.
    */
   public FindResult find(
-      final RunContext run,
-      final String question,
-      final List<SearchHit> hits,
-      final long maxChars) {
-    final List<NodeCard> matched = cards.read(hits.stream().map(nodeIris::of).distinct().toList());
-    final List<NodeCard> found = matched.subList(0, PageBudget.cardsThatFit(matched, maxChars));
+      final RunContext run, final FindRequest request, final List<SearchHit> hits) {
+    final List<String> matched =
+        alternate(
+            terms.matching(request.question(), request.termKinds(), request.limit()),
+            hits.stream().map(nodeIris::of).distinct().toList());
+    final List<NodeCard> read =
+        cards.read(matched.subList(0, Math.min(request.limit(), matched.size())));
+    final List<NodeCard> found = read.subList(0, PageBudget.cardsThatFit(read, request.maxChars()));
     record(
         run,
         Operation.FIND,
-        new RunStep.Input(question, List.of(), List.of(), null),
+        new RunStep.Input(request.question(), List.of(), List.of(), null),
         found,
         List.of());
     return new FindResult(found, matched.size() - found.size());
+  }
+
+  private static List<String> alternate(final List<String> first, final List<String> second) {
+    return IntStream.range(0, Math.max(first.size(), second.size()))
+        .boxed()
+        .flatMap(
+            index ->
+                Stream.of(first, second)
+                    .filter(nodes -> index < nodes.size())
+                    .map(nodes -> nodes.get(index)))
+        .distinct()
+        .toList();
   }
 
   public ExpandPage expand(final RunContext run, final ExpandRequest request) {

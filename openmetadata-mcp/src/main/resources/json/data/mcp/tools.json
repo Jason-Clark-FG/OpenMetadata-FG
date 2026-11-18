@@ -1102,7 +1102,7 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Explore the OpenMetadata knowledge graph step by step without writing SPARQL. 1) operation=find with a 'question' returns starting nodes as cards. 2) Read each card: 'facts' (description, tier, certification, owners, service, usage); 'reachable', one entry per relationship the node actually has, in each direction, with a count and 'about' saying what is behind it; and 'notCovered', facts the graph does not carry for that kind of node, so their absence proves nothing. 3) operation=expand with card ids in 'nodes' and 'reachable' names such as om:hasOwner or om:upstream in 'relationships' returns the nodes on the other side as cards; pass 'nextCursor' back as 'cursor' for the next page. 4) operation=query runs a SELECT exactly as sparql_query does, for joins and counts across many nodes. 5) operation=trace returns the nodes, edges and ordered steps a run explored. Every response has a 'run'; pass it back on every later call so the exploration is recorded as one run. Requires the ExecuteSparqlQuery permission; administrators always pass.",
+      "description": "Explore the OpenMetadata knowledge graph step by step without writing SPARQL. 1) operation=find with a 'question' returns starting nodes as cards: ontology concepts and properties of the active ontology releases whose label contains the words, alternating with catalog search hits, an ontology term first. 2) Read each card: 'facts' (description, tier, certification, owners, service, usage); 'reachable', one entry per relationship the node actually has, in each direction, with a count and 'about' saying what is behind it; and 'notCovered', facts the graph does not carry for that kind of node, so their absence proves nothing. 3) operation=expand with card ids in 'nodes' and 'reachable' names such as om:hasOwner or om:upstream in 'relationships' returns the nodes on the other side as cards; pass 'nextCursor' back as 'cursor' for the next page. 4) operation=query runs a SELECT exactly as sparql_query does, for joins and counts across many nodes. 5) operation=trace returns the nodes, edges and ordered steps a run explored. Every response has a 'run'; pass it back on every later call so the exploration is recorded as one run. Requires the ExecuteSparqlQuery permission; administrators always pass.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1129,7 +1129,7 @@
             "items": {
               "type": "string"
             },
-            "description": "find: optional entity types to search, e.g. ['table', 'dashboard']."
+            "description": "find: optional. Catalog entity types to search, e.g. ['table', 'dashboard'], and 'ontologyConcept' or 'ontologyProperty' to match ontology terms by label. Omit it to look in both; list only catalog types to leave ontology terms out, or only ontology types to skip the catalog search."
           },
           "nodes": {
             "type": "array",

@@ -86,8 +86,9 @@ final class CatalogStartingPoints implements StartingPoints {
     final Map<String, Object> arguments = new HashMap<>();
     arguments.put(QUERY, find.question());
     arguments.put(SIZE, find.limit());
-    if (!find.entityTypes().isEmpty()) {
-      arguments.put(FILTERS, Map.of(ENTITY_TYPE, find.entityTypes()));
+    final List<String> catalogTypes = find.catalogTypes();
+    if (!catalogTypes.isEmpty()) {
+      arguments.put(FILTERS, Map.of(ENTITY_TYPE, catalogTypes));
     }
     return arguments;
   }
@@ -97,10 +98,11 @@ final class CatalogStartingPoints implements StartingPoints {
     arguments.put(QUERY, find.question());
     arguments.put(SIZE, find.limit());
     arguments.put(FIELDS, ID);
-    if (find.entityTypes().size() == 1) {
-      arguments.put(ENTITY_TYPE, find.entityTypes().getFirst());
-    } else if (!find.entityTypes().isEmpty()) {
-      arguments.put(QUERY_FILTER, entityTypesFilter(find.entityTypes()));
+    final List<String> catalogTypes = find.catalogTypes();
+    if (catalogTypes.size() == 1) {
+      arguments.put(ENTITY_TYPE, catalogTypes.getFirst());
+    } else if (!catalogTypes.isEmpty()) {
+      arguments.put(QUERY_FILTER, entityTypesFilter(catalogTypes));
     }
     return arguments;
   }

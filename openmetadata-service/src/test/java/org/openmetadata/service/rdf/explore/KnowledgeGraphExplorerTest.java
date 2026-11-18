@@ -22,9 +22,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.apache.jena.rdf.model.Model;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.EntityInterface;
@@ -33,6 +35,8 @@ import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.SparqlQueryLimits;
 import org.openmetadata.service.rdf.translator.JsonLdTranslator;
 
 class KnowledgeGraphExplorerTest {
@@ -46,6 +50,7 @@ class KnowledgeGraphExplorerTest {
       Clock.fixed(Instant.parse("2026-11-17T10:00:00Z"), ZoneOffset.UTC);
 
   private static final long UNBOUNDED = Long.MAX_VALUE;
+  private static final int MAX_CARDS = 10;
 
   private final InMemoryRunTraceStore traces = new InMemoryRunTraceStore();
   private final RunContext run = new RunContext(UUID.randomUUID(), "analyst");
@@ -56,6 +61,131 @@ class KnowledgeGraphExplorerTest {
 
   private static SearchHit hit(final String iri) {
     return new SearchHit("table", null, UUID.fromString(iri.substring(iri.lastIndexOf('/') + 1)));
+  }
+
+  private static FindRequest catalog(final String question, final long maxChars) {
+    return new FindRequest(question, Set.of(), MAX_CARDS, maxChars);
+  }
+
+  private static FindRequest everything(final String question, final int limit) {
+    return new FindRequest(question, EnumSet.allOf(OntologyTermKind.class), limit, UNBOUNDED);
+  }
+
+  private static List<SearchHit> tables(final int count) {
+    return IntStream.range(0, count)
+        .mapToObj(index -> new SearchHit("table", null, UUID.randomUUID()))
+        .toList();
+  }
+
+  private static String tableIri(final SearchHit hit) {
+    return BASE + "entity/table/" + hit.id();
+  }
+
+  @Test
+  void aTermWhoseLabelMatchesIsAmongTheCardsWhenTheCatalogAloneFillsTheLimit() {
+    final List<SearchHit> hits = tables(5);
+
+    final FindResult found =
+        explorer(OntologyTermsTest.releaseAndCatalog())
+            .find(run, everything("subscriber", 5), hits);
+
+    assertThat(found.nodes())
+        .extracting(NodeCard::id)
+        .containsExactly(
+            OntologyTermsTest.SUBSCRIBER,
+            tableIri(hits.get(0)),
+            tableIri(hits.get(1)),
+            tableIri(hits.get(2)),
+            tableIri(hits.get(3)));
+    assertThat(found.moreMatched()).isEqualTo(1);
+  }
+
+  @Test
+  void termsAndCatalogHitsAlternateStartingWithATermAndEitherFillsWhatTheOtherLeaves() {
+    final List<SearchHit> three = tables(3);
+    final List<SearchHit> one = tables(1);
+    final KnowledgeGraphExplorer explorer = explorer(OntologyTermsTest.releaseAndCatalog());
+
+    final FindResult alternated = explorer.find(run, everything("sub", 4), three);
+    final FindResult filled = explorer.find(run, everything("sub", 5), one);
+
+    assertThat(alternated.nodes())
+        .extracting(NodeCard::id)
+        .containsExactly(
+            OntologyTermsTest.SUBSCRIBER,
+            tableIri(three.get(0)),
+            OntologyTermsTest.SUBSCRIPTION_PLAN,
+            tableIri(three.get(1)));
+    assertThat(alternated.moreMatched()).isEqualTo(1);
+    assertThat(filled.nodes())
+        .extracting(NodeCard::id)
+        .containsExactly(
+            OntologyTermsTest.SUBSCRIBER,
+            tableIri(one.get(0)),
+            OntologyTermsTest.SUBSCRIPTION_PLAN);
+    assertThat(filled.moreMatched()).isZero();
+  }
+
+  @Test
+  void aMatchedTermIsAnOrdinaryCardUnderItsOwnIriThatExpandContinuesFrom() {
+    final KnowledgeGraphExplorer explorer = explorer(OntologyTermsTest.releaseAndCatalog());
+
+    final NodeCard subscriber =
+        explorer.find(run, everything("Subscriber", 5), List.of()).nodes().getFirst();
+    final ExpandPage properties =
+        explorer.expand(
+            run,
+            new ExpandRequest(
+                List.of(subscriber.id()),
+                List.of(OntologyVocabulary.canonical().expand("rdfs:domain")),
+                Set.of(Direction.INCOMING),
+                10,
+                0,
+                UNBOUNDED));
+
+    assertThat(subscriber.id()).isEqualTo(OntologyTermsTest.SUBSCRIBER);
+    assertThat(subscriber.label()).isEqualTo("Subscriber");
+    assertThat(subscriber.inGraph()).isTrue();
+    assertThat(subscriber.reachable())
+        .extracting(Reachable::relationship, Reachable::direction, Reachable::count)
+        .contains(tuple("rdfs:domain", Direction.INCOMING, 1L));
+    assertThat(properties.nodes())
+        .extracting(NodeCard::id)
+        .containsExactly(OntologyTermsTest.POSTAL_CODE);
+  }
+
+  @Test
+  void aFindForCatalogTypesOnlyLooksForNoTerms() {
+    final List<SearchHit> hits = tables(1);
+    final InMemoryGraph graph = OntologyTermsTest.releaseAndCatalog();
+
+    final FindResult found = explorer(graph).find(run, catalog("subscriber", UNBOUNDED), hits);
+
+    assertThat(found.nodes()).extracting(NodeCard::id).containsExactly(tableIri(hits.getFirst()));
+    assertThat(graph.queries()).noneMatch(query -> query.contains("skos:altLabel"));
+  }
+
+  @Test
+  void aTermLookupTheGraphCannotAnswerInTimeOrInBoundsLeavesTheCatalogCards() {
+    final List<SearchHit> hits = tables(2);
+    final InMemoryGraph graph = OntologyTermsTest.releaseAndCatalog();
+    final List<RuntimeException> failures =
+        List.of(
+            new SparqlQueryExecutionGuard.QueryTimeoutException(1_000, null),
+            new SparqlQueryLimits.OutputLimitExceededException());
+
+    for (final RuntimeException failure : failures) {
+      final GraphReader failingTermLookup =
+          query -> {
+            if (query.contains("skos:altLabel")) {
+              throw failure;
+            }
+            return graph.select(query);
+          };
+      assertThat(explorer(failingTermLookup).find(run, everything("subscriber", 5), hits).nodes())
+          .extracting(NodeCard::id)
+          .containsExactly(tableIri(hits.get(0)), tableIri(hits.get(1)));
+    }
   }
 
   @Test
@@ -79,11 +209,10 @@ class KnowledgeGraphExplorerTest {
         explorer(InMemoryGraph.of(projected))
             .find(
                 run,
-                "orders",
+                catalog("orders", UNBOUNDED),
                 List.of(
                     new SearchHit("table", table.getFullyQualifiedName(), id),
-                    new SearchHit(Entity.TABLE_COLUMN, "warehouse.shop.public.orders.id", null)),
-                UNBOUNDED);
+                    new SearchHit(Entity.TABLE_COLUMN, "warehouse.shop.public.orders.id", null)));
 
     assertThat(found.nodes())
         .extracting(NodeCard::fullyQualifiedName, NodeCard::inGraph)
@@ -98,7 +227,7 @@ class KnowledgeGraphExplorerTest {
     final KnowledgeGraphExplorer explorer =
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
+    explorer.find(run, catalog("orders", UNBOUNDED), List.of(hit(ORDERS)));
     explorer.expand(
         run,
         new ExpandRequest(
@@ -140,7 +269,7 @@ class KnowledgeGraphExplorerTest {
     final KnowledgeGraphExplorer explorer =
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
+    explorer.find(run, catalog("orders", UNBOUNDED), List.of(hit(ORDERS)));
 
     assertThat(explorer.trace(run.run()).edges())
         .filteredOn(edge -> edge.relationship().equals("om:hasTag"))
@@ -172,8 +301,8 @@ class KnowledgeGraphExplorerTest {
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
     final RunContext other = new RunContext(UUID.randomUUID(), "analyst");
 
-    explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED);
-    explorer.find(other, "raw", List.of(hit(RAW)), UNBOUNDED);
+    explorer.find(run, catalog("orders", UNBOUNDED), List.of(hit(ORDERS)));
+    explorer.find(other, catalog("raw", UNBOUNDED), List.of(hit(RAW)));
 
     assertThat(explorer.trace(run.run()).nodes()).extracting(TraceNode::id).containsExactly(ORDERS);
   }
@@ -194,11 +323,15 @@ class KnowledgeGraphExplorerTest {
         explorer(InMemoryGraph.ofTurtle(NodeCardReaderTest.GRAPH));
     final long oneCard =
         JsonUtils.pojoToJson(
-                explorer.find(run, "orders", List.of(hit(ORDERS)), UNBOUNDED).nodes().getFirst())
+                explorer
+                    .find(run, catalog("orders", UNBOUNDED), List.of(hit(ORDERS)))
+                    .nodes()
+                    .getFirst())
             .length();
 
     final FindResult found =
-        explorer.find(run, "orders", List.of(hit(ORDERS), hit(DAILY), hit(RAW)), oneCard + 10);
+        explorer.find(
+            run, catalog("orders", oneCard + 10), List.of(hit(ORDERS), hit(DAILY), hit(RAW)));
 
     assertThat(found.nodes()).extracting(NodeCard::id).containsExactly(ORDERS);
     assertThat(found.moreMatched()).isEqualTo(2);
@@ -211,7 +344,9 @@ class KnowledgeGraphExplorerTest {
 
     final FindResult found =
         explorer.find(
-            run, "orders", List.of(hit(RAW), hit(ORDERS), hit(RAW), hit(ORDERS)), UNBOUNDED);
+            run,
+            catalog("orders", UNBOUNDED),
+            List.of(hit(RAW), hit(ORDERS), hit(RAW), hit(ORDERS)));
 
     assertThat(found.nodes()).extracting(NodeCard::id).containsExactly(RAW, ORDERS);
     assertThat(found.moreMatched()).isZero();
@@ -232,7 +367,7 @@ class KnowledgeGraphExplorerTest {
     }
     final KnowledgeGraphExplorer explorer = explorer(InMemoryGraph.ofTurtle(turtle.toString()));
 
-    explorer.find(run, "wide", hits, UNBOUNDED);
+    explorer.find(run, catalog("wide", UNBOUNDED), hits);
 
     final int stored = traces.storedJson(run.run()).getFirst().length();
     assertThat(stored).as("stored find step JSON, chars").isLessThan(20_000);

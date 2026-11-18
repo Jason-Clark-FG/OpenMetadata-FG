@@ -22,6 +22,7 @@ import org.openmetadata.mcp.util.McpParams;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.service.rdf.RdfIriValidator;
 import org.openmetadata.service.rdf.explore.Direction;
+import org.openmetadata.service.rdf.explore.OntologyTermKind;
 import org.openmetadata.service.rdf.explore.Operation;
 
 /**
@@ -51,7 +52,23 @@ record KnowledgeGraphCall(UUID run, Request request) {
 
   sealed interface Request permits Find, Expand, Query, Trace {}
 
-  record Find(String question, List<String> entityTypes, int limit) implements Request {}
+  /**
+   * No {@code entityTypes} looks everywhere. Otherwise {@code ontologyConcept} and {@code
+   * ontologyProperty} ask for those ontology terms, and every other type is searched in the catalog.
+   */
+  record Find(String question, List<String> entityTypes, int limit) implements Request {
+    Set<OntologyTermKind> termKinds() {
+      return OntologyTermKind.requestedBy(entityTypes);
+    }
+
+    List<String> catalogTypes() {
+      return entityTypes.stream().filter(type -> !OntologyTermKind.isTermType(type)).toList();
+    }
+
+    boolean searchesCatalog() {
+      return entityTypes.isEmpty() || !catalogTypes().isEmpty();
+    }
+  }
 
   record Expand(
       List<String> nodes,

@@ -115,6 +115,19 @@ class CatalogStartingPointsTest {
   }
 
   @Test
+  void ontologyTermTypesAreLeftOutOfTheCatalogSearch() throws Exception {
+    startingPoints(false)
+        .search(
+            AUTHORIZER,
+            CALLER,
+            new KnowledgeGraphCall.Find("orders", List.of("table", "ontologyConcept"), 5));
+
+    assertThat(keyword.calls.getFirst())
+        .containsEntry("entityType", "table")
+        .doesNotContainKey("queryFilter");
+  }
+
+  @Test
   void aFailedSearchIsAFailureNotAnEmptyResult() {
     final CatalogStartingPoints failing =
         new CatalogStartingPoints(
