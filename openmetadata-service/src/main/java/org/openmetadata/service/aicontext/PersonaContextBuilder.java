@@ -153,17 +153,9 @@ public class PersonaContextBuilder {
   private PersonaContextSourceCache.Scope sourceScope;
   private PersonaContextVisibility visibility = new PersonaContextVisibility(null, null);
 
-  public PersonaContextBuilder(Persona persona) {
-    this(persona, Entity.getSearchRepository());
-  }
-
   /** Builds {@code definition} for the persona, such as the merged agent harness context. */
   public PersonaContextBuilder(Persona persona, PersonaContextDefinition definition) {
     this(persona, definition, Entity.getSearchRepository());
-  }
-
-  PersonaContextBuilder(Persona persona, SearchRepository searchRepository) {
-    this(persona, definitionOf(persona), searchRepository);
   }
 
   PersonaContextBuilder(
@@ -235,12 +227,6 @@ public class PersonaContextBuilder {
     loadProfiles(enriched);
     SharedKnowledgeAccumulator knowledge = enrichAssetKnowledge(enriched);
     return new EnrichedSelection(enriched, knowledge.toSharedKnowledge(), knowledge.overflowed());
-  }
-
-  static PersonaContextDefinition definitionOf(Persona persona) {
-    return persona == null || persona.getContextDefinition() == null
-        ? new PersonaContextDefinition()
-        : persona.getContextDefinition();
   }
 
   /**
@@ -546,7 +532,8 @@ public class PersonaContextBuilder {
           "Unsupported persona context entity type: " + rule.getEntityType());
     }
     PersonaContextRuleValidation.validate(rule, Entity.getSearchRepository());
-    RuleSearchResult result = new PersonaContextBuilder(null).search(rule);
+    RuleSearchResult result =
+        new PersonaContextBuilder(null, new PersonaContextDefinition()).search(rule);
     List<String> samples =
         result.documents().stream()
             .map(PersonaContextBuilder::displayNameOf)

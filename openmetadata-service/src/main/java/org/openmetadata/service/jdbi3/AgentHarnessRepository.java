@@ -33,6 +33,7 @@ import org.openmetadata.schema.type.change.ChangeSource;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.PersonaContextDefinitionValidation;
 import org.openmetadata.service.aicontext.PersonaContextRuleValidation;
 import org.openmetadata.service.aicontext.harness.HarnessSpecs;
 import org.openmetadata.service.exception.PreconditionFailedException;
@@ -195,7 +196,7 @@ public class AgentHarnessRepository extends EntityRepository<AgentHarness> {
         requested.getContext() == null ? List.of() : listOrEmpty(requested.getContext().getRules());
     for (final ContextRule rule : rules) {
       if (!nullOrEmpty(rule.getQueryFilter())
-          && PersonaRepository.requiresRuleValidation(rule, knownRules, false)) {
+          && PersonaContextDefinitionValidation.requiresRuleValidation(rule, knownRules)) {
         PersonaContextRuleValidation.validate(rule, Entity.getSearchRepository());
       }
     }

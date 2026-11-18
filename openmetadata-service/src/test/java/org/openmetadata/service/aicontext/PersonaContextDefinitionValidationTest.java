@@ -11,7 +11,7 @@
  *  limitations under the License.
  */
 
-package org.openmetadata.service.jdbi3;
+package org.openmetadata.service.aicontext;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,7 +29,7 @@ import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.type.personaContext.ContextSection;
 import org.openmetadata.service.Entity;
 
-class PersonaRepositoryTest {
+class PersonaContextDefinitionValidationTest {
   @Test
   void anExistingRuleIdTakesPriorityOverTheNameFallbackWhenReactivating() {
     ContextRule disabled =
@@ -54,11 +54,12 @@ class PersonaRepositoryTest {
             .withQueryFilter("{}")
             .withEnabled(true);
     assertTrue(
-        PersonaRepository.requiresRuleValidation(requested, List.of(disabled, other), false));
+        PersonaContextDefinitionValidation.requiresRuleValidation(
+            requested, List.of(disabled, other)));
   }
 
   @Test
-  void genericPutCanMatchAnUnchangedRuleByItsUniqueName() {
+  void anUnchangedRuleIsMatchedByItsUniqueName() {
     ContextRule stored =
         new ContextRule()
             .withId(UUID.randomUUID())
@@ -72,22 +73,26 @@ class PersonaRepositoryTest {
             .withEntityType(Entity.TABLE)
             .withQueryFilter(stored.getQueryFilter())
             .withEnabled(true);
-    PersonaRepository.validateContextDefinition(
+    PersonaContextDefinitionValidation.validate(
         new PersonaContextDefinition().withRules(List.of(requested)));
 
-    assertFalse(PersonaRepository.requiresRuleValidation(requested, List.of(stored), false));
+    assertFalse(
+        PersonaContextDefinitionValidation.requiresRuleValidation(requested, List.of(stored)));
     stored.setEnabled(false);
-    assertTrue(PersonaRepository.requiresRuleValidation(requested, List.of(stored), false));
+    assertTrue(
+        PersonaContextDefinitionValidation.requiresRuleValidation(requested, List.of(stored)));
     stored.setEnabled(true);
     requested.setQueryFilter("{\"regexp\":{\"name\":\"[shop\"}}");
-    assertTrue(PersonaRepository.requiresRuleValidation(requested, List.of(stored), false));
+    assertTrue(
+        PersonaContextDefinitionValidation.requiresRuleValidation(requested, List.of(stored)));
     requested.setQueryFilter(stored.getQueryFilter());
     requested.setName("New rule");
-    assertTrue(PersonaRepository.requiresRuleValidation(requested, List.of(stored), false));
+    assertTrue(
+        PersonaContextDefinitionValidation.requiresRuleValidation(requested, List.of(stored)));
   }
 
   @Test
-  void disablingPreservesRecoveryButReactivationRevalidatesTheFilter() {
+  void disablingPreservesRecoveryButReenablingRevalidatesTheFilter() {
     UUID id = UUID.randomUUID();
     ContextRule enabled =
         new ContextRule()
@@ -103,12 +108,13 @@ class PersonaRepositoryTest {
             .withEntityType(Entity.TABLE)
             .withQueryFilter(enabled.getQueryFilter())
             .withEnabled(false);
-    assertFalse(PersonaRepository.requiresRuleValidation(disabled, List.of(enabled), false));
-    assertFalse(PersonaRepository.requiresRuleValidation(enabled, List.of(enabled), false));
-    assertTrue(PersonaRepository.requiresRuleValidation(enabled, List.of(disabled), false));
-    assertTrue(PersonaRepository.requiresRuleValidation(enabled, List.of(enabled), true));
-    assertFalse(PersonaRepository.requiresRuleValidation(disabled, List.of(disabled), true));
-    assertTrue(PersonaRepository.requiresRuleValidation(disabled, List.of(), false));
+    assertFalse(
+        PersonaContextDefinitionValidation.requiresRuleValidation(disabled, List.of(enabled)));
+    assertFalse(
+        PersonaContextDefinitionValidation.requiresRuleValidation(enabled, List.of(enabled)));
+    assertTrue(
+        PersonaContextDefinitionValidation.requiresRuleValidation(enabled, List.of(disabled)));
+    assertTrue(PersonaContextDefinitionValidation.requiresRuleValidation(disabled, List.of()));
   }
 
   private static final List<String> SUPPORTED_ENTITY_TYPES =
@@ -140,7 +146,7 @@ class PersonaRepositoryTest {
               .withRules(
                   List.of(new ContextRule().withName(entityType).withEntityType(entityType)));
 
-      assertDoesNotThrow(() -> PersonaRepository.validateContextDefinition(definition), entityType);
+      assertDoesNotThrow(() -> PersonaContextDefinitionValidation.validate(definition), entityType);
     }
   }
 
@@ -152,7 +158,7 @@ class PersonaRepositoryTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> PersonaRepository.validateContextDefinition(definition));
+        () -> PersonaContextDefinitionValidation.validate(definition));
   }
 
   @Test
@@ -161,7 +167,7 @@ class PersonaRepositoryTest {
         new ContextRule().withName("Tables").withEntityType(Entity.TABLE).withSections(Set.of());
     PersonaContextDefinition definition = new PersonaContextDefinition().withRules(List.of(rule));
 
-    PersonaRepository.validateContextDefinition(definition);
+    PersonaContextDefinitionValidation.validate(definition);
 
     assertEquals(200, rule.getMaxAssets());
     assertTrue(rule.getSections().contains(ContextSection.JOINS));
@@ -179,7 +185,7 @@ class PersonaRepositoryTest {
             .withFullyRendered(false);
     PersonaContextDefinition definition = new PersonaContextDefinition().withRules(List.of(rule));
 
-    PersonaRepository.validateContextDefinition(definition);
+    PersonaContextDefinitionValidation.validate(definition);
 
     assertTrue(rule.getFullyRendered());
   }
@@ -195,17 +201,17 @@ class PersonaRepositoryTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> PersonaRepository.validateContextDefinition(definition));
+        () -> PersonaContextDefinitionValidation.validate(definition));
   }
 
   @Test
-  void validatesNumericBoundsForPatchedDefinitions() {
+  void validatesNumericBounds() {
     PersonaContextDefinition definition =
         new PersonaContextDefinition().withCharacterBudget(0).withCacheTtlMinutes(30);
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> PersonaRepository.validateContextDefinition(definition));
+        () -> PersonaContextDefinitionValidation.validate(definition));
   }
 
   @Test
@@ -214,8 +220,8 @@ class PersonaRepositoryTest {
         new PersonaContextDefinition().withPrompt("  You assist finance analysts.  \n");
     PersonaContextDefinition blank = new PersonaContextDefinition().withPrompt(" \n\t ");
 
-    PersonaRepository.validateContextDefinition(written);
-    PersonaRepository.validateContextDefinition(blank);
+    PersonaContextDefinitionValidation.validate(written);
+    PersonaContextDefinitionValidation.validate(blank);
 
     assertEquals("You assist finance analysts.", written.getPrompt());
     assertNull(blank.getPrompt());
@@ -223,13 +229,12 @@ class PersonaRepositoryTest {
 
   @Test
   void rejectsAPromptOverTheLimit() {
-    // PATCH bypasses the request-body bean validation, so the schema's maxLength alone is not
-    // enough to keep an oversized prompt out of every planner call.
+    // A draft is not checked against the schema's maxLength, so the validator enforces it.
     PersonaContextDefinition definition =
         new PersonaContextDefinition().withPrompt("x".repeat(8_001));
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> PersonaRepository.validateContextDefinition(definition));
+        () -> PersonaContextDefinitionValidation.validate(definition));
   }
 }

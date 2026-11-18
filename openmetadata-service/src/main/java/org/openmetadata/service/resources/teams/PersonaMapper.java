@@ -11,7 +11,6 @@ public class PersonaMapper implements EntityMapper<Persona, CreatePersona> {
   public Persona createToEntity(CreatePersona create, String user) {
     return copy(new Persona(), create, user)
         .withUsers(EntityUtil.validateToEntityReferences(create.getUsers(), Entity.USER))
-        .withContextDefinition(create.getContextDefinition())
         .withDefault(create.getDefault());
   }
 }

@@ -29,6 +29,7 @@ import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AppliedHarness;
 import org.openmetadata.schema.api.context.AppliedHarnesses;
 import org.openmetadata.schema.api.context.CompileAgentContext;
+import org.openmetadata.schema.api.context.CompileEvent;
 import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.context.GuardrailAction;
 import org.openmetadata.schema.api.context.GuardrailDecision;
@@ -96,6 +97,27 @@ public final class AgentHarnessCompiler {
     return compile(caller, definition, request, securityContext, this::cachedDocument);
   }
 
+  /**
+   * What the caller's agent receives at SessionStart with {@code persona} as its active persona.
+   * Only the persona's members, administrators and bots can ask; only the last two can rebuild the
+   * persona's cached context first.
+   */
+  public CompiledAgentContext sessionStartAs(
+      final SecurityContext securityContext, final Persona persona, final boolean refresh) {
+    PersonaContextAccess.authorize(securityContext, persona);
+    if (refresh) {
+      PersonaContextAccess.authorizeRefresh(securityContext);
+      PersonaContextCache.getInstance().refresh(persona);
+    }
+    final Caller caller = callerAs(persona);
+    return compile(
+        caller,
+        PersonaContextCache.definitionOf(caller.documentPersona()),
+        new CompileAgentContext().withEvent(CompileEvent.SESSION_START),
+        securityContext,
+        this::cachedDocument);
+  }
+
   /** The skills the caller's harness offers, in registry order. */
   public List<SkillDefinition> skills(final SecurityContext securityContext) {
     final Caller caller = caller(securityContext);
@@ -120,7 +142,7 @@ public final class AgentHarnessCompiler {
       final CompileAgentContext request) {
     final Caller caller = previewCaller(harness, spec);
     final PersonaContextDefinition definition =
-        HarnessContexts.merged(caller.defaultHarness(), caller.personaHarness(), caller.persona());
+        HarnessContexts.merged(caller.defaultHarness(), caller.personaHarness());
     return compile(
         caller,
         definition,
@@ -157,10 +179,7 @@ public final class AgentHarnessCompiler {
 
   /** The settings that apply to the caller; empty when the default harness is disabled. */
   private static Optional<AgentHarnessSpec> effective(final Caller caller) {
-    return HarnessResolver.effective(
-        caller.defaultHarness(),
-        HarnessContexts.personaPart(
-            caller.defaultHarness(), caller.personaHarness(), caller.persona()));
+    return HarnessResolver.effective(caller.defaultHarness(), caller.personaHarness());
   }
 
   /** Everything one compile reads. */
@@ -320,18 +339,15 @@ public final class AgentHarnessCompiler {
   }
 
   private Caller caller(final SecurityContext securityContext) {
-    final AgentHarness defaultHarness = harnesses.getDefault();
-    final Optional<Persona> persona = HarnessContexts.activePersona(securityContext);
+    return HarnessContexts.activePersona(securityContext)
+        .map(this::callerAs)
+        .orElseGet(() -> new Caller(harnesses.getDefault(), null, null, contexts.defaultStandIn()));
+  }
+
+  private Caller callerAs(final Persona persona) {
     final AgentHarness personaHarness =
-        persona
-            .flatMap(value -> harnesses.findByPersona(value.getId()))
-            .filter(HarnessResolver::applies)
-            .orElse(null);
-    return new Caller(
-        defaultHarness,
-        personaHarness,
-        persona.orElse(null),
-        persona.orElseGet(contexts::defaultStandIn));
+        harnesses.findByPersona(persona.getId()).filter(HarnessResolver::applies).orElse(null);
+    return new Caller(harnesses.getDefault(), personaHarness, persona, persona);
   }
 
   private Caller previewCaller(final AgentHarness harness, final AgentHarnessSpec spec) {
@@ -341,8 +357,7 @@ public final class AgentHarnessCompiler {
       caller = new Caller(previewed, null, null, contexts.defaultStandIn());
     } else {
       final Persona persona =
-          Entity.getEntity(
-              Entity.PERSONA, harness.getPersona().getId(), "contextDefinition", Include.ALL);
+          Entity.getEntity(Entity.PERSONA, harness.getPersona().getId(), "", Include.ALL);
       caller = new Caller(harnesses.getDefault(), previewed, persona, persona);
     }
     return caller;

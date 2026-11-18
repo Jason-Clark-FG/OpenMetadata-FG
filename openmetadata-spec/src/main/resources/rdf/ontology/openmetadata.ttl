@@ -2419,10 +2419,6 @@ om:context a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "context" .
 
-om:contextDefinition a rdf:Property ;
-    om:projectionStatus om:Stored ;
-    rdfs:label "contextDefinition" .
-
 om:contextFile a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "contextFile" .

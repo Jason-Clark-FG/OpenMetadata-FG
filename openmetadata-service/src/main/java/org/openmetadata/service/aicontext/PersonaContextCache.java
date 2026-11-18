@@ -73,10 +73,10 @@ public class PersonaContextCache implements Invalidatable {
           },
           new ThreadPoolExecutor.AbortPolicy());
   private static volatile PersonaContextCache instance;
-  // The agent harness installs the merged default + persona definition at startup. Until then, and
-  // in tests without a database, a persona's own stored definition is used.
+  // The agent harness installs the merged default + persona definition at startup. Until then
+  // nothing is selected.
   private static volatile Function<Persona, PersonaContextDefinition> definitionSource =
-      PersonaContextBuilder::definitionOf;
+      persona -> new PersonaContextDefinition();
   // Registered with CacheBundle instead of the instance itself: getInstance() swaps the singleton
   // whenever the cache provider changes, and a registration holding the old object would silently
   // stop invalidating anything. This delegate resolves the current instance on every call.

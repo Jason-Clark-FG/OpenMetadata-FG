@@ -118,11 +118,10 @@ class PersonaContextBuilderTest {
             })
         .when(authorizer)
         .authorize(any(), any(), any());
-    Persona persona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition()
-                    .withRules(List.of(assetRule("Sparse tables", "").withMaxAssets(200))));
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition()
+            .withRules(List.of(assetRule("Sparse tables", "").withMaxAssets(200)));
+    Persona persona = persona();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     try (MockedStatic<Entity> entities = mockStatic(Entity.class)) {
       entities
@@ -131,7 +130,7 @@ class PersonaContextBuilderTest {
       for (int read = 0; read < 2; read++) {
         checked.set(0);
         var result =
-            new PersonaContextBuilder(persona, repository)
+            new PersonaContextBuilder(persona, definition, repository)
                 .withSourceCache(cache)
                 .withSecurity(authorizer, mock(SecurityContext.class))
                 .build();
@@ -219,7 +218,7 @@ class PersonaContextBuilderTest {
           .when(() -> Entity.getEntityRepository(Entity.DATA_PRODUCT))
           .thenReturn(productRepository);
       var result =
-          new PersonaContextBuilder(persona(), repository)
+          new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
               .withSecurity(authorizer, mock(SecurityContext.class))
               .selectRules(
                   new PersonaContextDefinition()
@@ -243,8 +242,9 @@ class PersonaContextBuilderTest {
             .withName("Rendered assets")
             .withEntityType(ruleEntityType)
             .withFullyRendered(true);
-    Persona persona =
-        persona().withContextDefinition(new PersonaContextDefinition().withRules(List.of(rule)));
+    PersonaContextDefinition personaContextDefinition =
+        new PersonaContextDefinition().withRules(List.of(rule));
+    Persona persona = persona();
     var selected =
         new PersonaContextBuilder.SelectedEntity(
             null,
@@ -256,7 +256,7 @@ class PersonaContextBuilderTest {
             null,
             List.of());
     PersonaContextBuilder builder =
-        new PersonaContextBuilder(persona, mock(SearchRepository.class)) {
+        new PersonaContextBuilder(persona, personaContextDefinition, mock(SearchRepository.class)) {
           @Override
           List<RuleMaterialization> selectRules(PersonaContextDefinition definition) {
             return List.of(new RuleMaterialization(rule, 1, List.of(selected)));
@@ -307,7 +307,7 @@ class PersonaContextBuilderTest {
           .when(() -> Entity.getEntityRepository(anyString()))
           .thenReturn(mock(EntityRepository.class));
       var result =
-          new PersonaContextBuilder(persona(), repository)
+          new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
               .withSecurity(authorizer, mock(SecurityContext.class))
               .search(assetRule("Visible beyond total", "").withMaxAssets(1));
       assertEquals(1, result.documents().size());
@@ -376,7 +376,7 @@ class PersonaContextBuilderTest {
       entities.when(() -> Entity.getEntityRepository(Entity.DATA_PRODUCT)).thenReturn(products);
       for (int read = 0; read < 2; read++) {
         var members =
-            new PersonaContextBuilder(persona, repository)
+            new PersonaContextBuilder(persona, new PersonaContextDefinition(), repository)
                 .withSourceCache(cache)
                 .withSecurity(authorizer, mock(SecurityContext.class))
                 .expandDataProductAssets(product, 1, new PersonaContextBuilder.ScanBudget());
@@ -415,7 +415,7 @@ class PersonaContextBuilderTest {
           .when(() -> Entity.getEntityRepository(anyString()))
           .thenReturn(mock(EntityRepository.class));
       PersonaContextBuilder.RuleSearchResult result =
-          new PersonaContextBuilder(persona(), repository)
+          new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
               .withSecurity(authorizer, mock(SecurityContext.class))
               .search(assetRule("Visible tables", "").withMaxAssets(2));
 
@@ -438,21 +438,20 @@ class PersonaContextBuilderTest {
     when(repository.listWithDeepPagination(
             anyString(), isNull(), anyString(), any(), any(), anyInt(), isNull()))
         .thenReturn(new SearchResultListMapper(page, 1000, new Object[] {"99"}));
-    Persona persona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition()
-                    .withRules(List.of(assetRule("Limited selection", "").withMaxAssets(1))));
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition()
+            .withRules(List.of(assetRule("Limited selection", "").withMaxAssets(1)));
+    Persona persona = persona();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     PersonaContextBuilder.MaterializedPersonaContext admin =
-        new PersonaContextBuilder(persona, repository).withSourceCache(cache).build();
+        new PersonaContextBuilder(persona, definition, repository).withSourceCache(cache).build();
     assertEquals(1000, admin.context().getRules().getFirst().getMatched());
     try (MockedStatic<Entity> entities = mockStatic(Entity.class)) {
       entities
           .when(() -> Entity.getEntityRepository(anyString()))
           .thenReturn(mock(EntityRepository.class));
       PersonaContextBuilder.MaterializedPersonaContext result =
-          new PersonaContextBuilder(persona, repository)
+          new PersonaContextBuilder(persona, definition, repository)
               .withSourceCache(cache)
               .withSecurity(mock(Authorizer.class), mock(SecurityContext.class))
               .build();
@@ -480,10 +479,9 @@ class PersonaContextBuilderTest {
                         "description",
                         "original content")),
                 1));
-    Persona persona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition().withRules(List.of(assetRule("Cached source", ""))));
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition().withRules(List.of(assetRule("Cached source", "")));
+    Persona persona = persona();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     Authorizer authorizer = mock(Authorizer.class);
     SecurityContext security = mock(SecurityContext.class);
@@ -492,7 +490,7 @@ class PersonaContextBuilderTest {
           .when(() -> Entity.getEntityRepository(anyString()))
           .thenReturn(mock(EntityRepository.class));
       PersonaContextBuilder.MaterializedPersonaContext first =
-          new PersonaContextBuilder(persona, repository)
+          new PersonaContextBuilder(persona, definition, repository)
               .withSourceCache(cache)
               .withSecurity(authorizer, security)
               .build();
@@ -509,7 +507,7 @@ class PersonaContextBuilderTest {
           .when(authorizer)
           .authorize(any(), any(), any());
       PersonaContextBuilder.MaterializedPersonaContext denied =
-          new PersonaContextBuilder(persona, repository)
+          new PersonaContextBuilder(persona, definition, repository)
               .withSourceCache(cache)
               .withSecurity(authorizer, security)
               .build();
@@ -518,7 +516,7 @@ class PersonaContextBuilderTest {
 
       doNothing().when(authorizer).authorize(any(), any(), any());
       PersonaContextBuilder.MaterializedPersonaContext restored =
-          new PersonaContextBuilder(persona, repository)
+          new PersonaContextBuilder(persona, definition, repository)
               .withSourceCache(cache)
               .withSecurity(authorizer, security)
               .build();
@@ -557,7 +555,7 @@ class PersonaContextBuilderTest {
                       ? List.of(broken, healthy, preload)
                       : List.of(broken, preload));
       var result =
-          new PersonaContextBuilder(persona().withContextDefinition(definition), repository)
+          new PersonaContextBuilder(persona(), definition, repository)
               .withSourceCache(new PersonaContextSourceCache())
               .build();
       var scope = result.context().getSearchScope();
@@ -606,7 +604,8 @@ class PersonaContextBuilderTest {
   @Test
   void searchUsesDeepPaginationAndHonorsRuleLimit() throws IOException {
     SearchRepository repository = mock(SearchRepository.class);
-    PersonaContextBuilder builder = new PersonaContextBuilder(persona(), repository);
+    PersonaContextBuilder builder =
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository);
     ContextRule rule =
         new ContextRule()
             .withName("Semantic tables")
@@ -656,7 +655,8 @@ class PersonaContextBuilderTest {
   @Test
   void searchSurfacesTheUnderlyingSearchFailureWithItsCause() throws IOException {
     SearchRepository repository = mock(SearchRepository.class);
-    PersonaContextBuilder builder = new PersonaContextBuilder(persona(), repository);
+    PersonaContextBuilder builder =
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository);
     ContextRule rule = new ContextRule().withName("Knowledge Articles").withEntityType(Entity.PAGE);
     IOException failure = new IOException("Failed to parse query filter: boom");
     when(repository.listWithDeepPagination(
@@ -691,7 +691,8 @@ class PersonaContextBuilderTest {
         .thenReturn(new SearchResultListMapper(List.of(document), 1));
     ContextRule first = assetRule("First", "{\"term\":{\"domain\":\"one\"}}");
     ContextRule second = assetRule("Second", "{\"term\":{\"domain\":\"two\"}}");
-    PersonaContextBuilder builder = new PersonaContextBuilder(persona(), repository);
+    PersonaContextBuilder builder =
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository);
 
     List<PersonaContextBuilder.RuleMaterialization> results =
         builder.selectRules(
@@ -720,7 +721,7 @@ class PersonaContextBuilderTest {
         assetRule("Always", "{\"term\":{\"domain\":\"two\"}}").withAlwaysInContext(true);
 
     List<PersonaContextBuilder.RuleMaterialization> results =
-        new PersonaContextBuilder(persona(), repository)
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
             .selectRules(
                 new PersonaContextDefinition()
                     .withRules(List.of(relevanceRule, alwaysRule))
@@ -737,7 +738,7 @@ class PersonaContextBuilderTest {
     ContextRule scopedRule = assetRule("Scoped", "").withFilteredInSearch(true);
 
     List<PersonaContextBuilder.RuleMaterialization> results =
-        new PersonaContextBuilder(persona(), repository)
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
             .selectRules(
                 new PersonaContextDefinition().withRules(List.of(scopedRule)).withEnabled(true));
 
@@ -756,13 +757,12 @@ class PersonaContextBuilderTest {
   @Test
   void buildCarriesThePromptOnTheStructuredDocumentOnly() {
     String prompt = "You assist finance analysts with quarterly revenue questions.";
-    Persona persona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition().withEnabled(true).withPrompt(prompt));
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition().withEnabled(true).withPrompt(prompt);
+    Persona persona = persona();
 
     PersonaContextBuilder.MaterializedPersonaContext materialized =
-        new PersonaContextBuilder(persona, mock(SearchRepository.class)).build();
+        new PersonaContextBuilder(persona, definition, mock(SearchRepository.class)).build();
 
     assertEquals(prompt, materialized.context().getPrompt());
     // Consumers frame the markdown as reference data, never instructions, so a prompt inside it
@@ -772,13 +772,12 @@ class PersonaContextBuilderTest {
 
   @Test
   void promptIsWithheldWhileTheContextIsDisabled() {
-    Persona persona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition().withEnabled(false).withPrompt("Answer tersely."));
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition().withEnabled(false).withPrompt("Answer tersely.");
+    Persona persona = persona();
 
     PersonaContextBuilder.MaterializedPersonaContext materialized =
-        new PersonaContextBuilder(persona, mock(SearchRepository.class)).build();
+        new PersonaContextBuilder(persona, definition, mock(SearchRepository.class)).build();
 
     assertNull(materialized.context().getPrompt());
   }
@@ -884,17 +883,15 @@ class PersonaContextBuilderTest {
         .thenReturn(new SearchResultListMapper(List.of(document), 1, null, null));
     Authorizer authorizer = mock(Authorizer.class);
     doThrow(new AuthorizationException("Denied")).when(authorizer).authorize(any(), any(), any());
-    Persona memberPersona =
-        persona()
-            .withContextDefinition(
-                new PersonaContextDefinition()
-                    .withRules(List.of(assetRule("Preloaded tables", ""))));
+    PersonaContextDefinition memberPersonaDefinition =
+        new PersonaContextDefinition().withRules(List.of(assetRule("Preloaded tables", "")));
+    Persona memberPersona = persona();
     try (MockedStatic<Entity> entities = mockStatic(Entity.class)) {
       entities
           .when(() -> Entity.getEntityRepository(anyString()))
           .thenReturn(mock(EntityRepository.class));
       PersonaContextBuilder.MaterializedPersonaContext result =
-          new PersonaContextBuilder(memberPersona, repository)
+          new PersonaContextBuilder(memberPersona, memberPersonaDefinition, repository)
               .withSecurity(authorizer, mock(SecurityContext.class))
               .build();
 
@@ -903,7 +900,7 @@ class PersonaContextBuilderTest {
       assertEquals(0, result.context().getRules().getFirst().getMatched());
       assertTrue(result.context().getRules().getFirst().getEntities().isEmpty());
       PersonaContextBuilder.MaterializedPersonaContext allowed =
-          new PersonaContextBuilder(memberPersona, repository)
+          new PersonaContextBuilder(memberPersona, memberPersonaDefinition, repository)
               .withSecurity(mock(Authorizer.class), mock(SecurityContext.class))
               .build();
       assertTrue(allowed.markdown().contains("restricted.table"));
@@ -1010,7 +1007,9 @@ class PersonaContextBuilderTest {
     assertTrue(nullOrEmpty(PersonaContextBuilder.searchScope(definition).getQueryFilter()));
     assertEquals(
         1,
-        new PersonaContextBuilder(persona(), repository).selectRules(definition).size(),
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
+            .selectRules(definition)
+            .size(),
         "a knowledge rule must still be materialized despite the flag");
   }
 
@@ -1204,7 +1203,7 @@ class PersonaContextBuilderTest {
             nullable(Object[].class)))
         .thenReturn(new SearchResultListMapper(List.of(memberDocument), 1));
     PersonaContextBuilder builder =
-        new PersonaContextBuilder(persona(), repository) {
+        new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository) {
           @Override
           protected List<SelectedEntity> expandDataProductAssets(
               SelectedEntity dataProduct, int maxAssets, ScanBudget scanBudget) {

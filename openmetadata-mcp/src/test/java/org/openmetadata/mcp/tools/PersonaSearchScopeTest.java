@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -39,6 +40,7 @@ import org.openmetadata.schema.type.personaContext.SearchScope;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.PersonaContextAccess;
+import org.openmetadata.service.aicontext.PersonaContextCache;
 import org.openmetadata.service.exception.EntityNotFoundException;
 import org.openmetadata.service.search.SearchClient;
 import org.openmetadata.service.search.SearchRepository;
@@ -47,6 +49,11 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
 class PersonaSearchScopeTest {
   private static final String PERSONA_FILTER =
       "{\"query\":{\"term\":{\"service.name.keyword\":\"finance\"}}}";
+
+  @AfterEach
+  void restoreTheEmptyDefinitionSource() {
+    PersonaContextCache.useDefinitionSource(ignored -> new PersonaContextDefinition());
+  }
 
   @Test
   void compiledScopeRequiresBothAFilterAndEntityTypes() {
@@ -76,11 +83,9 @@ class PersonaSearchScopeTest {
             .withQueryFilter(PERSONA_FILTER)
             .withEnabled(true)
             .withFilteredInSearch(true);
-    Persona persona =
-        new Persona()
-            .withId(UUID.randomUUID())
-            .withContextDefinition(
-                new PersonaContextDefinition().withEnabled(true).withRules(List.of(rule)));
+    Persona persona = new Persona().withId(UUID.randomUUID());
+    PersonaContextCache.useDefinitionSource(
+        ignored -> new PersonaContextDefinition().withEnabled(true).withRules(List.of(rule)));
     CatalogSecurityContext securityContext = mock(CatalogSecurityContext.class);
 
     try (MockedStatic<PersonaContextAccess> access = mockStatic(PersonaContextAccess.class);
@@ -117,13 +122,11 @@ class PersonaSearchScopeTest {
         MockedStatic<Entity> entities = mockStatic(Entity.class)) {
       entities.when(Entity::getSearchRepository).thenReturn(repository);
       for (boolean includeHealthy : List.of(true, false)) {
-        Persona persona =
-            new Persona()
-                .withId(UUID.randomUUID())
-                .withName("Saved search defaults")
-                .withContextDefinition(
-                    new PersonaContextDefinition()
-                        .withRules(includeHealthy ? List.of(broken, healthy) : List.of(broken)));
+        Persona persona = new Persona().withId(UUID.randomUUID()).withName("Saved search defaults");
+        PersonaContextCache.useDefinitionSource(
+            ignored ->
+                new PersonaContextDefinition()
+                    .withRules(includeHealthy ? List.of(broken, healthy) : List.of(broken)));
         access.when(() -> PersonaContextAccess.activePersona(securityContext)).thenReturn(persona);
         Optional<PersonaSearchScope> scope = PersonaSearchScope.resolve(securityContext);
         assertEquals(includeHealthy, scope.isPresent());

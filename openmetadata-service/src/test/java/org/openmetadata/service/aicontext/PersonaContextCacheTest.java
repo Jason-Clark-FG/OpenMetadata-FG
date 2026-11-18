@@ -56,17 +56,16 @@ import org.openmetadata.service.security.Authorizer;
 class PersonaContextCacheTest {
   @Test
   void aMemberValidationOutageStillRecordsAdministratorDiagnostics() throws Exception {
-    Persona persona =
-        personaFor(UUID.randomUUID())
-            .withContextDefinition(
-                new PersonaContextDefinition()
-                    .withRules(
-                        List.of(
-                            new ContextRule()
-                                .withName("Scoped tables")
-                                .withEntityType(Entity.TABLE)
-                                .withFilteredInSearch(true)
-                                .withQueryFilter("{\"term\":{\"name\":\"orders\"}}"))));
+    Persona persona = personaFor(UUID.randomUUID());
+    PersonaContextDefinition definition =
+        new PersonaContextDefinition()
+            .withRules(
+                List.of(
+                    new ContextRule()
+                        .withName("Scoped tables")
+                        .withEntityType(Entity.TABLE)
+                        .withFilteredInSearch(true)
+                        .withQueryFilter("{\"term\":{\"name\":\"orders\"}}")));
     SearchRepository repository = mock(SearchRepository.class);
     SearchClient client = mock(SearchClient.class);
     when(repository.getSearchClient()).thenReturn(client);
@@ -75,6 +74,7 @@ class PersonaContextCacheTest {
         .thenReturn(new SearchClient.RawSearchResponse(503, "{}"));
     PersonaContextCache cache =
         new PersonaContextCache(mock(CacheProvider.class), new CacheKeys("test"));
+    PersonaContextCache.useDefinitionSource(ignored -> definition);
     try (MockedStatic<Entity> entities = mockStatic(Entity.class)) {
       entities.when(Entity::getSearchRepository).thenReturn(repository);
       assertThrows(
@@ -82,6 +82,8 @@ class PersonaContextCacheTest {
           () -> cache.getForCaller(persona, mock(Authorizer.class), mock(SecurityContext.class)));
       assertEquals(PersonaContextCacheState.FAILED, cache.snapshot(persona).state());
       assertTrue(cache.snapshot(persona).error().contains("Search is unavailable"));
+    } finally {
+      PersonaContextCache.useDefinitionSource(ignored -> new PersonaContextDefinition());
     }
   }
 
@@ -95,7 +97,7 @@ class PersonaContextCacheTest {
             .formatHex(
                 MessageDigest.getInstance("SHA-256")
                     .digest(
-                        JsonUtils.pojoToJson(persona.getContextDefinition())
+                        JsonUtils.pojoToJson(new PersonaContextDefinition())
                             .getBytes(StandardCharsets.UTF_8)),
                 0,
                 8);
@@ -135,11 +137,7 @@ class PersonaContextCacheTest {
     CacheProvider provider = mock(CacheProvider.class);
     UUID personaId = UUID.fromString("11111111-1111-1111-1111-111111111111");
     CacheKeys keys = new CacheKeys("om:test");
-    Persona persona =
-        new Persona()
-            .withId(personaId)
-            .withName("analyst")
-            .withContextDefinition(new PersonaContextDefinition());
+    Persona persona = new Persona().withId(personaId).withName("analyst");
 
     when(provider.available()).thenReturn(true);
     when(provider.mget(anyList())).thenReturn(List.of(Optional.empty(), Optional.empty()));
@@ -164,11 +162,7 @@ class PersonaContextCacheTest {
     CacheProvider provider = mock(CacheProvider.class);
     UUID personaId = UUID.fromString("22222222-2222-2222-2222-222222222222");
     CacheKeys keys = new CacheKeys("om:test");
-    Persona persona =
-        new Persona()
-            .withId(personaId)
-            .withName("analyst")
-            .withContextDefinition(new PersonaContextDefinition());
+    Persona persona = new Persona().withId(personaId).withName("analyst");
     PersonaContextBuilder.MaterializedPersonaContext materialized =
         new PersonaContextBuilder.MaterializedPersonaContext(
             new PersonaContext().withGeneratedAt(1L), "compiled context");
@@ -240,10 +234,7 @@ class PersonaContextCacheTest {
   }
 
   private static Persona personaFor(UUID personaId) {
-    return new Persona()
-        .withId(personaId)
-        .withName("analyst")
-        .withContextDefinition(new PersonaContextDefinition());
+    return new Persona().withId(personaId).withName("analyst");
   }
 
   /** A cache whose Redis is up but always empty, so every local miss falls through to a build. */

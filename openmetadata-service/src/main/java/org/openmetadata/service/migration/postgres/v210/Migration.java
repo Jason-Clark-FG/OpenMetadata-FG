@@ -60,6 +60,7 @@ import org.openmetadata.service.migration.utils.v210.MicroStrategyChartRename;
 import org.openmetadata.service.migration.utils.v210.MigrationUtil;
 import org.openmetadata.service.migration.utils.v210.ODCSCustomPropertiesMigration;
 import org.openmetadata.service.migration.utils.v210.OntologyRolesMigration;
+import org.openmetadata.service.migration.utils.v210.PersonaAgentHarnessMigration;
 import org.openmetadata.service.migration.utils.v210.TaskFieldPathMigration;
 import org.openmetadata.service.migration.utils.v210.UnsupportedNotificationTemplates;
 import org.openmetadata.service.migration.utils.v210.WebhookSecretsMigration;
@@ -226,5 +227,12 @@ public class Migration extends MigrationProcessImpl {
         getVersion(),
         ContextFileFqnRepair.STEP_NAME,
         () -> ContextFileFqnRepair.repairAll(handle, POSTGRES));
+    // Persona AI contexts become published persona agent harnesses, and contextDefinition leaves
+    // persona rows and versions. Idempotent: a persona that has a harness is skipped.
+    runOnce(
+        migrationDAO,
+        getVersion(),
+        PersonaAgentHarnessMigration.STEP_NAME,
+        () -> PersonaAgentHarnessMigration.migrate(handle, POSTGRES));
   }
 }

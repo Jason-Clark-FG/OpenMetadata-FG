@@ -41,6 +41,15 @@ import org.openmetadata.service.search.SearchRepository;
 import org.openmetadata.service.search.SearchResultListMapper;
 
 class PersonaContextSourceCacheTest {
+  private static final PersonaContextDefinition DEFINITION =
+      new PersonaContextDefinition()
+          .withRules(
+              List.of(
+                  new ContextRule()
+                      .withName("Tables")
+                      .withEntityType(Entity.TABLE)
+                      .withMaxAssets(10)));
+
   @Test
   void dataProductSourcePagesRespectTheRequestedCandidateLimit() {
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
@@ -90,7 +99,9 @@ class PersonaContextSourceCacheTest {
     Callable<PersonaContextBuilder.MaterializedPersonaContext> read =
         () -> {
           assertTrue(start.await(5, TimeUnit.SECONDS));
-          return new PersonaContextBuilder(persona, repository).withSourceCache(cache).build();
+          return new PersonaContextBuilder(persona, DEFINITION, repository)
+              .withSourceCache(cache)
+              .build();
         };
     try (var executor = Executors.newFixedThreadPool(2)) {
       var json = executor.submit(read);
@@ -116,7 +127,7 @@ class PersonaContextSourceCacheTest {
   @Test
   void refreshRejectsAnOldGenerationThatFinishesLoadingAfterInvalidation() throws Exception {
     Persona persona = persona();
-    ContextRule rule = persona.getContextDefinition().getRules().getFirst();
+    ContextRule rule = DEFINITION.getRules().getFirst();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     var oldScope = scopeOf(cache, persona);
     CountDownLatch loading = new CountDownLatch(1);
@@ -172,7 +183,7 @@ class PersonaContextSourceCacheTest {
   @Test
   void successfulScopeValidationIsSharedUntilRefresh() {
     Persona persona = persona();
-    ContextRule rule = persona.getContextDefinition().getRules().getFirst();
+    ContextRule rule = DEFINITION.getRules().getFirst();
     PersonaContextSourceCache cache = new PersonaContextSourceCache();
     AtomicInteger validations = new AtomicInteger();
     cache.validate(scopeOf(cache, persona), rule, validations::incrementAndGet);
@@ -189,20 +200,10 @@ class PersonaContextSourceCacheTest {
 
   private static PersonaContextSourceCache.Scope scopeOf(
       PersonaContextSourceCache cache, Persona persona) {
-    return cache.scope(persona, PersonaContextBuilder.definitionOf(persona));
+    return cache.scope(persona, DEFINITION);
   }
 
   private static Persona persona() {
-    return new Persona()
-        .withId(UUID.randomUUID())
-        .withName("analyst")
-        .withContextDefinition(
-            new PersonaContextDefinition()
-                .withRules(
-                    List.of(
-                        new ContextRule()
-                            .withName("Tables")
-                            .withEntityType(Entity.TABLE)
-                            .withMaxAssets(10))));
+    return new Persona().withId(UUID.randomUUID()).withName("analyst");
   }
 }

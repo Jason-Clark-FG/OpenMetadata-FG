@@ -64,7 +64,7 @@ import org.openmetadata.service.util.ListCursors;
  * a persona harness makes is checked against the published default.
  */
 public final class AgentHarnessService {
-  private static final String PERSONA_LIST_FIELDS = "userCount,contextDefinition";
+  private static final String PERSONA_LIST_FIELDS = "userCount";
 
   private final AgentHarnessRepository harnesses;
   private final PersonaRepository personas;
@@ -216,7 +216,7 @@ public final class AgentHarnessService {
               personas.get(
                   null,
                   harness.getPersona().getId(),
-                  personas.getFields("contextDefinition"),
+                  personas.getFields(""),
                   Include.NON_DELETED,
                   false));
     }
@@ -318,8 +318,7 @@ public final class AgentHarnessService {
     if (harness != null) {
       summary.withHarnessId(harness.getId()).withEnabled(harness.getEnabled());
     }
-    return withCacheFigures(
-        summary, persona, HarnessContexts.merged(defaultHarness, harness, persona));
+    return withCacheFigures(summary, persona, HarnessContexts.merged(defaultHarness, harness));
   }
 
   // The list reads the context cache and never compiles, so a long list stays cheap.

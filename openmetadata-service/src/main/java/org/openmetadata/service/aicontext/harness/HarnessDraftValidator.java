@@ -37,7 +37,7 @@ import org.openmetadata.schema.entity.context.HookEvent;
 import org.openmetadata.schema.type.PersonaContextDefinition;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.JsonUtils;
-import org.openmetadata.service.jdbi3.PersonaRepository;
+import org.openmetadata.service.aicontext.PersonaContextDefinitionValidation;
 
 /**
  * Checks the settings an administrator saves as a draft or publishes, and returns them normalized.
@@ -98,7 +98,7 @@ public final class HarnessDraftValidator {
           "context.enabled cannot be false. A harness is enabled or disabled as a whole with "
               + "PUT /v1/agentHarness/{id}/enabled");
     }
-    PersonaRepository.validateContextDefinition(context.withEnabled(true));
+    PersonaContextDefinitionValidation.validate(context.withEnabled(true));
     return context;
   }
 

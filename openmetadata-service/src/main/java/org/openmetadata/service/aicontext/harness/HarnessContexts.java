@@ -17,10 +17,8 @@ import java.util.ArrayList;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.entity.context.AgentHarness;
-import org.openmetadata.schema.entity.context.AgentHarnessKind;
 import org.openmetadata.schema.entity.teams.Persona;
 import org.openmetadata.schema.type.PersonaContextDefinition;
-import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.aicontext.PersonaContextAccess;
 import org.openmetadata.service.exception.EntityNotFoundException;
 import org.openmetadata.service.jdbi3.AgentHarnessRepository;
@@ -44,7 +42,7 @@ public final class HarnessContexts {
         isDefaultStandIn(persona, defaultHarness)
             ? null
             : harnesses.findByPersona(persona.getId()).orElse(null);
-    return merged(defaultHarness, personaHarness, persona);
+    return merged(defaultHarness, personaHarness);
   }
 
   /** The caller's active persona: the one they asked for, else their default persona. */
@@ -76,49 +74,17 @@ public final class HarnessContexts {
         .withDisplayName(defaultHarness.getDisplayName());
   }
 
-  /**
-   * The merged definition. Until the persona context definitions are migrated into persona
-   * harnesses, a persona without an applying harness contributes its own stored definition.
-   * Disabled when the default is disabled, because then nothing is delivered.
-   */
+  /** The merged definition. Disabled when the default is disabled, because then nothing is delivered. */
   public static PersonaContextDefinition merged(
-      final AgentHarness defaultHarness, final AgentHarness personaHarness, final Persona persona) {
-    return HarnessResolver.effective(
-            defaultHarness, personaPart(defaultHarness, personaHarness, persona))
+      final AgentHarness defaultHarness, final AgentHarness personaHarness) {
+    return HarnessResolver.effective(defaultHarness, personaHarness)
         .map(spec -> spec.getContext().withEnabled(true))
         .orElseGet(
             () -> new PersonaContextDefinition().withEnabled(false).withRules(new ArrayList<>()));
   }
 
-  /**
-   * What the persona adds to the default: its harness when that applies, else the persona's own
-   * stored definition, else nothing.
-   */
-  static AgentHarness personaPart(
-      final AgentHarness defaultHarness, final AgentHarness personaHarness, final Persona persona) {
-    return HarnessResolver.applies(personaHarness)
-        ? personaHarness
-        : storedDefinitionHarness(persona, defaultHarness);
-  }
-
   private static boolean isDefaultStandIn(
       final Persona persona, final AgentHarness defaultHarness) {
     return defaultHarness.getId().equals(persona.getId());
-  }
-
-  private static AgentHarness storedDefinitionHarness(
-      final Persona persona, final AgentHarness defaultHarness) {
-    final PersonaContextDefinition stored = persona == null ? null : persona.getContextDefinition();
-    AgentHarness harness = null;
-    if (stored != null && !Boolean.FALSE.equals(stored.getEnabled())) {
-      harness =
-          new AgentHarness()
-              .withKind(AgentHarnessKind.PERSONA)
-              .withEnabled(true)
-              .withPublishedAt(0L)
-              .withPerTurnTokenBudget(defaultHarness.getPerTurnTokenBudget())
-              .withContext(JsonUtils.deepCopy(stored, PersonaContextDefinition.class));
-    }
-    return harness;
   }
 }

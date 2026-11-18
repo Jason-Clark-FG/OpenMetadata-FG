@@ -14,7 +14,7 @@ package org.openmetadata.it.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.ws.rs.core.HttpHeaders;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -26,6 +26,10 @@ import org.openmetadata.it.util.SdkClients;
 import org.openmetadata.it.util.TestNamespace;
 import org.openmetadata.it.util.TestNamespaceExtension;
 import org.openmetadata.schema.api.CreateBot;
+import org.openmetadata.schema.api.context.AgentHarnessState;
+import org.openmetadata.schema.api.context.CompileAgentContext;
+import org.openmetadata.schema.api.context.CompileEvent;
+import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.teams.CreatePersona;
 import org.openmetadata.schema.api.teams.CreateTeam;
 import org.openmetadata.schema.api.teams.CreateUser;
@@ -38,7 +42,9 @@ import org.openmetadata.schema.entity.teams.User;
 import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.sdk.client.OpenMetadataClient;
 import org.openmetadata.sdk.config.OpenMetadataConfig;
+import org.openmetadata.sdk.network.HttpClient;
 import org.openmetadata.sdk.network.HttpMethod;
+import org.openmetadata.sdk.network.RequestOptions;
 import org.openmetadata.service.Entity;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -46,7 +52,7 @@ import org.openmetadata.service.Entity;
 class ActivePersonaHeaderIT {
   private static final String ACTIVE_PERSONA_HEADER = "X-OpenMetadata-Persona";
   private static final String IMPERSONATE_USER_HEADER = "X-Impersonate-User";
-  private static final String MY_PERSONA_CONTEXT_PATH = "/v1/personas/me/context?format=json";
+  private static final String HARNESS_PATH = "/v1/agentHarness";
 
   @Test
   void activePersonaHeaderSelectsAssignedPersonaAndFallsBackToDefault(TestNamespace ns) {
@@ -195,15 +201,37 @@ class ActivePersonaHeaderIT {
     }
   }
 
+  /** A persona with a published harness, so a compile names it when it is the active one. */
   private Persona createPersona(TestNamespace ns, String suffix) {
-    return ns.trackRoot(
-        Entity.PERSONA,
-        SdkClients.adminClient()
-            .personas()
-            .create(
-                new CreatePersona()
-                    .withName(ns.shortPrefix("active_persona_" + suffix))
-                    .withDescription("Active persona header integration test")));
+    Persona persona =
+        ns.trackRoot(
+            Entity.PERSONA,
+            SdkClients.adminClient()
+                .personas()
+                .create(
+                    new CreatePersona()
+                        .withName(ns.shortPrefix("active_persona_" + suffix))
+                        .withDescription("Active persona header integration test")));
+    publishHarness(persona);
+    return persona;
+  }
+
+  private void publishHarness(Persona persona) {
+    HttpClient http = SdkClients.adminClient().getHttpClient();
+    AgentHarnessState created =
+        http.execute(
+            HttpMethod.POST,
+            HARNESS_PATH + "/persona/" + persona.getFullyQualifiedName(),
+            null,
+            AgentHarnessState.class);
+    http.execute(
+        HttpMethod.POST,
+        HARNESS_PATH + "/" + created.getPublished().getId() + "/publish",
+        null,
+        AgentHarnessState.class,
+        RequestOptions.builder()
+            .header(HttpHeaders.IF_MATCH, String.valueOf(created.getDraftRevision()))
+            .build());
   }
 
   private User createUser(TestNamespace ns, String suffix, CreateUser request) {
@@ -240,10 +268,14 @@ class ActivePersonaHeaderIT {
       config.header(IMPERSONATE_USER_HEADER, impersonatedUser);
     }
     OpenMetadataClient client = new OpenMetadataClient(config.build());
-    JsonNode context =
+    CompiledAgentContext compiled =
         client
             .getHttpClient()
-            .execute(HttpMethod.GET, MY_PERSONA_CONTEXT_PATH, null, JsonNode.class);
-    return context.path("persona").path("id").asText();
+            .execute(
+                HttpMethod.POST,
+                HARNESS_PATH + "/compile",
+                new CompileAgentContext().withEvent(CompileEvent.SESSION_START),
+                CompiledAgentContext.class);
+    return compiled.getHarness().getPersona().getName();
   }
 }
