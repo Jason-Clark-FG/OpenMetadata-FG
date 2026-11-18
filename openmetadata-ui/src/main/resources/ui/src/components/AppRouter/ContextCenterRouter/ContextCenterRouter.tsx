@@ -15,6 +15,7 @@ import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ROUTES } from '../../../constants/constants';
 import { withPageSuspenseFallback } from '../withSuspenseFallback';
+import AIContextRedirect from './AIContextRedirect';
 
 const ContextCenterDashboardPage = withPageSuspenseFallback(
   React.lazy(
@@ -61,20 +62,20 @@ const KnowledgeCenterFilterPage = withPageSuspenseFallback(
   )
 );
 
-const ContextCenterAIContextPage = withPageSuspenseFallback(
+const AgentHarnessListPage = withPageSuspenseFallback(
   React.lazy(
     () =>
       import(
-        '../../../pages/ContextCenterPage/ContextCenterAIContextPage/ContextCenterAIContextPage'
+        '../../../pages/ContextCenterPage/AgentHarnessPage/AgentHarnessListPage'
       )
   )
 );
 
-const ContextCenterAIContextDetailPage = withPageSuspenseFallback(
+const AgentHarnessEditorPage = withPageSuspenseFallback(
   React.lazy(
     () =>
       import(
-        '../../../pages/ContextCenterPage/ContextCenterAIContextPage/ContextCenterAIContextDetailPage'
+        '../../../pages/ContextCenterPage/AgentHarnessPage/AgentHarnessEditorPage'
       )
   )
 );
@@ -128,19 +129,32 @@ const ContextCenterRouter = () => {
         path={ROUTES.CONTEXT_CENTER_FILTER.replace(ROUTES.CONTEXT_CENTER, '')}
       />
       <Route
-        element={<ContextCenterAIContextPage />}
-        path={ROUTES.CONTEXT_CENTER_AI_CONTEXT.replace(
+        element={<AgentHarnessListPage />}
+        path={ROUTES.CONTEXT_CENTER_AGENT_HARNESS.replace(
           ROUTES.CONTEXT_CENTER,
           ''
         )}
       />
-      <Route
-        element={<ContextCenterAIContextDetailPage />}
-        path={ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL.replace(
-          ROUTES.CONTEXT_CENTER,
-          ''
-        )}
-      />
+      {[
+        ROUTES.CONTEXT_CENTER_AGENT_HARNESS_DEFAULT,
+        ROUTES.CONTEXT_CENTER_AGENT_HARNESS_PERSONA,
+      ].map((route) => (
+        <Route
+          element={<AgentHarnessEditorPage />}
+          key={route}
+          path={route.replace(ROUTES.CONTEXT_CENTER, '')}
+        />
+      ))}
+      {[
+        ROUTES.CONTEXT_CENTER_AI_CONTEXT,
+        ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL,
+      ].map((route) => (
+        <Route
+          element={<AIContextRedirect />}
+          key={route}
+          path={route.replace(ROUTES.CONTEXT_CENTER, '')}
+        />
+      ))}
       <Route
         element={<ContextCenterArchivePage />}
         path={ROUTES.CONTEXT_CENTER_ARCHIVE.replace(ROUTES.CONTEXT_CENTER, '')}

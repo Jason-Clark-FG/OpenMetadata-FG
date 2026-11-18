@@ -17,7 +17,7 @@ import { NavLink } from 'react-router-dom';
 import { LeftSidebarItemProps } from './LeftSidebar.interface';
 
 const LeftSidebarItem = ({
-  data: { title, redirect_url, dataTestId, isBeta, onClick },
+  data: { title, redirect_url, dataTestId, isBeta, isNew, onClick },
 }: LeftSidebarItemProps) => {
   const { t } = useTranslation();
 
@@ -38,6 +38,12 @@ const LeftSidebarItem = ({
           size="sm"
           style={{ marginLeft: 8 }}>
           {t('label.beta')}
+        </Badge>
+      )}
+
+      {isNew && (
+        <Badge className="tw:ml-2" color="brand" size="sm">
+          {t('label.new')}
         </Badge>
       )}
     </NavLink>

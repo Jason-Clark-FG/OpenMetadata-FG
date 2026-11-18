@@ -591,7 +591,7 @@
         "openmetadata-ui/src/main/resources/ui/src/utils/discovery/context-center/**",
         "openmetadata-ui/src/main/resources/ui/src/hooks/discovery/context-center/**",
         "openmetadata-ui/src/main/resources/ui/src/components/discovery/context-center/**",
-        "openmetadata-service/src/main/java/org/openmetadata/service/resources/context/**",
+        "openmetadata-service/src/main/java/org/openmetadata/service/resources/context/AgentHarnessResource.java",
         "openmetadata-service/src/main/java/org/openmetadata/service/context/center/**",
         "openmetadata-service/src/test/java/org/openmetadata/service/context/center/**",
         "openmetadata-service/src/main/java/org/openmetadata/service/context/review/**",
@@ -883,30 +883,30 @@
       ]
     },
     {
-      "_comment": "Persona AI Context moved from Persona settings to Context Center. Cover its page, route, API, and shared Playwright navigation so a relocation cannot leave its E2E suites out of targeted CI.",
+      "_comment": "Agent Harness replaced the persona AI Context pages in Context Center. Cover its pages, components, API client, backend resource and schemas, and the shared Playwright helper, so a change to any of them selects the harness E2E suites.",
       "sources": [
-        "openmetadata-ui/src/main/resources/ui/playwright/utils/personaAIContext.ts",
-        "openmetadata-ui/src/main/resources/ui/src/components/AppRouter/ContextCenterRouter/ContextCenterRouter.tsx",
-        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/PersonaAIContext/**",
-        "openmetadata-ui/src/main/resources/ui/src/pages/ContextCenterPage/ContextCenterAIContextPage/**",
+        "openmetadata-ui/src/main/resources/ui/playwright/utils/agentHarness.ts",
+        "openmetadata-ui/src/main/resources/ui/src/components/AppRouter/ContextCenterRouter/**",
+        "openmetadata-ui/src/main/resources/ui/src/components/ContextCenter/AgentHarness/**",
+        "openmetadata-ui/src/main/resources/ui/src/pages/ContextCenterPage/AgentHarnessPage/**",
+        "openmetadata-ui/src/main/resources/ui/src/hooks/discovery/context-center/useAgentHarnessDraft.ts",
         "openmetadata-ui/src/main/resources/ui/src/pages/Persona/PersonaDetailsPage/PersonaDetailsPage.tsx",
-        "openmetadata-ui/src/main/resources/ui/src/rest/PersonaAPI.ts",
+        "openmetadata-ui/src/main/resources/ui/src/rest/AgentHarnessAPI.ts",
         "openmetadata-ui/src/main/resources/ui/src/utils/ContextCenterClassBase.ts",
-        "openmetadata-ui/src/main/resources/ui/src/utils/PersonaAIContextUtils.ts",
+        "openmetadata-ui/src/main/resources/ui/src/utils/discovery/context-center/agentHarness.utils.ts",
         "openmetadata-service/src/main/java/org/openmetadata/service/aicontext/**",
+        "openmetadata-service/src/main/java/org/openmetadata/service/resources/context/AgentHarnessResource.java",
         "openmetadata-service/src/main/java/org/openmetadata/service/jdbi3/PersonaRepository.java",
-        "openmetadata-service/src/main/java/org/openmetadata/service/resources/teams/PersonaResource.java",
-        "openmetadata-spec/src/main/resources/json/schema/type/personaContext.json",
-        "openmetadata-spec/src/main/resources/json/schema/type/personaContextDefinition.json",
-        "openmetadata-spec/src/main/resources/json/schema/type/personaContextStatus.json"
+        "openmetadata-spec/src/main/resources/json/schema/api/context/**",
+        "openmetadata-spec/src/main/resources/json/schema/type/personaContextDefinition.json"
       ],
       "projects": ["chromium"],
       "specs": [
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextList.spec.ts"
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts"
       ]
     },
     {

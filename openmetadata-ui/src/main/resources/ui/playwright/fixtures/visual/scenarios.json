@@ -884,11 +884,11 @@
     }
   },
   {
-    "id": "page-context-ai-context",
+    "id": "page-context-agent-harness",
     "group": "Pages",
-    "path": "/context-center/ai-context",
+    "path": "/context-center/agent-harness",
     "ready": {
-      "testId": "context-center-ai-context-page"
+      "testId": "persona-harness-row-VisualAnalystPersona"
     }
   },
   {
@@ -5160,12 +5160,11 @@
     }
   },
   {
-    "id": "context-persona-detail",
+    "id": "context-persona-harness",
     "group": "Pages",
-    "path": "/context-center/ai-context/VisualAnalystPersona",
+    "path": "/context-center/agent-harness/persona/VisualAnalystPersona",
     "ready": {
-      "role": "heading",
-      "name": "Analyst persona"
+      "testId": "compiled-context-text"
     }
   },
   {

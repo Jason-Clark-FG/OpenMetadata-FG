@@ -29,6 +29,8 @@ import { render, screen } from '@testing-library/react';
 import { PropsWithChildren } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { ROUTES } from '../../../constants/constants';
+import { SubNavConfig } from '../../../interface/app-module.interface';
+import SubPanel from '../../platform/ai-shell/Sidebar/SubPanel';
 import { contextCenterModule } from './contextCenter.module';
 
 jest.mock(
@@ -44,6 +46,10 @@ jest.mock(
 jest.mock('pages/KnowledgeCenterFilterPage/KnowledgeCenterFilterPage', () => ({
   __esModule: true,
   default: () => <div data-testid="knowledge-center-filter-page" />,
+}));
+
+jest.mock('../../../context/PermissionProvider/PermissionProvider', () => ({
+  usePermissionProvider: () => ({ permissions: {} }),
 }));
 
 const LocationProbe = () => {
@@ -79,5 +85,48 @@ describe('contextCenterModule — knowledge page filter', () => {
     expect(screen.getByTestId('location-search')).toHaveTextContent(
       '?entityId=entity-123&entityType=table'
     );
+  });
+});
+
+describe('contextCenterModule — Agent Harness', () => {
+  it('lists Agent Harness in the sub-navigation with a New badge', () => {
+    render(
+      <MemoryRouter>
+        <SubPanel
+          config={contextCenterModule.subNav as SubNavConfig}
+          onCollapse={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    const item = screen.getByTestId('ask-sub-panel-item-agent-harness');
+
+    expect(item).toHaveAttribute('href', '/context-center/agent-harness');
+    expect(item).toHaveTextContent('label.agent-harness');
+    expect(item).toHaveTextContent('label.new');
+    expect(
+      screen.getByTestId('ask-sub-panel-item-articles')
+    ).not.toHaveTextContent('label.new');
+  });
+
+  it('sends an old AI Context link to the same persona harness', () => {
+    const route = contextCenterModule.routes.find(
+      ({ path }) => path === ROUTES.CONTEXT_CENTER_AI_CONTEXT_DETAIL
+    );
+
+    render(
+      <MemoryRouter
+        initialEntries={['/context-center/ai-context/DataEngineer']}>
+        <Routes>
+          <Route element={route?.element} path={route?.path as string} />
+          <Route
+            element={<div data-testid="persona-harness" />}
+            path={ROUTES.CONTEXT_CENTER_AGENT_HARNESS_PERSONA}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('persona-harness')).toBeInTheDocument();
   });
 });

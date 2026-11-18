@@ -144,12 +144,12 @@ const LeftSidebar = () => {
         type={parentKey ? 'collapsible-child' : 'link'}
         variant="solid"
         onClick={handleSelect}>
-        {item.isBeta ? (
+        {item.isBeta || item.isNew ? (
           // The badge sits right after the label rather than at the row's far edge.
           <span className="tw:inline-flex tw:items-center tw:gap-2">
             {t(item.title)}
             <Badge color="brand" size="xs" type="color">
-              {t('label.beta')}
+              {t(item.isBeta ? 'label.beta' : 'label.new')}
             </Badge>
           </span>
         ) : (

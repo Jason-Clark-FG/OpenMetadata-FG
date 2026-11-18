@@ -1479,7 +1479,7 @@ def test_targeted_selection_combines_changed_specs_impacts_and_unmapped_canaries
     assert selection["directChangedSpecs"] == ["playwright/e2e/Pages/Entity.spec.ts"]
 
 
-def test_persona_details_change_selects_ai_context_specs(tmp_path, monkeypatch):
+def test_persona_details_change_selects_agent_harness_specs(tmp_path, monkeypatch):
     selector = load_script("select_playwright_tests")
     changed = tmp_path / "changed.txt"
     output = tmp_path / "selection.json"
@@ -1510,10 +1510,11 @@ def test_persona_details_change_selects_ai_context_specs(tmp_path, monkeypatch):
     selected_specs = {entry["spec"] for entry in selection["selectors"]}
 
     assert {
-        "playwright/e2e/Features/PersonaAIContext.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRuleCardAndStates.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextRules.spec.ts",
-        "playwright/e2e/Features/PersonaAIContextPermissions.spec.ts",
+        "playwright/e2e/Features/AgentHarness.spec.ts",
+        "playwright/e2e/Features/AgentHarnessEditor.spec.ts",
+        "playwright/e2e/Features/AgentHarnessList.spec.ts",
+        "playwright/e2e/Features/AgentHarnessNavigation.spec.ts",
+        "playwright/e2e/Features/AgentHarnessRules.spec.ts",
     } <= selected_specs
 
 

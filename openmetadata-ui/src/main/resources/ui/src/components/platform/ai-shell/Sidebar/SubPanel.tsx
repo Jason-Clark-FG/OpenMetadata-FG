@@ -148,6 +148,11 @@ const SubPanel: React.FC<SubPanelProps> = ({
                     </span>
                   ) : null}
                   <span className="ask-sub-panel__item-label">{label}</span>
+                  {item.isNew ? (
+                    <Badge color="brand" size="sm">
+                      {t('label.new')}
+                    </Badge>
+                  ) : null}
                   {isNumber(count) ? (
                     <Badge color={item.badgeColor ?? 'gray'} size="sm">
                       {count}
