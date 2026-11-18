@@ -1,7 +1,7 @@
 # Live RDF entity writes send only the changed triples
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership)
+- **Revisions:** v1 2026-11-03 (initial) · v2 2026-11-13 (constraint and profile ownership) · v3 2026-11-18 (test result ownership)
 - **Deciders:** OpenMetadata RDF maintainers
 - **Guard:** `RdfEntityWritePlannerTest`, `RdfOwnedResourcesTest`, `RdfEntityDiffWriteIT`,
   `EntityWriteCircuitBreakerTest`, `InferenceInvalidatingRdfStorageTest`,
@@ -89,3 +89,12 @@ Columns referenced in other tables and relationship-managed lineage remain outsi
 This completes the constraint and profile cleanup deferred above. Other deferred resources remain
 outside the scope. Already disconnected resources still require `recreateIndex: true`.
 Guarded by `RdfOwnedResourcesTest`, `RdfEntityWritePlannerTest` and `RdfEntityDiffWriteIT` (#37755).
+
+## Amendment 2026-11-18
+
+A test case's write also owns its latest result node (`om:hasTestResult`) and that node's
+`om:hasResultValue` entries, and replaces its `om:testsEntity` and `om:testsColumn` links even when
+the new projection omits them. Profile measures no longer carry the profile time in their IRI, so a
+newer profile changes values in place. See
+ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-evidence. Guarded by
+`RdfEntityWritePlannerTest#aNewerTestResultReplacesTheOlderOneAndDeletingTheTestCaseRemovesIt`.
