@@ -128,6 +128,64 @@ class CatalogStartingPointsTest {
   }
 
   @Test
+  void aSentenceIsSearchedWholeAndWordByWordAndHitsOfMoreWordsComeFirst() throws Exception {
+    final UUID customers = UUID.randomUUID();
+    final UUID orders = UUID.randomUUID();
+    final UUID revenue = UUID.randomUUID();
+    final String sentence = "which tables hold customer data, and can I trust the orders table?";
+    final QuerySearch search =
+        new QuerySearch(
+            Map.of(
+                "customer",
+                List.of(table(customers, "shop.customers"), column("shop.orders.customer_id")),
+                "order",
+                List.of(table(orders, "shop.orders"), column("shop.orders.customer_id")),
+                "data",
+                List.of(dashboard(revenue))));
+
+    final List<SearchHit> hits =
+        new CatalogStartingPoints(() -> false, () -> semantic, () -> search)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find(sentence, List.of("table"), 5));
+
+    assertThat(search.queries())
+        .containsExactly(sentence, "table", "hold", "customer", "data", "trust", "order");
+    assertThat(search.calls)
+        .allSatisfy(
+            call -> assertThat(call).containsEntry("size", 5).containsEntry("entityType", "table"));
+    assertThat(hits)
+        .containsExactly(
+            new SearchHit("tableColumn", "shop.orders.customer_id", null),
+            new SearchHit("table", "shop.customers", customers),
+            new SearchHit("dashboard", "bi.revenue", revenue),
+            new SearchHit("table", "shop.orders", orders));
+  }
+
+  @Test
+  void aQuestionOfOnlyShortOrCommonWordsSearchesNothing() throws Exception {
+    final QuerySearch search = new QuerySearch(Map.of());
+
+    final List<SearchHit> hits =
+        new CatalogStartingPoints(() -> false, () -> semantic, () -> search)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("what is it", List.of(), 5));
+
+    assertThat(hits).isEmpty();
+    assertThat(search.calls).isEmpty();
+  }
+
+  private static Map<String, Object> table(final UUID id, final String fqn) {
+    return Map.of("id", id.toString(), "entityType", "table", "fullyQualifiedName", fqn);
+  }
+
+  private static Map<String, Object> column(final String fqn) {
+    return Map.of("entityType", "tableColumn", "fullyQualifiedName", fqn);
+  }
+
+  private static Map<String, Object> dashboard(final UUID id) {
+    return Map.of(
+        "id", id.toString(), "entityType", "dashboard", "fullyQualifiedName", "bi.revenue");
+  }
+
+  @Test
   void aFailedSearchIsAFailureNotAnEmptyResult() {
     final CatalogStartingPoints failing =
         new CatalogStartingPoints(
@@ -137,9 +195,42 @@ class CatalogStartingPointsTest {
 
     assertThatThrownBy(
             () ->
-                failing.search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("x", List.of(), 1)))
+                failing.search(
+                    AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("orders", List.of(), 1)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("embedding backend down");
+  }
+
+  /** Answers each query with its own results, as a search engine would. */
+  private static final class QuerySearch implements McpTool {
+    private final Map<String, List<Map<String, Object>>> results;
+    private final List<Map<String, Object>> calls = new ArrayList<>();
+
+    private QuerySearch(final Map<String, List<Map<String, Object>>> results) {
+      this.results = results;
+    }
+
+    List<Object> queries() {
+      return calls.stream().map(call -> call.get("query")).toList();
+    }
+
+    @Override
+    public Map<String, Object> execute(
+        final Authorizer authorizer,
+        final CatalogSecurityContext securityContext,
+        final Map<String, Object> params) {
+      calls.add(params);
+      return Map.of("results", results.getOrDefault((String) params.get("query"), List.of()));
+    }
+
+    @Override
+    public Map<String, Object> execute(
+        final Authorizer authorizer,
+        final Limits limits,
+        final CatalogSecurityContext securityContext,
+        final Map<String, Object> params) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private static final class RecordingSearch implements McpTool {

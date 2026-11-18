@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -154,3 +154,20 @@ step stayed at 15,318.
 - **Labels.** A node with no label, display name or qualified name (a table constraint, lineage
   details, a constraint member) is labelled with its om: class and the value that tells it apart:
   `TableConstraint PRIMARY_KEY`, `LineageDetails Manual`.
+
+## Amendment 2026-11-18. The catalog half of find reads a question word by word
+
+Keyword search needs every word of its query, so a sentence found no tables. The catalog half now
+reads the question with the word rule the ontology half uses (camel case and punctuation split
+words, plurals fold, words under three characters and common words drop).
+
+- A question with no such word searches nothing and gets no catalog cards.
+- Semantic search, when enabled, still reads the whole question.
+- Keyword search runs once with the whole question, as before, and, when the question has more
+  than one word, once per word, at most 8. Each search runs as the caller with the caller's
+  `entityTypes` and `limit`; each word is the plain query text, never joined into query syntax.
+- Hits are ordered by how many of the words found them (a hit of the whole question counts as
+  all of them), then by the best position any search gave them, then by when they were first
+  found. The merge with ontology terms, the `limit`, the budget and `moreMatched` are unchanged.
+
+Cost: up to nine searches per `find`. A generic word ("data") counts as much as a specific one.

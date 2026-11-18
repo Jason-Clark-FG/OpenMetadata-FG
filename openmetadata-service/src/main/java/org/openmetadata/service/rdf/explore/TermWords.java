@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * three characters or too common to name anything are dropped. Labels and questions go through the
  * same rule, so they compare word for word.
  */
-final class TermWords {
+public final class TermWords {
 
   private static final int SHORTEST_WORD = 3;
   private static final Pattern CAMEL_BOUNDARY = Pattern.compile("(?<=[\\p{Ll}\\p{Nd}])(?=\\p{Lu})");
@@ -39,7 +39,7 @@ final class TermWords {
 
   private TermWords() {}
 
-  static List<String> of(final String text) {
+  public static List<String> of(final String text) {
     return Arrays.stream(NOT_A_WORD.split(CAMEL_BOUNDARY.matcher(text).replaceAll(" ")))
         .map(word -> word.toLowerCase(Locale.ROOT))
         .filter(word -> word.length() >= SHORTEST_WORD && !COMMON.contains(word))

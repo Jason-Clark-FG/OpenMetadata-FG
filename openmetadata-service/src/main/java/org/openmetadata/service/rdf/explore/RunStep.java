@@ -52,11 +52,11 @@ public record RunStep(
       relationships = relationships == null ? List.of() : List.copyOf(relationships);
     }
 
-    static Input find(final String question) {
+    public static Input find(final String question) {
       return new Input(question, List.of(), List.of(), null, null, null, null);
     }
 
-    static Input expand(
+    public static Input expand(
         final List<String> nodes,
         final List<String> relationships,
         final String direction,
@@ -65,11 +65,11 @@ public record RunStep(
       return new Input(null, nodes, relationships, null, direction, limit, offset);
     }
 
-    static Input query(final String sparql) {
+    public static Input query(final String sparql) {
       return new Input(null, List.of(), List.of(), sparql, null, null, null);
     }
 
-    static Input cite(final List<String> nodes) {
+    public static Input cite(final List<String> nodes) {
       return new Input(null, nodes, List.of(), null, null, null, null);
     }
   }

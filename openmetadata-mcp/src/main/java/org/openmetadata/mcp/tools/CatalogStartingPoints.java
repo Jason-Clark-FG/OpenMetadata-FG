@@ -19,14 +19,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.openmetadata.mcp.util.McpResponseTrim;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.explore.SearchHit;
+import org.openmetadata.service.rdf.explore.TermWords;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
@@ -47,6 +51,7 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String ID = "id";
   private static final String PARENT_ID = "parentId";
   private static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
+  private static final int MAX_WORDS = 8;
 
   private final BooleanSupplier vectorSearchEnabled;
   private final Supplier<McpTool> semanticSearch;
@@ -68,18 +73,63 @@ final class CatalogStartingPoints implements StartingPoints {
     this.keywordSearch = Objects.requireNonNull(keywordSearch);
   }
 
+  /**
+   * Nothing is searched for a question with no meaningful words. Semantic search reads the whole
+   * question. Keyword search needs every word of its query, so a question of several words is
+   * searched whole and then word by word, and the hits are ranked by {@link CatalogRanking}.
+   */
   @Override
   public List<SearchHit> search(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find)
       throws IOException {
-    final boolean semantic = vectorSearchEnabled.getAsBoolean();
-    final Map<String, Object> response =
-        semantic
-            ? semanticSearch.get().execute(authorizer, securityContext, semanticArguments(find))
-            : keywordSearch.get().execute(authorizer, securityContext, keywordArguments(find));
-    return hits(requireSucceeded(response), semantic ? PARENT_ID : ID);
+    final List<String> words = TermWords.of(find.question()).stream().limit(MAX_WORDS).toList();
+    return words.isEmpty() ? List.of() : hitsFor(authorizer, securityContext, find, words);
+  }
+
+  private List<SearchHit> hitsFor(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final List<String> words)
+      throws IOException {
+    return vectorSearchEnabled.getAsBoolean()
+        ? hits(
+            requireSucceeded(
+                semanticSearch.get().execute(authorizer, securityContext, semanticArguments(find))),
+            PARENT_ID)
+        : keywordHits(authorizer, securityContext, find, words);
+  }
+
+  private List<SearchHit> keywordHits(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final List<String> words)
+      throws IOException {
+    final CatalogRanking ranking = new CatalogRanking();
+    final Set<Integer> everyWord =
+        IntStream.range(0, words.size()).boxed().collect(Collectors.toSet());
+    ranking.add(keyword(authorizer, securityContext, find, find.question()), everyWord);
+    for (int index = 0; words.size() > 1 && index < words.size(); index++) {
+      ranking.add(keyword(authorizer, securityContext, find, words.get(index)), Set.of(index));
+    }
+    return ranking.ordered();
+  }
+
+  private List<SearchHit> keyword(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphCall.Find find,
+      final String query)
+      throws IOException {
+    return hits(
+        requireSucceeded(
+            keywordSearch
+                .get()
+                .execute(authorizer, securityContext, keywordArguments(find, query))),
+        ID);
   }
 
   private static Map<String, Object> semanticArguments(final KnowledgeGraphCall.Find find) {
@@ -93,9 +143,10 @@ final class CatalogStartingPoints implements StartingPoints {
     return arguments;
   }
 
-  private static Map<String, Object> keywordArguments(final KnowledgeGraphCall.Find find) {
+  private static Map<String, Object> keywordArguments(
+      final KnowledgeGraphCall.Find find, final String query) {
     final Map<String, Object> arguments = new HashMap<>();
-    arguments.put(QUERY, find.question());
+    arguments.put(QUERY, query);
     arguments.put(SIZE, find.limit());
     arguments.put(FIELDS, ID);
     final List<String> catalogTypes = find.catalogTypes();
