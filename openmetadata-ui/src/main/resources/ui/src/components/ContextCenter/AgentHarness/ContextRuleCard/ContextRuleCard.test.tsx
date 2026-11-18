@@ -83,4 +83,22 @@ describe('ContextRuleCard', () => {
     expect(screen.getByLabelText('label.edit')).toBeInTheDocument();
     expect(screen.getByLabelText('label.delete')).toBeInTheDocument();
   });
+
+  it('locks a rule inherited from the company default', () => {
+    render(
+      <ContextRuleCard
+        canEdit
+        inherited
+        rule={{ entityType: EntityType.TABLE, name: 'Certified tables' }}
+        onDelete={jest.fn()}
+        onEdit={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('inherited-context-rule-card')).toHaveTextContent(
+      'label.inherited-locked'
+    );
+    expect(screen.queryByLabelText('label.edit')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('label.delete')).not.toBeInTheDocument();
+  });
 });

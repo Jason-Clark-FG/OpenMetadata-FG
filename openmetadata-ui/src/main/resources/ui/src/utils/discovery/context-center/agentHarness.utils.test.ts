@@ -32,6 +32,7 @@ import {
   deliveryRows,
   hasBudgetErrors,
   pickedIds,
+  segmentsByKind,
   sourceCounts,
   visibleRules,
   withEventDelivery,
@@ -371,6 +372,23 @@ describe('agentHarness.utils', () => {
       expect(hasBudgetErrors(errors)).toBe(true);
     });
 
+    it('checks the budget of an event only when it is on or written', () => {
+      const rows = deliveryRows(personaSpec(), personaResolved()).map(
+        (row) => ({ ...row, tokenBudget: 0 })
+      );
+      const spec: AgentHarnessSpec = {
+        ...personaSpec(),
+        events: [{ enabled: false, id: HookEvent.Stop, tokenBudget: 0 }],
+      };
+
+      expect(budgetErrors(spec, rows).events).toEqual({
+        [HookEvent.SessionStart]: 'notPositive',
+        [HookEvent.UserPromptSubmit]: 'notPositive',
+        [HookEvent.PreToolUse]: 'notPositive',
+        [HookEvent.Stop]: 'notPositive',
+      });
+    });
+
     it('rejects non-integers and values outside the server range', () => {
       const spec: AgentHarnessSpec = {
         context: { cacheTtlMinutes: 0, characterBudget: 5000 },
@@ -421,5 +439,20 @@ describe('agentHarness.utils', () => {
     expect(
       contextBudgetPercent({ characterBudget: 400000, charactersUsed: 0 })
     ).toBeUndefined();
+  });
+
+  it('sums the compiled parts of one kind into a single part', () => {
+    expect(
+      segmentsByKind([
+        { kind: 'Instructions', tokens: 1200 },
+        { kind: 'Assets', tokens: 300 },
+        { kind: 'Glossary', tokens: 3800 },
+        { kind: 'Assets', tokens: 450 },
+      ])
+    ).toEqual([
+      { kind: 'Instructions', tokens: 1200 },
+      { kind: 'Assets', tokens: 750 },
+      { kind: 'Glossary', tokens: 3800 },
+    ]);
   });
 });

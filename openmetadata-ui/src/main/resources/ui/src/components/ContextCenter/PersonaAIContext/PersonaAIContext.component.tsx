@@ -56,10 +56,10 @@ import {
 } from '../../../utils/PersonaAIContextUtils';
 import { showErrorToast, showSuccessToast } from '../../../utils/ToastUtils';
 import Loader from '../../common/Loader/Loader';
+import { ContextRuleCard } from '../AgentHarness/ContextRuleCard/ContextRuleCard.component';
+import { ContextRuleEditor } from '../AgentHarness/ContextRuleEditor/ContextRuleEditor.component';
 import { ContextPreviewModal } from './ContextPreviewModal/ContextPreviewModal.component';
 import { ContextPromptCard } from './ContextPromptCard/ContextPromptCard.component';
-import { ContextRuleCard } from './ContextRuleCard/ContextRuleCard.component';
-import { ContextRuleEditor } from './ContextRuleEditor/ContextRuleEditor.component';
 import { VersionHistoryDrawer } from './VersionHistoryDrawer/VersionHistoryDrawer.component';
 
 interface PersonaAIContextProps {
@@ -710,8 +710,8 @@ export const PersonaAIContext = ({
         existingRuleNames={rules
           .filter(({ id }) => id !== editingRuleId)
           .map(({ name }) => name)}
+        harnessId={persona.id}
         open={editorOpen}
-        personaId={persona.id}
         rule={editingRule}
         onClose={() => {
           setEditorOpen(false);

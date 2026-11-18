@@ -11,6 +11,10 @@
  *  limitations under the License.
  */
 import { PagingResponse } from 'Models';
+import {
+  PICKABLE_SOURCE_SEARCH_INDEX,
+  SOURCE_PICKER_PAGE_SIZE,
+} from '../constants/discovery/agentHarness.constants';
 import { AgentHarnessPersonaSummary } from '../generated/api/context/agentHarnessPersonaSummary';
 import {
   AgentHarnessSpec,
@@ -20,14 +24,23 @@ import {
 import { CompileEvent } from '../generated/api/context/compileAgentContext';
 import { CompiledAgentContext } from '../generated/api/context/compiledAgentContext';
 import { PreviewAgentHarness } from '../generated/api/context/previewAgentHarness';
+import { PickableSource } from '../interface/discovery/agentHarness.interface';
 import { getEncodedFqn } from '../utils/StringUtils';
 import axiosClient from './axiosClient';
+import { searchQuery } from './searchAPI';
 
 const BASE_URL = '/agentHarness';
 
 export interface AgentHarnessRulePreview {
   matchedCount: number;
   sampleNames: string[];
+}
+
+export interface HarnessSourceItem {
+  id: string;
+  name: string;
+  displayName?: string;
+  fullyQualifiedName?: string;
 }
 
 export interface AgentHarnessPersonaParams {
@@ -138,4 +151,29 @@ export const previewAgentHarnessRule = async (
   );
 
   return response.data;
+};
+
+/** Glossary terms, metrics or articles for a source picker: by text, or exactly the given ids. */
+export const searchHarnessSource = async (
+  source: PickableSource,
+  { ids, query }: { ids?: string[]; query?: string }
+): Promise<HarnessSourceItem[]> => {
+  const response = await searchQuery({
+    fetchSource: true,
+    includeFields: ['id', 'name', 'displayName', 'fullyQualifiedName'],
+    pageNumber: 1,
+    pageSize: ids ? ids.length : SOURCE_PICKER_PAGE_SIZE,
+    query: query || undefined,
+    queryFilter: ids
+      ? { query: { bool: { must: [{ terms: { id: ids } }] } } }
+      : undefined,
+    searchIndex: PICKABLE_SOURCE_SEARCH_INDEX[source],
+  });
+
+  return response.hits.hits.map(({ _source }) => ({
+    displayName: _source.displayName,
+    fullyQualifiedName: _source.fullyQualifiedName,
+    id: _source.id,
+    name: _source.name,
+  }));
 };

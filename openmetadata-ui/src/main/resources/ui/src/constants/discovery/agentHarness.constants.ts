@@ -12,12 +12,15 @@
  */
 import { BadgeColors } from '@openmetadata/ui-core-components';
 import { EntityType } from '../../enums/entity.enum';
+import { SearchIndex } from '../../enums/search.enum';
 import {
   HarnessStatus,
   HookEvent,
 } from '../../generated/api/context/agentHarnessState';
 import { CompileEvent } from '../../generated/api/context/compileAgentContext';
+import { PreviewAgentHarness } from '../../generated/api/context/previewAgentHarness';
 import {
+  BudgetError,
   DeliveryGroup,
   HarnessSource,
   HarnessTab,
@@ -144,6 +147,28 @@ export const PICKABLE_SOURCE_ENTITY_TYPE: Record<PickableSource, EntityType> = {
   [HarnessSource.Articles]: EntityType.KNOWLEDGE_PAGE,
 };
 
+export const PICKABLE_SOURCE_SEARCH_INDEX: Record<
+  PickableSource,
+  | SearchIndex.GLOSSARY_TERM
+  | SearchIndex.METRIC
+  | SearchIndex.KNOWLEDGE_PAGE_INDEX
+> = {
+  [HarnessSource.GlossaryTerms]: SearchIndex.GLOSSARY_TERM,
+  [HarnessSource.Metrics]: SearchIndex.METRIC,
+  [HarnessSource.Articles]: SearchIndex.KNOWLEDGE_PAGE_INDEX,
+};
+
+/** Chips a source card shows before it folds the rest into a count. */
+export const SOURCE_CARD_CHIPS = 3;
+export const SOURCE_PICKER_PAGE_SIZE = 25;
+
+export const BUDGET_ERROR_KEYS: Record<BudgetError, string> = {
+  aboveDefault: 'message.agent-harness-budget-above-default',
+  belowEvents: 'message.agent-harness-budget-below-events',
+  notPositive: 'message.agent-harness-budget-not-positive',
+  outOfRange: 'message.agent-harness-budget-out-of-range',
+};
+
 /**
  * Names of the rules that hold picked items. Rule names reach the compiled document, so they
  * are plain English like the rest of it, and unique within a harness by construction.
@@ -169,6 +194,27 @@ export const PREVIEW_EVENTS: { event: CompileEvent; labelKey: string }[] = [
   { event: CompileEvent.UserPromptSubmit, labelKey: 'label.prompt' },
   { event: CompileEvent.PreToolUse, labelKey: 'label.tool-use' },
 ];
+
+/**
+ * What each preview stands in for. These go to the compiler as the user's turn, so they are
+ * sample data rather than interface copy.
+ */
+export const PREVIEW_SAMPLE_REQUESTS: Record<
+  CompileEvent,
+  Omit<PreviewAgentHarness, 'spec'>
+> = {
+  [CompileEvent.SessionStart]: {},
+  [CompileEvent.UserPromptSubmit]: {
+    prompt: 'What was net revenue by region last quarter?',
+  },
+  [CompileEvent.PreToolUse]: {
+    toolInput: {
+      query: 'SELECT region, SUM(amount) FROM raw.orders GROUP BY 1',
+    },
+    toolName: 'run_sql',
+  },
+  [CompileEvent.PostToolUse]: { toolName: 'run_sql', toolOutput: [] },
+};
 
 /**
  * Segment colors of the rail's budget bar, in the order the compiler reports kinds. Utility

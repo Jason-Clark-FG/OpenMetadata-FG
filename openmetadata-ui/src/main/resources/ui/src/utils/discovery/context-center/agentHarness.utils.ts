@@ -32,6 +32,7 @@ import {
   ResolvedAgentHarness,
   ResolvedRule,
 } from '../../../generated/api/context/agentHarnessState';
+import { Segment } from '../../../generated/api/context/compiledAgentContext';
 import {
   BudgetError,
   DeliveryGroup,
@@ -304,7 +305,11 @@ export const budgetErrors = (
   rows: DeliveryRow[]
 ): HarnessBudgetErrors => {
   const events: HarnessBudgetErrors['events'] = {};
-  rows.forEach(({ id, tokenBudget, maxTokenBudget }) => {
+  const written = new Set(spec.events?.map(({ id }) => id));
+  rows.forEach(({ id, enabled, tokenBudget, maxTokenBudget }) => {
+    if (!enabled && !written.has(id)) {
+      return;
+    }
     if (!isPositiveInteger(tokenBudget)) {
       events[id] = 'notPositive';
     } else if (maxTokenBudget !== undefined && tokenBudget > maxTokenBudget) {
@@ -376,4 +381,14 @@ export const contextBudgetPercent = (
     100,
     Math.round((summary.charactersUsed * 100) / summary.characterBudget)
   );
+};
+
+/** One part per kind, in the order each kind first appears; the compiler may emit a kind more than once. */
+export const segmentsByKind = (segments: Segment[]): Segment[] => {
+  const tokensByKind = new Map<string, number>();
+  segments.forEach(({ kind, tokens }) =>
+    tokensByKind.set(kind, (tokensByKind.get(kind) ?? 0) + tokens)
+  );
+
+  return Array.from(tokensByKind, ([kind, tokens]) => ({ kind, tokens }));
 };

@@ -21,11 +21,11 @@ import {
 import { ReactNode, useEffect } from 'react';
 import { EntityType } from '../../../../enums/entity.enum';
 import { ContextRule } from '../../../../generated/type/personaContextDefinition';
-import { previewPersonaAIContextRule } from '../../../../rest/PersonaAPI';
+import { previewAgentHarnessRule } from '../../../../rest/AgentHarnessAPI';
 import { ContextRuleEditor } from './ContextRuleEditor.component';
 
-jest.mock('../../../../rest/PersonaAPI', () => ({
-  previewPersonaAIContextRule: jest.fn().mockResolvedValue({
+jest.mock('../../../../rest/AgentHarnessAPI', () => ({
+  previewAgentHarnessRule: jest.fn().mockResolvedValue({
     matchedCount: 0,
     sampleNames: [],
   }),
@@ -77,8 +77,8 @@ describe('ContextRuleEditor', () => {
     existingRuleNames: [],
     onClose: jest.fn(),
     onSubmit: jest.fn().mockResolvedValue(undefined),
+    harnessId: '11111111-1111-4111-8111-111111111111',
     open: true,
-    personaId: '11111111-1111-4111-8111-111111111111',
     rule,
   };
 
@@ -112,7 +112,7 @@ describe('ContextRuleEditor', () => {
   it('rejects an invalid filter when re-enabling a rule', async () => {
     const onSubmit = jest.fn();
     jest
-      .mocked(previewPersonaAIContextRule)
+      .mocked(previewAgentHarnessRule)
       .mockRejectedValue(new Error('Invalid regular expression'));
     render(
       <ContextRuleEditor
@@ -139,7 +139,7 @@ describe('ContextRuleEditor', () => {
     async (queryFilter) => {
       const onSubmit = jest.fn().mockResolvedValue(undefined);
       jest
-        .mocked(previewPersonaAIContextRule)
+        .mocked(previewAgentHarnessRule)
         .mockRejectedValue(new Error('Search unavailable'));
       render(
         <ContextRuleEditor
@@ -167,7 +167,7 @@ describe('ContextRuleEditor', () => {
   it('saves a new rule without a filter when search is unavailable', async () => {
     const onSubmit = jest.fn().mockResolvedValue(undefined);
     jest
-      .mocked(previewPersonaAIContextRule)
+      .mocked(previewAgentHarnessRule)
       .mockRejectedValue(new Error('Search unavailable'));
     render(
       <ContextRuleEditor
@@ -192,7 +192,7 @@ describe('ContextRuleEditor', () => {
     async (enabled) => {
       const onSubmit = jest.fn();
       jest
-        .mocked(previewPersonaAIContextRule)
+        .mocked(previewAgentHarnessRule)
         .mockRejectedValue(new Error('Invalid regular expression'));
       render(
         <ContextRuleEditor
@@ -225,7 +225,7 @@ describe('ContextRuleEditor', () => {
   it('allows disabling an existing broken filter without requiring search to succeed', async () => {
     const onSubmit = jest.fn().mockResolvedValue(undefined);
     jest
-      .mocked(previewPersonaAIContextRule)
+      .mocked(previewAgentHarnessRule)
       .mockRejectedValue(new Error('Search unavailable'));
     render(
       <ContextRuleEditor
@@ -249,7 +249,7 @@ describe('ContextRuleEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest
-      .mocked(previewPersonaAIContextRule)
+      .mocked(previewAgentHarnessRule)
       .mockResolvedValue({ matchedCount: 0, sampleNames: [] });
   });
 

@@ -29,9 +29,12 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock('./ContextRuleEditor/ContextRuleEditor.component', () => ({
-  ContextRuleEditor: () => null,
-}));
+jest.mock(
+  '../AgentHarness/ContextRuleEditor/ContextRuleEditor.component',
+  () => ({
+    ContextRuleEditor: () => null,
+  })
+);
 
 jest.mock('./ContextPreviewModal/ContextPreviewModal.component', () => ({
   ContextPreviewModal: () => null,

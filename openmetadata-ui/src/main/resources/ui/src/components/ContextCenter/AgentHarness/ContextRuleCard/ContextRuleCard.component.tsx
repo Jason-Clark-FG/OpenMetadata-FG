@@ -26,10 +26,12 @@ import {
   File02,
   FilterLines,
   Hexagon01,
+  Lock01,
   Search,
   Table,
   Trash01,
 } from '@openmetadata/ui-core-components/icons';
+import classNames from 'classnames';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -50,6 +52,8 @@ import { DeleteModal } from '../../../common/DeleteModal/DeleteModal';
 
 interface ContextRuleCardProps {
   canEdit: boolean;
+  /** A rule the company default owns: shown on a persona harness, never edited there. */
+  inherited?: boolean;
   matched?: number;
   rule: ContextRule;
   onDelete: () => void;
@@ -269,8 +273,48 @@ const RuleCardActions = ({
   );
 };
 
+const RuleCardHeader = ({
+  entityType,
+  inherited,
+  isEnabled,
+  name,
+}: {
+  entityType: string;
+  inherited: boolean;
+  isEnabled: boolean;
+  name: string;
+}) => {
+  const { t } = useTranslation();
+  const EntityIcon = ENTITY_TYPE_ICONS[entityType] ?? Hexagon01;
+
+  return (
+    <Box align="center" className="tw:gap-2.5" wrap="wrap">
+      <Typography
+        as="span"
+        className="tw:text-[15px] tw:text-primary"
+        weight="semibold">
+        {name}
+      </Typography>
+      {!isEnabled && (
+        <Badge color="gray" size="sm">
+          {t('label.disabled')}
+        </Badge>
+      )}
+      <BadgeWithIcon color="gray" iconLeading={EntityIcon} size="sm">
+        {t(PERSONA_CONTEXT_ENTITY_LABEL_KEYS[entityType] ?? 'label.entity')}
+      </BadgeWithIcon>
+      {inherited && (
+        <BadgeWithIcon color="gray" iconLeading={Lock01} size="sm">
+          {t('label.inherited-locked')}
+        </BadgeWithIcon>
+      )}
+    </Box>
+  );
+};
+
 export const ContextRuleCard = ({
   canEdit,
+  inherited = false,
   matched,
   rule,
   onDelete,
@@ -290,14 +334,10 @@ export const ContextRuleCard = ({
   );
   const matchedCount = matched ?? rule.matchedCount;
 
-  const entityLabel = t(
-    PERSONA_CONTEXT_ENTITY_LABEL_KEYS[rule.entityType] ?? 'label.entity'
-  );
   const entityLabelPlural = t(
     PERSONA_CONTEXT_ENTITY_PLURAL_LABEL_KEYS[rule.entityType] ??
       'label.entity-plural'
   );
-  const EntityIcon = ENTITY_TYPE_ICONS[rule.entityType] ?? Hexagon01;
   const sections = rule.sections ?? [];
   const visibleSections = sections.slice(0, MAX_VISIBLE_SECTIONS);
   const extraSections = sections.length - visibleSections.length;
@@ -309,25 +349,20 @@ export const ContextRuleCard = ({
 
   return (
     <Card
-      className="tw:flex tw:gap-4 tw:rounded-[10px] tw:px-4.5 tw:py-4 tw:shadow-xs"
-      data-testid="context-rule-card">
+      className={classNames(
+        'tw:flex tw:gap-4 tw:rounded-[10px] tw:px-4.5 tw:py-4 tw:shadow-xs',
+        { 'tw:bg-secondary': inherited }
+      )}
+      data-testid={
+        inherited ? 'inherited-context-rule-card' : 'context-rule-card'
+      }>
       <Box className="tw:min-w-0 tw:flex-1" direction="col" gap={3}>
-        <Box align="center" className="tw:gap-2.5" wrap="wrap">
-          <Typography
-            as="span"
-            className="tw:text-[15px] tw:text-primary"
-            weight="semibold">
-            {rule.name}
-          </Typography>
-          {!isEnabled && (
-            <Badge color="gray" size="sm">
-              {t('label.disabled')}
-            </Badge>
-          )}
-          <BadgeWithIcon color="gray" iconLeading={EntityIcon} size="sm">
-            {entityLabel}
-          </BadgeWithIcon>
-        </Box>
+        <RuleCardHeader
+          entityType={rule.entityType}
+          inherited={inherited}
+          isEnabled={isEnabled}
+          name={rule.name}
+        />
 
         <RuleConditionSummary
           conditionCount={conditionCount}
@@ -358,7 +393,7 @@ export const ContextRuleCard = ({
       </Box>
 
       <RuleCardActions
-        canEdit={canEdit}
+        canEdit={canEdit && !inherited}
         entityLabelPlural={entityLabelPlural}
         matchedCount={matchedCount}
         onDeleteClick={() => setConfirmOpen(true)}
