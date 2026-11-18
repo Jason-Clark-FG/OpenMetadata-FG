@@ -4,6 +4,11 @@
 - **Date:** 2026-11-18
 - **Scope:** OpenMetadata server, spec, MCP module, UI, and a new client package that installs
   into Claude Code, Codex, and other harnesses
+- **Superseded in part by:** `docs/plans/2026-11-18-agent-harness-implementation-plan.md` §1. The
+  Agent Harness UI specification makes the harness its own entity, makes persona harnesses extend
+  the company default, adds a PostToolUse event, and changes the default budgets and memory
+  settings. Where the two documents differ, the implementation plan wins until this document is
+  amended
 
 ## 1. Problem
 
