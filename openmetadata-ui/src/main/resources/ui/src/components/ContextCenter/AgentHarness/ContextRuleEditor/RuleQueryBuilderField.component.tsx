@@ -26,7 +26,7 @@ import {
 import {
   getRuleFilterTree,
   isRuleFilterFullyRendered,
-} from '../../../../utils/PersonaAIContextUtils';
+} from '../../../../utils/discovery/context-center/contextRule.utils';
 import searchClassBase from '../../../../utils/SearchClassBase';
 import Loader from '../../../common/Loader/Loader';
 import QueryBuilder from '../../../common/QueryBuilder/QueryBuilder';

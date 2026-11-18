@@ -50,7 +50,7 @@ import {
   PERSONA_CONTEXT_ENTITY_LABEL_KEYS,
   PERSONA_CONTEXT_KNOWLEDGE_TYPES,
   PERSONA_CONTEXT_SECTION_LABEL_KEYS,
-} from '../../../../constants/PersonaAIContext.constants';
+} from '../../../../constants/discovery/contextRule.constants';
 import { EntityType } from '../../../../enums/entity.enum';
 import {
   ContextRule,
@@ -60,14 +60,14 @@ import {
   AgentHarnessRulePreview,
   previewAgentHarnessRule,
 } from '../../../../rest/AgentHarnessAPI';
-import { EntityIconSize } from '../../../../utils/EntityIconUtils';
 import {
   getDefaultPersonaContextSections,
   getPersonaContextSections,
   getRuleExplorePath,
   isKnowledgeContextRule,
   isSearchScopedRule,
-} from '../../../../utils/PersonaAIContextUtils';
+} from '../../../../utils/discovery/context-center/contextRule.utils';
+import { EntityIconSize } from '../../../../utils/EntityIconUtils';
 import searchClassBase from '../../../../utils/SearchClassBase';
 import { getErrorText } from '../../../../utils/StringUtils';
 import { useFormDrawerWithHook } from '../../../common/atoms/drawer/useFormDrawer';

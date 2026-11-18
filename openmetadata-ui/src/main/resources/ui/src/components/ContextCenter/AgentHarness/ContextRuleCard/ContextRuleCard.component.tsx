@@ -40,14 +40,14 @@ import {
   PERSONA_CONTEXT_ENTITY_LABEL_KEYS,
   PERSONA_CONTEXT_ENTITY_PLURAL_LABEL_KEYS,
   PERSONA_CONTEXT_SECTION_LABEL_KEYS,
-} from '../../../../constants/PersonaAIContext.constants';
+} from '../../../../constants/discovery/contextRule.constants';
 import { EntityType } from '../../../../enums/entity.enum';
 import { ContextRule } from '../../../../generated/type/personaContextDefinition';
 import {
   getRuleConditionCount,
   getRuleConditionParts,
   isSearchScopedRule,
-} from '../../../../utils/PersonaAIContextUtils';
+} from '../../../../utils/discovery/context-center/contextRule.utils';
 import { DeleteModal } from '../../../common/DeleteModal/DeleteModal';
 
 interface ContextRuleCardProps {

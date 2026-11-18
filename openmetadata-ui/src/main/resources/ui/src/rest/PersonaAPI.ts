@@ -16,12 +16,6 @@ import { PagingResponse } from 'Models';
 import { CreatePersona } from '../generated/api/teams/createPersona';
 import { Persona } from '../generated/entity/teams/persona';
 import { EntityHistory } from '../generated/type/entityHistory';
-import {
-  CacheState,
-  ContextRule,
-  PersonaContextDefinition,
-} from '../generated/type/personaContextDefinition';
-import { PersonaContextStatus } from '../generated/type/personaContextStatus';
 import { getEncodedFqn } from '../utils/StringUtils';
 import axiosClient from './axiosClient';
 
@@ -65,122 +59,9 @@ export const getPersonaByName = async (fqn: string, fields?: string) => {
     `${BASE_URL}/name/${getEncodedFqn(fqn)}`,
     {
       params: {
-        fields: fields ?? 'users,contextDefinition',
+        fields: fields ?? 'users',
       },
     }
-  );
-
-  return response.data;
-};
-
-export interface PersonaContextRulePreview {
-  matchedCount: number;
-  sampleNames: string[];
-}
-
-export interface PersonaContextDocument {
-  bytes: number;
-  cacheState: CacheState;
-  entitiesIncluded: number;
-  generatedAt: number;
-  markdown: string;
-  tokensEst: number;
-  truncated: boolean;
-  truncatedCount: number;
-}
-
-export const getPersonaAIContextStatus = async (
-  params: Pick<GetPersonasParams, 'after' | 'before' | 'limit'>
-) => {
-  const response = await axiosClient.get<
-    PagingResponse<PersonaContextStatus[]>
-  >(`${BASE_URL}/aiContext/status`, { params });
-
-  return response.data;
-};
-
-export const getPersonaAIContext = async (id: string) => {
-  const response = await axiosClient.get<PersonaContextDefinition>(
-    `${BASE_URL}/${id}/aiContext`
-  );
-
-  return response.data;
-};
-
-export const updatePersonaAIContext = async (
-  id: string,
-  data: Pick<
-    PersonaContextDefinition,
-    'cacheTtlMinutes' | 'characterBudget' | 'enabled' | 'prompt'
-  >
-) => {
-  const response = await axiosClient.put<PersonaContextDefinition>(
-    `${BASE_URL}/${id}/aiContext`,
-    data
-  );
-
-  return response.data;
-};
-
-export const createPersonaAIContextRule = async (
-  id: string,
-  rule: ContextRule
-) => {
-  const response = await axiosClient.post<PersonaContextDefinition>(
-    `${BASE_URL}/${id}/aiContext/rules`,
-    rule
-  );
-
-  return response.data;
-};
-
-export const updatePersonaAIContextRule = async (
-  id: string,
-  ruleId: string,
-  rule: ContextRule
-) => {
-  const response = await axiosClient.put<PersonaContextDefinition>(
-    `${BASE_URL}/${id}/aiContext/rules/${ruleId}`,
-    rule
-  );
-
-  return response.data;
-};
-
-export const deletePersonaAIContextRule = async (
-  id: string,
-  ruleId: string
-) => {
-  const response = await axiosClient.delete<PersonaContextDefinition>(
-    `${BASE_URL}/${id}/aiContext/rules/${ruleId}`
-  );
-
-  return response.data;
-};
-
-export const previewPersonaAIContextRule = async (
-  id: string,
-  rule: ContextRule
-) => {
-  const response = await axiosClient.post<PersonaContextRulePreview>(
-    `${BASE_URL}/${id}/aiContext/rules/preview`,
-    rule
-  );
-
-  return response.data;
-};
-
-export const getPersonaAIContextDocument = async (id: string) => {
-  const response = await axiosClient.get<PersonaContextDocument>(
-    `${BASE_URL}/${id}/aiContext/document`
-  );
-
-  return response.data;
-};
-
-export const refreshPersonaAIContextDocument = async (id: string) => {
-  const response = await axiosClient.post<PersonaContextDocument>(
-    `${BASE_URL}/${id}/aiContext/document:refresh`
   );
 
   return response.data;

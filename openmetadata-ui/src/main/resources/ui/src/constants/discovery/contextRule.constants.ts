@@ -10,20 +10,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-import { BadgeColors } from '@openmetadata/ui-core-components';
-import { EntityType } from '../enums/entity.enum';
-import {
-  CacheState,
-  ContextSection,
-  PersonaContextDefinition,
-} from '../generated/type/personaContextDefinition';
-
-export const CACHE_STATE_BADGE_COLOR: Record<CacheState, BadgeColors> = {
-  [CacheState.Fresh]: 'gray',
-  [CacheState.Stale]: 'gray',
-  [CacheState.Generating]: 'warning',
-  [CacheState.Failed]: 'error',
-};
+import { EntityType } from '../../enums/entity.enum';
+import { ContextSection } from '../../generated/type/personaContextDefinition';
 
 export const PERSONA_CONTEXT_ASSET_SECTIONS = [
   ContextSection.Description,
@@ -80,13 +68,6 @@ export const HEAVY_PERSONA_CONTEXT_SECTIONS = new Set([
   ContextSection.Profile,
   ContextSection.DataQuality,
 ]);
-
-export const DEFAULT_PERSONA_CONTEXT_DEFINITION: PersonaContextDefinition = {
-  cacheTtlMinutes: 30,
-  characterBudget: 400000,
-  enabled: true,
-  rules: [],
-};
 
 export const DEFAULT_PERSONA_CONTEXT_MAX_ASSETS = 200;
 
