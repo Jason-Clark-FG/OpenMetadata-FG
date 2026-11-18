@@ -20,6 +20,13 @@ this repository.
   active release. The asset owns both edges: its writes replace them and its delete removes them.
   See ADR:2026-10-19-native-concept-bindings-remain-operational-metadata.
 
+### Added — Test suite and test definition links
+
+- `om:belongsToTestSuite` (test case → `om:TestSuite`) and `om:hasTestDefinition` (test case →
+  the new class `om:TestDefinition`) were written from `quality.jsonld` without a declaration, so
+  they carried no description. Both are now declared and described, and `om:TestSuite` has a
+  comment.
+
 ### Added — Ordered constraint members
 
 - `om:ConstraintMember`, `om:hasConstraintMember`, `om:memberPosition`, `om:memberColumn` and

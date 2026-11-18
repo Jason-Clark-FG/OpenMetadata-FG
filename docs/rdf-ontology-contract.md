@@ -156,6 +156,8 @@ test results APIs. See ADR:2026-11-18-the-rdf-graph-carries-the-latest-quality-e
 
 <testCase> om:testsEntity <table> ;
     om:testsColumn <https://open-metadata.org/entity/column/svc.db.schema.orders.amount> ;
+    om:belongsToTestSuite <https://open-metadata.org/entity/testSuite/...> ;
+    om:hasTestDefinition <https://open-metadata.org/entity/testDefinition/...> ;
     om:latestResultStatus "Failed" ;
     om:latestResultAt "2026-11-18T06:05:00Z"^^xsd:dateTime ;
     om:hasTestResult <testCase/result/latest> ;

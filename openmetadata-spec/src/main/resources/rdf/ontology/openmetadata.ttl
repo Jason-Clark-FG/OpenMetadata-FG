@@ -440,6 +440,12 @@ om:TestDefinition a owl:Class ;
 
 om:TestSuite a owl:Class ;
     rdfs:label "Test Suite" ;
+    rdfs:comment "A named group of test cases that run and are reported together: the basic suite of one table, or a logical suite that gathers tests across tables. Test cases point to it with om:belongsToTestSuite." ;
+    rdfs:subClassOf om:Entity .
+
+om:TestDefinition a owl:Class ;
+    rdfs:label "Test Definition" ;
+    rdfs:comment "The kind of check a test case runs, such as columnValuesToBeNotNull or tableRowCountToBeBetween, and the parameters it takes. Test cases point to it with om:hasTestDefinition; tests that share a definition check the same kind of rule on different data." ;
     rdfs:subClassOf om:Entity .
 
 om:TestCase a owl:Class ;
@@ -469,6 +475,20 @@ om:testsColumn a owl:ObjectProperty ;
     rdfs:comment "The column a column-level test case checks, the same column IRI om:hasColumn names. Absent for table-level tests." ;
     rdfs:domain om:TestCase ;
     rdfs:range om:Column .
+
+om:belongsToTestSuite a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "belongs to test suite" ;
+    rdfs:comment "The test suite a test case belongs to, normally the basic suite of the table it tests. Follow it to the other tests that run and are reported with this one; a suite's latest run is read through the test suites API, not the graph." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:TestSuite .
+
+om:hasTestDefinition a owl:ObjectProperty ;
+    om:projectionStatus om:Stored ;
+    rdfs:label "has test definition" ;
+    rdfs:comment "The test definition a test case runs, which says what kind of rule it checks; its parameter values are om:hasParameterValue on the test case. Follow it backwards to find every test of the same kind." ;
+    rdfs:domain om:TestCase ;
+    rdfs:range om:TestDefinition .
 
 om:testsEntityFQN a owl:DatatypeProperty ;
     om:projectionStatus om:Stored ;
@@ -2622,7 +2642,8 @@ om:ExtensionProperty a owl:Class ;
         om:RelationshipType, om:Report, om:Role, om:SearchIndex,
         om:SearchService, om:SecurityService, om:Spreadsheet, om:StorageService,
         om:StoredProcedure, om:Table, om:Tag, om:Team,
-        om:TestConnectionDefinition, om:TestResultValue, om:Topic, om:Type,
+        om:TestConnectionDefinition, om:TestDefinition, om:TestResultValue, om:TestSuite,
+        om:Topic, om:Type,
         om:User, om:Workflow, om:Worksheet .
 
 <http://www.w3.org/2000/01/rdf-schema#seeAlso> a rdf:Property ;

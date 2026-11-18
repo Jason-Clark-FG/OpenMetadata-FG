@@ -75,6 +75,18 @@
     "type": "testCase",
     "fields": {
       "fullyQualifiedName": "service.db.schema.fixture.id.id_not_null",
+      "testSuite": {
+        "id": "00000000-0000-0000-0000-000000000005",
+        "type": "testSuite",
+        "name": "service.db.schema.fixture.testSuite",
+        "fullyQualifiedName": "service.db.schema.fixture.testSuite"
+      },
+      "testDefinition": {
+        "id": "00000000-0000-0000-0000-000000000006",
+        "type": "testDefinition",
+        "name": "columnValuesToBeNotNull",
+        "fullyQualifiedName": "columnValuesToBeNotNull"
+      },
       "entityLink": "<#E::table::service.db.schema.fixture::columns::id>",
       "entityFQN": "service.db.schema.fixture.id",
       "parameterValues": [
