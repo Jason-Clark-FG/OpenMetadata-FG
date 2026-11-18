@@ -98,12 +98,13 @@ class KnowledgeGraphRunTraceDaoIT {
             Operation.FIND,
             System.currentTimeMillis(),
             "admin",
-            new RunStep.Input("orders", List.of(), List.of(), null),
+            RunStep.Input.find("orders"),
             List.of(
                 new RunStep.Node(
                     TABLE_IRI + UUID.randomUUID(),
                     "orders",
                     "table",
+                    "warehouse.shop.public.orders",
                     List.of(new RunStep.Offer("om:hasOwner", Direction.OUTGOING, 2)))),
             List.of());
 

@@ -74,6 +74,7 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
   private static final String OUTGOING = "outgoing";
   private static final String INCOMING = "incoming";
   private static final String EXPLORED = "explored";
+  private static final String CITED = "cited";
   private static final String TENANT_ID = "tenant_id";
   private static final String SUBSCRIBER_ID = "subscriber_id";
   private static final String POSTAL_CODE = "postal_code";
@@ -104,9 +105,74 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     assertReachable(card(columns, walk.boundColumnIri()), BOUND_COLUMN, INCOMING, 1L);
     assertThat(reachable(card(columns, walk.keyColumnIri()), BOUND_COLUMN, INCOMING)).isEmpty();
     assertTrace(call(Map.of("operation", "trace", "run", run)), walk);
+    assertCitedInTrace(cite(run, walk), run, walk);
 
     unbind(walk.concept(), walk.table(), 1L);
     awaitBindingGone(run, walk);
+  }
+
+  @Test
+  void aSentenceNamingTheConceptAndItsTableFindsBoth(final TestNamespace ns) throws Exception {
+    final Walk walk = boundWalk(ns);
+    final String sentence =
+        "which tables hold "
+            + walk.concept().getName()
+            + " data, and can I trust the subscribers table?";
+
+    Awaitility.await("find returns the concept and the table for a sentence")
+        .atMost(PROJECTION_WAIT)
+        .pollInterval(Duration.ofSeconds(1))
+        .ignoreExceptions()
+        .untilAsserted(
+            () -> {
+              final JsonNode found =
+                  call(Map.of("operation", "find", "question", sentence, "limit", 10));
+              assertThat(card(found, walk.conceptIri()).path("entityType").asText())
+                  .isEqualTo("ontologyConcept");
+              assertThat(card(found, walk.tableIri()).path("entityType").asText())
+                  .isEqualTo("table");
+            });
+  }
+
+  private JsonNode cite(final String run, final Walk walk) throws Exception {
+    return call(
+        Map.of(
+            "operation",
+            "cite",
+            "run",
+            run,
+            "nodes",
+            List.of(walk.conceptIri(), walk.tableIri(), walk.boundColumnIri()),
+            "edges",
+            List.of(
+                Map.of(
+                    "node",
+                    walk.conceptIri(),
+                    "relationship",
+                    BOUND_ASSET,
+                    "other",
+                    walk.tableIri()),
+                Map.of(
+                    "node",
+                    walk.tableIri(),
+                    "relationship",
+                    HAS_COLUMN,
+                    "other",
+                    walk.boundColumnIri()))));
+  }
+
+  private void assertCitedInTrace(final JsonNode cited, final String run, final Walk walk)
+      throws Exception {
+    assertThat(cited.path("refused").path("nodes").isEmpty()).as(cited.toString()).isTrue();
+    assertThat(cited.path("refused").path("relationships").isEmpty()).isTrue();
+    final JsonNode trace = call(Map.of("operation", "trace", "run", run));
+    assertThat(stream(trace.path("nodes")))
+        .filteredOn(node -> CITED.equals(node.path("state").asText()))
+        .extracting(node -> node.path("id").asText())
+        .containsExactlyInAnyOrder(walk.conceptIri(), walk.tableIri(), walk.boundColumnIri());
+    assertThat(edge(trace, walk.conceptIri(), BOUND_ASSET, walk.tableIri()))
+        .hasValueSatisfying(edge -> assertThat(edge.path("state").asText()).isEqualTo(CITED));
+    assertThat(steps(trace).getLast().operation()).isEqualTo("cite");
   }
 
   @Test
