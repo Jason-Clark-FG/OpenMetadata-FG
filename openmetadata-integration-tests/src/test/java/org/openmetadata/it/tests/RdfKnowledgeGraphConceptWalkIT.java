@@ -17,7 +17,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.openmetadata.it.tests.OntologyBindingFixtures.admin;
 import static org.openmetadata.it.tests.OntologyBindingFixtures.bind;
-import static org.openmetadata.it.tests.OntologyBindingFixtures.dataProperty;
 import static org.openmetadata.it.tests.OntologyBindingFixtures.unbind;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,7 +33,6 @@ import java.util.stream.StreamSupport;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.openmetadata.it.factories.DatabaseSchemaTestFactory;
@@ -43,6 +41,7 @@ import org.openmetadata.it.tests.mcp.McpTestUtils;
 import org.openmetadata.it.util.RdfTestUtils;
 import org.openmetadata.it.util.TestNamespace;
 import org.openmetadata.it.util.TestNamespaceExtension;
+import org.openmetadata.schema.api.data.CreateOntologyProperty;
 import org.openmetadata.schema.api.data.CreateTable;
 import org.openmetadata.schema.entity.data.Ontology;
 import org.openmetadata.schema.entity.data.OntologyConcept;
@@ -51,6 +50,7 @@ import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.type.Column;
 import org.openmetadata.schema.type.ColumnDataType;
 import org.openmetadata.schema.type.OntologyColumnBinding;
+import org.openmetadata.schema.type.OntologyPropertyKind;
 import org.openmetadata.schema.type.TableConstraint;
 import org.openmetadata.service.rdf.RdfUtils;
 
@@ -58,9 +58,7 @@ import org.openmetadata.service.rdf.RdfUtils;
  * The acceptance walk of the knowledge-graph design, on a live server with RDF on: a caller starts
  * from a business concept bound in Ontology Studio and reaches the table and the column that
  * implement it through the {@code knowledge_graph} tool alone, then reads back what it looked at.
- * Fixtures are made through the public APIs; the graph is read only through the tool. The walk
- * enters at the concept's IRI as the Ontology Studio API returns it, because find cannot yet start
- * from a concept's name (the disabled test below).
+ * Fixtures are made through the public APIs; the graph is read only through the tool.
  */
 @ExtendWith(TestNamespaceExtension.class)
 class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
@@ -110,15 +108,34 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
   }
 
   @Test
-  @Disabled(
-      "Design gap: ontology concepts are not search-indexed, and find would mint entity/ontologyConcept/<id> rather than the concept's release IRI")
   void findStartsFromTheConceptsNameAndSeesItsBindingComeAndGo(final TestNamespace ns)
       throws Exception {
     final Walk walk = boundWalk(ns);
 
-    awaitConceptFound(walk, card -> assertConceptCard(card, 1L));
+    awaitTermFound(
+        walk.concept().getName(), walk.conceptIri(), card -> assertConceptCard(card, 1L));
     unbind(walk.concept(), walk.table(), 1L);
-    awaitConceptFound(walk, card -> assertThat(reachable(card, BOUND_ASSET, OUTGOING)).isEmpty());
+    awaitTermFound(
+        walk.concept().getName(),
+        walk.conceptIri(),
+        card -> assertThat(reachable(card, BOUND_ASSET, OUTGOING)).isEmpty());
+  }
+
+  @Test
+  void findStartsFromAPropertysLabelAndReachesTheColumnItIsBoundTo(final TestNamespace ns)
+      throws Exception {
+    final Walk walk = boundWalk(ns);
+
+    final JsonNode found =
+        awaitTermFound(
+            walk.property().getDisplayName(),
+            walk.propertyIri(),
+            card -> assertReachable(card, BOUND_COLUMN, OUTGOING, 1L));
+    final JsonNode column =
+        expand(found.path("run").asText(), walk.propertyIri(), BOUND_COLUMN, OUTGOING);
+
+    assertThat(farNodes(column, walk.propertyIri(), BOUND_COLUMN, OUTGOING))
+        .containsExactly(walk.boundColumnIri());
   }
 
   private static Walk boundWalk(final TestNamespace ns) {
@@ -127,7 +144,7 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     final OntologyConcept concept =
         BaseOntologyApprovalIT.declareClass(
             ontology, conceptName, URI.create(ontology.getIri() + "/" + conceptName));
-    final OntologyProperty postalCode = dataProperty(ontology, concept);
+    final OntologyProperty postalCode = postalCode(ontology, concept, ns);
     BaseOntologyApprovalIT.activate(ns, ontology);
     final Table table = subscribersTable(ns);
     bind(
@@ -138,7 +155,21 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
                 .withPropertyId(postalCode.getId())
                 .withColumnPath(List.of(POSTAL_CODE))),
         0L);
-    return new Walk(concept, table);
+    return new Walk(concept, postalCode, table);
+  }
+
+  private static OntologyProperty postalCode(
+      final Ontology ontology, final OntologyConcept domain, final TestNamespace ns) {
+    return admin()
+        .ontologyProperties()
+        .create(
+            new CreateOntologyProperty()
+                .withName("postalCode")
+                .withDisplayName("Postal code " + ns.shortPrefix())
+                .withOntology(ontology.getFullyQualifiedName())
+                .withKind(OntologyPropertyKind.DATA)
+                .withDomain(List.of(domain.getIri()))
+                .withRange(List.of(URI.create("http://www.w3.org/2001/XMLSchema#string"))));
   }
 
   private static Table subscribersTable(final TestNamespace ns) {
@@ -212,19 +243,22 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
     return card(found, walk.tableIri());
   }
 
-  private void awaitConceptFound(final Walk walk, final Consumer<JsonNode> expectation) {
-    Awaitility.await("find returns the concept's card")
+  private JsonNode awaitTermFound(
+      final String question, final String termIri, final Consumer<JsonNode> expectation) {
+    final List<JsonNode> found = new ArrayList<>();
+    Awaitility.await("find returns the card of " + termIri)
         .atMost(PROJECTION_WAIT)
         .pollInterval(Duration.ofSeconds(1))
         .ignoreExceptions()
         .untilAsserted(
             () -> {
-              final JsonNode found =
-                  call(Map.of("operation", "find", "question", walk.concept().getName()));
-              final JsonNode concept = card(found, walk.conceptIri());
-              assertThat(concept.path("inGraph").asBoolean()).isTrue();
-              expectation.accept(concept);
+              final JsonNode response = call(Map.of("operation", "find", "question", question));
+              final JsonNode term = card(response, termIri);
+              assertThat(term.path("inGraph").asBoolean()).isTrue();
+              expectation.accept(term);
+              found.add(response);
             });
+    return found.getLast();
   }
 
   private static void assertTableCard(final JsonNode table) {
@@ -341,9 +375,13 @@ class RdfKnowledgeGraphConceptWalkIT extends McpTestBase {
 
   private record Step(int sequence, String operation, String node, String relationship) {}
 
-  private record Walk(OntologyConcept concept, Table table) {
+  private record Walk(OntologyConcept concept, OntologyProperty property, Table table) {
     String conceptIri() {
       return concept.getIri().toString();
+    }
+
+    String propertyIri() {
+      return property.getIri().toString();
     }
 
     String tableIri() {
