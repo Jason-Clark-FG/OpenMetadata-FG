@@ -14,11 +14,8 @@
 package org.openmetadata.mcp.tools;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -72,8 +68,7 @@ final class CatalogStartingPoints implements StartingPoints {
   private static final String TABLE = "table";
   private static final String TYPE = "type";
   private static final String COLUMN_INDEX = "tableColumn";
-  private static final String ENTITY_STATUS = "entityStatus";
-  private static final String DEPRECATED = "Deprecated";
+  private static final String KEYWORD_FIELDS = "id,entityStatus,table";
 
   private final BooleanSupplier vectorSearchEnabled;
   private final Supplier<McpTool> semanticSearch;
@@ -156,7 +151,8 @@ final class CatalogStartingPoints implements StartingPoints {
       throws IOException {
     return vectorSearchEnabled.getAsBoolean()
         ? meaningAndWords(authorizer, securityContext, find, words)
-        : CatalogHits.of(keywordHits(authorizer, securityContext, find, words));
+        : CatalogHits.of(
+            keywordHits(authorizer, securityContext, find, words, new HitDeprecation()));
   }
 
   private CatalogHits meaningAndWords(
@@ -175,44 +171,23 @@ final class CatalogStartingPoints implements StartingPoints {
               securityContext);
       return hybrid.isPresent()
           ? CatalogHits.of(
-              byKind(viewable(authorizer, securityContext, deprecatedLast(hybrid.get()))))
+              byKind(
+                  deprecatedLast(
+                      viewable(authorizer, securityContext, hybrid.get()), hybrid.get())))
           : merged(authorizer, securityContext, find, words);
     } catch (HybridSearchException failed) {
       return CatalogHits.skipped(
-          keywordHits(authorizer, securityContext, find, words), failed.getMessage());
+          keywordHits(authorizer, securityContext, find, words, new HitDeprecation()),
+          failed.getMessage());
     }
   }
 
-  /**
-   * Within each kind, the hits that are not deprecated keep their order ahead of those that are: an
-   * asset whose {@code entityStatus} is Deprecated, or a column of such a table among the hits.
-   */
-  static List<Map<String, Object>> deprecatedLast(final List<Map<String, Object>> ranked) {
-    final Set<String> deprecatedIds =
-        ranked.stream()
-            .filter(row -> DEPRECATED.equals(row.get(ENTITY_STATUS)))
-            .map(row -> Objects.toString(row.get(PARENT_ID), ""))
-            .collect(Collectors.toSet());
-    final Predicate<Map<String, Object>> deprecated =
-        row ->
-            DEPRECATED.equals(row.get(ENTITY_STATUS))
-                || deprecatedIds.contains(Objects.toString(visibleAs(row).get(PARENT_ID), ""));
-    final Map<Object, Deque<Map<String, Object>>> byKind =
-        ranked.stream()
-            .collect(
-                Collectors.groupingBy(
-                    row -> Objects.toString(row.get(ENTITY_TYPE), ""),
-                    LinkedHashMap::new,
-                    Collectors.collectingAndThen(
-                        Collectors.toList(),
-                        rows ->
-                            new ArrayDeque<>(
-                                rows.stream()
-                                    .sorted(Comparator.comparing(deprecated::test))
-                                    .toList()))));
-    return ranked.stream()
-        .map(row -> byKind.get(Objects.toString(row.get(ENTITY_TYPE), "")).poll())
-        .toList();
+  /** The hybrid hits, each kind's deprecated ones after the rest ({@link HitDeprecation}). */
+  private static List<SearchHit> deprecatedLast(
+      final List<SearchHit> hits, final List<Map<String, Object>> rows) {
+    final HitDeprecation deprecation = new HitDeprecation();
+    deprecation.record(rows, PARENT_ID);
+    return deprecation.last(hits);
   }
 
   /**
@@ -237,16 +212,15 @@ final class CatalogStartingPoints implements StartingPoints {
       final KnowledgeGraphCall.Find find,
       final List<String> words)
       throws IOException {
-    final List<SearchHit> byWords = keywordHits(authorizer, securityContext, find, words);
+    final HitDeprecation deprecation = new HitDeprecation();
+    final List<SearchHit> byWords =
+        keywordHits(authorizer, securityContext, find, words, deprecation);
     try {
-      final List<SearchHit> byMeaning =
-          hits(
-              requireSucceeded(
-                  semanticSearch
-                      .get()
-                      .execute(authorizer, securityContext, semanticArguments(find))),
-              PARENT_ID);
-      return CatalogHits.of(alternate(byMeaning, byWords));
+      final Map<String, Object> meaning =
+          requireSucceeded(
+              semanticSearch.get().execute(authorizer, securityContext, semanticArguments(find)));
+      deprecation.record(results(meaning), PARENT_ID);
+      return CatalogHits.of(deprecation.last(alternate(hits(meaning, PARENT_ID), byWords)));
     } catch (IllegalStateException failed) {
       return CatalogHits.skipped(byWords, failed.getMessage());
     }
@@ -288,34 +262,44 @@ final class CatalogStartingPoints implements StartingPoints {
         : hit;
   }
 
+  /** Word hits ranked by the words they match, each kind's deprecated ones after the rest. */
   private List<SearchHit> keywordHits(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find,
-      final List<String> words)
+      final List<String> words,
+      final HitDeprecation deprecation)
       throws IOException {
     final CatalogRanking ranking = new CatalogRanking();
     final Set<Integer> everyWord =
         IntStream.range(0, words.size()).boxed().collect(Collectors.toSet());
-    ranking.add(keyword(authorizer, securityContext, find, find.question()), everyWord);
+    ranking.add(
+        keyword(authorizer, securityContext, find, find.question(), deprecation), everyWord);
     for (int index = 0; words.size() > 1 && index < words.size(); index++) {
-      ranking.add(keyword(authorizer, securityContext, find, words.get(index)), Set.of(index));
+      ranking.add(
+          keyword(authorizer, securityContext, find, words.get(index), deprecation), Set.of(index));
     }
-    return ranking.ordered();
+    return deprecation.last(ranking.ordered());
   }
 
   private List<SearchHit> keyword(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final KnowledgeGraphCall.Find find,
-      final String query)
+      final String query,
+      final HitDeprecation deprecation)
       throws IOException {
-    return hits(
+    final Map<String, Object> response =
         requireSucceeded(
             keywordSearch
                 .get()
-                .execute(authorizer, securityContext, keywordArguments(find, query))),
-        ID);
+                .execute(authorizer, securityContext, keywordArguments(find, query)));
+    deprecation.record(results(response), ID);
+    return hits(response, ID);
+  }
+
+  private static List<?> results(final Map<String, Object> response) {
+    return response.get(RESULTS) instanceof List<?> results ? results : List.of();
   }
 
   private static Map<String, Object> semanticArguments(final KnowledgeGraphCall.Find find) {
@@ -334,7 +318,7 @@ final class CatalogStartingPoints implements StartingPoints {
     final Map<String, Object> arguments = new HashMap<>();
     arguments.put(QUERY, query);
     arguments.put(SIZE, find.limit());
-    arguments.put(FIELDS, ID);
+    arguments.put(FIELDS, KEYWORD_FIELDS);
     final List<String> catalogTypes = find.catalogTypes();
     if (catalogTypes.size() == 1) {
       arguments.put(ENTITY_TYPE, catalogTypes.getFirst());

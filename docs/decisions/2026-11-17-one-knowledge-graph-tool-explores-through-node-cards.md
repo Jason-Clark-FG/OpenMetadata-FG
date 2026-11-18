@@ -344,8 +344,11 @@ exist.
 - **Deprecated last.** Within each kind of hit, a Deprecated asset (`entityStatus`), or a column
   of a Deprecated table among the hits, comes after every hit of that kind that is not. For
   "customer lifetime value" the certified `customers` mart now leads the deprecated
-  `customers_clean`, and its columns lead that table's look-alike column. It applies to the hybrid
-  path, whose hits carry the status.
+  `customers_clean`, and its columns lead that table's look-alike column. It applies on every path
+  `find` takes (hybrid, word search alone, meaning and words alternated, and the fallback after a
+  failed hybrid search): the word search asks for `entityStatus` and `table`, and
+  `semantic_search` hits carry `entityStatus`. A column document carries neither its own status
+  nor its table's, so a column is judged only when its table came back from the same find.
 - **Test cases by meaning.** With no types named, the meaning leg also searches test cases; the
   word leg does not. A symptom ("order volume looked low", "the freshness check is failing")
   matches a test case's description, while its name repeats words of its table and columns, which

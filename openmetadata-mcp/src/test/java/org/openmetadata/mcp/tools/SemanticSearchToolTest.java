@@ -257,6 +257,7 @@ class SemanticSearchToolTest {
     hit.put("name", "users");
     hit.put("displayName", "Users");
     hit.put("serviceType", "BigQuery");
+    hit.put("entityStatus", "Deprecated");
     hit.put("_score", 0.95);
     hit.put("description", "A short description");
     hit.put("columns", List.of(Map.of("name", "id", "dataType", "INT")));
@@ -284,6 +285,7 @@ class SemanticSearchToolTest {
     assertEquals("users", cleaned.get("name"));
     assertEquals("Users", cleaned.get("displayName"));
     assertEquals("BigQuery", cleaned.get("serviceType"));
+    assertEquals("Deprecated", cleaned.get("entityStatus"));
     assertEquals("A short description", cleaned.get("description"));
     // Column *names* replace full column objects: on a live 10-hit response full `columns` was
     // 68.6% of the payload, and per-column descriptions do not help pick the right asset.

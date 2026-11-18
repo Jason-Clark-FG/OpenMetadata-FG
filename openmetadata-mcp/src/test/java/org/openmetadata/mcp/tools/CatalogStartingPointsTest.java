@@ -354,6 +354,84 @@ class CatalogStartingPointsTest {
     }
   }
 
+  private static Map<String, Object> keywordRow(
+      final UUID id, final String entityType, final String fqn, final String status) {
+    final Map<String, Object> row = new HashMap<>();
+    row.put("id", id.toString());
+    row.put("entityType", entityType);
+    row.put("fullyQualifiedName", fqn);
+    if (status != null) {
+      row.put("entityStatus", status);
+    }
+    return row;
+  }
+
+  @Test
+  void withVectorSearchOffADeprecatedTableTheWordsRankFirstComesAfterOneThatIsNot()
+      throws Exception {
+    final UUID clean = UUID.randomUUID();
+    final UUID customers = UUID.randomUUID();
+    final UUID lookAlike = UUID.randomUUID();
+    final Map<String, Object> lookAlikeColumn =
+        keywordRow(lookAlike, "tableColumn", "shop.customers_clean.lifetime_value", null);
+    lookAlikeColumn.put("table", Map.of("id", clean.toString(), "type", "table"));
+    final RecordingSearch words =
+        new RecordingSearch(
+            Map.of(
+                "results",
+                List.of(
+                    lookAlikeColumn,
+                    keywordRow(clean, "table", "shop.customers_clean", "Deprecated"),
+                    keywordRow(customers, "table", "shop.customers", "Unprocessed"),
+                    keywordRow(UUID.randomUUID(), "tableColumn", "shop.customers.spend", null))));
+
+    final List<SearchHit> hits =
+        new CatalogStartingPoints(
+                () -> false, () -> semantic, () -> words, NO_HYBRID, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("customers", List.of(), 5))
+            .hits();
+
+    assertThat(hits)
+        .extracting(SearchHit::fullyQualifiedName)
+        .containsExactly(
+            "shop.customers.spend",
+            "shop.customers",
+            "shop.customers_clean",
+            "shop.customers_clean.lifetime_value");
+  }
+
+  @Test
+  void withoutHybridSearchADeprecatedMeaningHitComesAfterAWordHitOfItsKindThatIsNot()
+      throws Exception {
+    final UUID clean = UUID.randomUUID();
+    final UUID customers = UUID.randomUUID();
+    final RecordingSearch meaning =
+        new RecordingSearch(
+            Map.of(
+                "results",
+                List.of(
+                    Map.of(
+                        "parentId", clean.toString(),
+                        "entityType", "table",
+                        "fullyQualifiedName", "shop.customers_clean",
+                        "entityStatus", "Deprecated"))));
+    final RecordingSearch words =
+        new RecordingSearch(
+            Map.of(
+                "results",
+                List.of(keywordRow(customers, "table", "shop.customers", "Unprocessed"))));
+
+    final List<SearchHit> hits =
+        new CatalogStartingPoints(
+                () -> true, () -> meaning, () -> words, NO_HYBRID, EVERY_HIT_VISIBLE)
+            .search(AUTHORIZER, CALLER, new KnowledgeGraphCall.Find("customers", List.of(), 5))
+            .hits();
+
+    assertThat(hits)
+        .extracting(SearchHit::fullyQualifiedName)
+        .containsExactly("shop.customers", "shop.customers_clean");
+  }
+
   @Test
   void keywordSearchFindsTheStartingPointsOtherwiseAndAsksForIds() throws Exception {
     final List<SearchHit> hits =
@@ -369,7 +447,7 @@ class CatalogStartingPointsTest {
     assertThat(keyword.calls.getFirst())
         .containsEntry("query", "orders")
         .containsEntry("size", 5)
-        .containsEntry("fields", "id")
+        .containsEntry("fields", "id,entityStatus,table")
         .doesNotContainKey("entityType");
   }
 

@@ -514,6 +514,7 @@ public class SemanticSearchTool implements McpTool {
     copyIfPresent(hit, cleaned, "name");
     copyIfPresent(hit, cleaned, "displayName");
     copyIfPresent(hit, cleaned, "serviceType");
+    copyIfPresent(hit, cleaned, "entityStatus");
     copySlim(hit, cleaned, "service", McpResponseTrim::slimRef);
     copySlim(hit, cleaned, "database", McpResponseTrim::slimRef);
     copySlim(hit, cleaned, "databaseSchema", McpResponseTrim::slimRef);
