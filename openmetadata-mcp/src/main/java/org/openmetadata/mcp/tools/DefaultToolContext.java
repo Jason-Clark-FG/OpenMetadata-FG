@@ -161,7 +161,8 @@ public class DefaultToolContext {
           result = new OntologyDescribeTool().execute(authorizer, securityContext, params);
           break;
         case "knowledge_graph":
-          result = new KnowledgeGraphTool(limits).execute(authorizer, securityContext, params);
+          result =
+              new KnowledgeGraphTool(limits).executeWithCard(authorizer, securityContext, params);
           break;
         default:
           return new CallToolOutcome(

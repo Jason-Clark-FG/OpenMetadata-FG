@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.io.IOException;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +51,8 @@ import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.FindRequest;
 import org.openmetadata.service.rdf.explore.FindResult;
 import org.openmetadata.service.rdf.explore.GraphMemories;
+import org.openmetadata.service.rdf.explore.KnowledgeGraphCard;
+import org.openmetadata.service.rdf.explore.KnowledgeGraphCards;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
 import org.openmetadata.service.rdf.explore.LearnedOutcome;
 import org.openmetadata.service.rdf.explore.MemoryEntry;
@@ -335,6 +338,81 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       List<TraceEdge> edges,
       List<TraceStep> steps)
       implements Response {}
+
+  /**
+   * The answer as text for the model, unchanged, and the card an MCP Apps host draws of it. A card
+   * that cannot be built is left out; the answer never fails for it.
+   */
+  public CardResult executeWithCard(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final Map<String, Object> params)
+      throws IOException {
+    final Response response = execute(authorizer, securityContext, params);
+    return new CardResult(response, card(securityContext, response, params));
+  }
+
+  private KnowledgeGraphCard card(
+      final CatalogSecurityContext securityContext,
+      final Response response,
+      final Map<String, Object> params) {
+    KnowledgeGraphCard card = null;
+    try {
+      card = cardOf(securityContext, response, Objects.toString(params.get("sparql"), ""));
+    } catch (RuntimeException failure) {
+      LOG.warn("[KnowledgeGraph] no card for {}: {}", response.operation(), failure.getMessage());
+    }
+    return card;
+  }
+
+  private KnowledgeGraphCard cardOf(
+      final CatalogSecurityContext securityContext, final Response response, final String sparql) {
+    return switch (response) {
+      case FindResponse find -> KnowledgeGraphCards.ofCall(
+          Operation.FIND, find.run(), find.nodes(), List.of(), shownBeside(find));
+      case ExpandResponse expand -> KnowledgeGraphCards.ofCall(
+          Operation.EXPAND, expand.run(), expand.nodes(), expand.expansions(), List.of());
+      case QueryResponse query -> KnowledgeGraphCards.ofQuery(
+          query.run(),
+          sparql,
+          query.rows() == null ? 0 : query.rows().returned(),
+          query.rows() == null ? 0 : query.rows().total());
+      case CiteResponse cite -> KnowledgeGraphCards.withSaved(
+          runCard(securityContext, Operation.CITE, cite.run()), cite.learned());
+      case TraceResponse trace -> runCard(securityContext, Operation.TRACE, trace.run());
+      case DelegateResponse delegate -> runCard(
+          securityContext, Operation.DELEGATE, delegate.run());
+      case Opening opening -> cardOf(securityContext, opening.answer(), sparql);
+    };
+  }
+
+  /** The whole run, with the cited nodes' cards read once more for their trust and memories. */
+  private KnowledgeGraphCard runCard(
+      final CatalogSecurityContext securityContext, final Operation operation, final UUID run) {
+    final KnowledgeGraphExplorer explorer = explorer(securityContext, repository());
+    final RunTrace trace = explorer.trace(run);
+    final List<String> cited =
+        trace.nodes().stream()
+            .filter(node -> node.citedStep() != null)
+            .map(TraceNode::id)
+            .limit(KnowledgeGraphCards.MAX_MEMORIES)
+            .toList();
+    return KnowledgeGraphCards.ofRun(operation, trace, explorer.cards(cited));
+  }
+
+  private static List<KnowledgeGraphCard.Memory> shownBeside(final FindResponse find) {
+    final List<KnowledgeGraphCard.Memory> shown = new ArrayList<>();
+    if (find.notes() != null) {
+      find.notes()
+          .shown()
+          .forEach(memory -> shown.add(KnowledgeGraphCards.memory(memory, null, "notes")));
+    }
+    if (find.preferences() != null) {
+      find.preferences()
+          .forEach(memory -> shown.add(KnowledgeGraphCards.memory(memory, null, "preference")));
+    }
+    return shown;
+  }
 
   @Override
   protected Response executeAuthorized(

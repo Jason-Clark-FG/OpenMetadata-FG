@@ -3,72 +3,725 @@
     "question": "What was Q3 revenue by region?",
     "headline": "Recognized revenue, net of refunds, as defined by the certified Revenue metric.",
     "result": {
-      "label": "Q3 2026 revenue by region", "value": "$48.2M", "change": "+12.4% vs Q2", "changeDirection": "up", "selfReported": true,
+      "label": "Q3 2026 revenue by region",
+      "value": "$48.2M",
+      "change": "+12.4% vs Q2",
+      "changeDirection": "up",
+      "selfReported": true,
       "breakdown": [
-        { "label": "NA", "value": "$21.6M", "change": "+9%", "changeDirection": "up", "share": 1 },
-        { "label": "EMEA", "value": "$14.1M", "change": "+18%", "changeDirection": "up", "share": 0.653 },
-        { "label": "APAC", "value": "$9.3M", "change": "+16%", "changeDirection": "up", "share": 0.431 },
-        { "label": "LATAM", "value": "$3.2M", "change": "−2%", "changeDirection": "down", "share": 0.148 }
+        {
+          "label": "NA",
+          "value": "$21.6M",
+          "change": "+9%",
+          "changeDirection": "up",
+          "share": 1
+        },
+        {
+          "label": "EMEA",
+          "value": "$14.1M",
+          "change": "+18%",
+          "changeDirection": "up",
+          "share": 0.653
+        },
+        {
+          "label": "APAC",
+          "value": "$9.3M",
+          "change": "+16%",
+          "changeDirection": "up",
+          "share": 0.431
+        },
+        {
+          "label": "LATAM",
+          "value": "$3.2M",
+          "change": "−2%",
+          "changeDirection": "down",
+          "share": 0.148
+        }
       ]
     },
-    "harnessName": "Business Analyst", "harnessVersion": 0.6, "answeredAt": 1800022440000,
+    "harnessName": "Business Analyst",
+    "harnessVersion": 0.6,
+    "answeredAt": 1800022440000,
     "concepts": [
-      { "phrase": "revenue", "entityType": "metric", "fqn": "Revenue", "displayName": "Revenue", "status": "Approved", "certified": true, "owners": ["Finance Data"], "url": "https://acme.getcollate.io/metric/revenue" },
-      { "phrase": "region", "entityType": "glossaryTerm", "fqn": "Sales.Region", "displayName": "Region", "status": "Approved", "certified": true, "owners": ["Sales territories"], "url": "https://acme.getcollate.io/glossary/Sales.Region" }
+      {
+        "phrase": "revenue",
+        "entityType": "metric",
+        "fqn": "Revenue",
+        "displayName": "Revenue",
+        "status": "Approved",
+        "certified": true,
+        "owners": [
+          "Finance Data"
+        ],
+        "url": "https://acme.getcollate.io/metric/revenue"
+      },
+      {
+        "phrase": "region",
+        "entityType": "glossaryTerm",
+        "fqn": "Sales.Region",
+        "displayName": "Region",
+        "status": "Approved",
+        "certified": true,
+        "owners": [
+          "Sales territories"
+        ],
+        "url": "https://acme.getcollate.io/glossary/Sales.Region"
+      }
     ],
-    "tables": [{
-      "fqn": "analytics.fct_revenue", "tier": "Tier1", "certified": true, "owners": ["Finance Data"], "url": "https://acme.getcollate.io/table/analytics.fct_revenue",
-      "freshness": { "at": 1799992800000, "source": "test", "stale": false },
-      "failingTests": [{ "name": "region_code not null", "url": "https://acme.getcollate.io/table/analytics.fct_revenue/profiler" }],
-      "openIncidents": [{ "id": "INC-2291", "testCase": "EMEA load is 6h late", "status": "Assigned", "severity": "Severity2", "url": "https://acme.getcollate.io/incident-manager/INC-2291" }]
-    }],
-    "execution": { "executor": "hostConnector", "connector": "Snowflake", "rowCount": 4, "durationMs": 1200, "selfReported": true },
+    "tables": [
+      {
+        "fqn": "analytics.fct_revenue",
+        "tier": "Tier1",
+        "certified": true,
+        "owners": [
+          "Finance Data"
+        ],
+        "url": "https://acme.getcollate.io/table/analytics.fct_revenue",
+        "freshness": {
+          "at": 1799992800000,
+          "source": "test",
+          "stale": false
+        },
+        "failingTests": [
+          {
+            "name": "region_code not null",
+            "url": "https://acme.getcollate.io/table/analytics.fct_revenue/profiler"
+          }
+        ],
+        "openIncidents": [
+          {
+            "id": "INC-2291",
+            "testCase": "EMEA load is 6h late",
+            "status": "Assigned",
+            "severity": "Severity2",
+            "url": "https://acme.getcollate.io/incident-manager/INC-2291"
+          }
+        ]
+      }
+    ],
+    "execution": {
+      "executor": "hostConnector",
+      "connector": "Snowflake",
+      "rowCount": 4,
+      "durationMs": 1200,
+      "selfReported": true
+    },
     "sql": "SELECT region,\n       SUM(net_amount) AS revenue\nFROM   analytics.fct_revenue\nWHERE  fiscal_quarter = '2026-Q3'\nGROUP  BY region\nORDER  BY revenue DESC;",
-    "showSql": true, "trustChecked": { "failingTests": true, "openIncidents": true }, "planChecked": false, "warnings": []
+    "showSql": true,
+    "trustChecked": {
+      "failingTests": true,
+      "openIncidents": true
+    },
+    "planChecked": false,
+    "warnings": []
   },
   "term": {
-    "kind": "glossaryTerm", "name": "Active customer", "fqn": "Sales.ActiveCustomer",
+    "kind": "glossaryTerm",
+    "name": "Active customer",
+    "fqn": "Sales.ActiveCustomer",
     "description": "An account with at least one paid subscription that billed in the last 90 days. Trials, free plans and accounts in dunning are excluded.",
-    "container": { "label": "Glossary", "name": "Sales", "url": "https://acme.getcollate.io/glossary/Sales" },
-    "status": "Approved", "owners": ["Sales Ops"], "updatedAt": 1798963200000,
-    "synonyms": ["Active account", "Paying customer"],
-    "confusedWith": [{ "name": "Finance › Customer", "url": "https://acme.getcollate.io/glossary/Finance.Customer", "note": "counts every billing account, including inactive ones." }],
-    "appliedTo": { "total": 42, "items": [
-      { "kind": "Column", "name": "dim_customer.is_active", "url": "https://acme.getcollate.io/table/analytics.dim_customer", "detail": "Certified source" },
-      { "kind": "Metric", "name": "Active customers", "url": "https://acme.getcollate.io/metric/active-customers", "detail": "18,420 in 2026-Q3" },
-      { "kind": "Table", "name": "fct_subscriptions", "url": "https://acme.getcollate.io/table/analytics.fct_subscriptions", "detail": "Tier 1" }
-    ] },
+    "container": {
+      "label": "Glossary",
+      "name": "Sales",
+      "url": "https://acme.getcollate.io/glossary/Sales"
+    },
+    "status": "Approved",
+    "owners": [
+      "Sales Ops"
+    ],
+    "updatedAt": 1798963200000,
+    "synonyms": [
+      "Active account",
+      "Paying customer"
+    ],
+    "confusedWith": [
+      {
+        "name": "Finance › Customer",
+        "url": "https://acme.getcollate.io/glossary/Finance.Customer",
+        "note": "counts every billing account, including inactive ones."
+      }
+    ],
+    "appliedTo": {
+      "total": 42,
+      "items": [
+        {
+          "kind": "Column",
+          "name": "dim_customer.is_active",
+          "url": "https://acme.getcollate.io/table/analytics.dim_customer",
+          "detail": "Certified source"
+        },
+        {
+          "kind": "Metric",
+          "name": "Active customers",
+          "url": "https://acme.getcollate.io/metric/active-customers",
+          "detail": "18,420 in 2026-Q3"
+        },
+        {
+          "kind": "Table",
+          "name": "fct_subscriptions",
+          "url": "https://acme.getcollate.io/table/analytics.fct_subscriptions",
+          "detail": "Tier 1"
+        }
+      ]
+    },
     "url": "https://acme.getcollate.io/glossary/Sales.ActiveCustomer"
   },
   "metric": {
-    "kind": "metric", "name": "Net revenue retention", "fqn": "net-revenue-retention",
+    "kind": "metric",
+    "name": "Net revenue retention",
+    "fqn": "net-revenue-retention",
     "description": "Recurring revenue kept from customers active 12 months ago, including expansion and net of churn and contraction.",
-    "container": { "label": "Metric", "name": "Customer Success" },
-    "status": "Approved", "certified": true, "owners": ["Customer Success"], "footerNote": "refreshed daily",
-    "value": "112%", "change": "+3 pts QoQ", "changeDirection": "up", "period": "2026-Q3 · trailing 12 months",
-    "history": [27, 36, 50, 59, 68, 77, 86, 100],
-    "metric": { "expression": "(start_arr + expansion - contraction - churn) / start_arr", "sql": "select sum(arr) / sum(start_arr) from analytics.fct_arr_movements", "granularity": "QUARTER", "unit": "Percent", "target": "≥ 110%", "relatedMetrics": ["Gross retention", "Churn"], "source": "analytics.fct_arr_movements" },
+    "container": {
+      "label": "Metric",
+      "name": "Customer Success"
+    },
+    "status": "Approved",
+    "certified": true,
+    "owners": [
+      "Customer Success"
+    ],
+    "footerNote": "refreshed daily",
+    "value": "112%",
+    "change": "+3 pts QoQ",
+    "changeDirection": "up",
+    "period": "2026-Q3 · trailing 12 months",
+    "history": [
+      27,
+      36,
+      50,
+      59,
+      68,
+      77,
+      86,
+      100
+    ],
+    "metric": {
+      "expression": "(start_arr + expansion - contraction - churn) / start_arr",
+      "sql": "select sum(arr) / sum(start_arr) from analytics.fct_arr_movements",
+      "granularity": "QUARTER",
+      "unit": "Percent",
+      "target": "≥ 110%",
+      "relatedMetrics": [
+        "Gross retention",
+        "Churn"
+      ],
+      "source": "analytics.fct_arr_movements"
+    },
     "url": "https://acme.getcollate.io/metric/net-revenue-retention"
   },
   "table": {
-    "entityType": "table", "name": "fct_revenue", "fullyQualifiedName": "snowflake.analytics.fct_revenue",
+    "entityType": "table",
+    "name": "fct_revenue",
+    "fullyQualifiedName": "snowflake.analytics.fct_revenue",
     "description": "One row per recognized order line, net of refunds, in USD. The certified source for every revenue question.",
     "certification": "Certification.Gold (valid until 2027-06-30)",
-    "tags": [{ "tagFQN": "Tier.Tier1", "source": "Classification" }],
-    "owners": [{ "name": "finance_data", "displayName": "Finance Data" }],
-    "profile": { "timestamp": 1799992800000, "rowCount": 48600000 },
-    "quality": { "summary": { "success": 41, "total": 42 } },
-    "usageSummary": { "monthlyStats": { "count": 1200 } },
-    "dataModel": { "modelType": "DBT", "topQuery": { "sql": "select region_code, sum(net_amount) from analytics.fct_revenue group by 1", "runs": 312, "days": 30 } },
+    "tags": [
+      {
+        "tagFQN": "Tier.Tier1",
+        "source": "Classification"
+      }
+    ],
+    "owners": [
+      {
+        "name": "finance_data",
+        "displayName": "Finance Data"
+      }
+    ],
+    "profile": {
+      "timestamp": 1799992800000,
+      "rowCount": 48600000
+    },
+    "quality": {
+      "summary": {
+        "success": 41,
+        "total": 42
+      }
+    },
+    "usageSummary": {
+      "monthlyStats": {
+        "count": 1200
+      }
+    },
+    "dataModel": {
+      "modelType": "DBT",
+      "topQuery": {
+        "sql": "select region_code, sum(net_amount) from analytics.fct_revenue group by 1",
+        "runs": 312,
+        "days": 30
+      }
+    },
     "openMetadataUrl": "https://acme.getcollate.io/table/snowflake.analytics.fct_revenue",
     "columns": [
-      { "name": "order_id", "dataType": "STRING", "description": "Joins fct_orders", "constraint": "PRIMARY_KEY" },
-      { "name": "net_amount", "dataType": "NUMBER", "description": "USD, net of refunds", "tags": [{ "tagFQN": "Glossary.Revenue", "source": "Glossary", "labelType": "Manual" }] },
-      { "name": "region_code", "dataType": "STRING", "description": "12 nulls in last run", "dqFailing": true },
-      { "name": "customer_email", "dataType": "STRING", "description": "Masked for your role", "tags": [{ "tagFQN": "PII.Sensitive", "source": "Classification", "labelType": "Manual" }] }
+      {
+        "name": "order_id",
+        "dataType": "STRING",
+        "description": "Joins fct_orders",
+        "constraint": "PRIMARY_KEY"
+      },
+      {
+        "name": "net_amount",
+        "dataType": "NUMBER",
+        "description": "USD, net of refunds",
+        "tags": [
+          {
+            "tagFQN": "Glossary.Revenue",
+            "source": "Glossary",
+            "labelType": "Manual"
+          }
+        ]
+      },
+      {
+        "name": "region_code",
+        "dataType": "STRING",
+        "description": "12 nulls in last run",
+        "dqFailing": true
+      },
+      {
+        "name": "customer_email",
+        "dataType": "STRING",
+        "description": "Masked for your role",
+        "tags": [
+          {
+            "tagFQN": "PII.Sensitive",
+            "source": "Classification",
+            "labelType": "Manual"
+          }
+        ]
+      }
     ]
   },
-  "lineage": {"root": {"entityType": "table", "name": "fct_revenue", "fqn": "analytics.fct_revenue", "url": "https://acme.getcollate.io/table/analytics.fct_revenue", "tier": "Tier1", "detail": "dbt · hourly"}, "upstream": [{"entityType": "table", "name": "orders", "fqn": "raw.orders", "url": "https://acme.getcollate.io/table/raw.orders", "hop": 2}, {"entityType": "table", "name": "refunds", "fqn": "raw.refunds", "url": "https://acme.getcollate.io/table/raw.refunds", "hop": 1, "hasFailingCheck": true, "failingLabel": "Freshness failing"}, {"entityType": "table", "name": "stg_fx_rates", "fqn": "stg_fx_rates", "url": "https://acme.getcollate.io/table/stg_fx_rates", "hop": 1}], "downstream": [{"entityType": "dashboard", "name": "Revenue Overview", "fqn": "bi.revenue_overview", "url": "https://acme.getcollate.io/dashboard/bi.revenue_overview", "hop": 1}, {"entityType": "dashboard", "name": "Exec QBR", "fqn": "bi.exec_qbr", "url": "https://acme.getcollate.io/dashboard/bi.exec_qbr", "hop": 1}, {"entityType": "mlmodel", "name": "churn_forecast", "fqn": "ml.churn_forecast", "url": "https://acme.getcollate.io/mlmodel/ml.churn_forecast", "hop": 1}], "upstreamTotal": 3, "downstreamTotal": 3, "upstreamHops": 2, "downstreamHops": 1, "hiddenNodes": 0, "impact": {"downstream": [{"entityType": "dashboard", "count": 2}, {"entityType": "mlmodel", "count": 1}], "teams": 3, "failingUpstream": ["raw.refunds"]}, "columns": [{"from": "raw.orders.amount", "to": "fct_revenue.net_amount"}], "columnsTotal": 1},
-  "ontology": {"concept": {"name": "Customer", "fqn": "Commercial.Customer", "url": "https://acme.getcollate.io/ontology/commercial/Customer"}, "glossary": "Commercial", "url": "https://acme.getcollate.io/ontology/commercial/Customer", "totalRelations": 5, "relations": [{"relation": "is a", "term": {"name": "Party", "fqn": "Commercial.Party", "url": "https://acme.getcollate.io/ontology/commercial/Party"}, "table": {"fqn": "dim_party", "name": "dim_party", "url": "https://acme.getcollate.io/table/dim_party", "certified": true}}, {"relation": "places", "term": {"name": "Order", "fqn": "Commercial.Order", "url": "https://acme.getcollate.io/ontology/commercial/Order"}, "table": {"fqn": "analytics.fct_orders", "name": "fct_orders", "url": "https://acme.getcollate.io/table/analytics.fct_orders", "certified": true}}, {"relation": "has", "term": {"name": "Subscription", "fqn": "Commercial.Subscription", "url": "https://acme.getcollate.io/ontology/commercial/Subscription"}, "table": {"fqn": "analytics.fct_subscriptions", "name": "fct_subscriptions", "url": "https://acme.getcollate.io/table/analytics.fct_subscriptions", "certified": true}}, {"relation": "belongs to", "term": {"name": "Account", "fqn": "Commercial.Account", "url": "https://acme.getcollate.io/ontology/commercial/Account"}, "table": {"fqn": "analytics.dim_account", "name": "dim_account", "url": "https://acme.getcollate.io/table/analytics.dim_account", "certified": true}}, {"relation": "generates", "term": {"name": "Revenue", "fqn": "Commercial.Revenue", "url": "https://acme.getcollate.io/ontology/commercial/Revenue"}, "table": {"fqn": "analytics.fct_revenue", "name": "fct_revenue", "url": "https://acme.getcollate.io/table/analytics.fct_revenue", "certified": true}}], "target": {"name": "Revenue", "fqn": "Commercial.Revenue"}, "joinPath": [{"table": "dim_customer", "column": "customer_id"}, {"table": "fct_orders", "column": "customer_id"}, {"table": "fct_revenue", "column": "order_id"}]},
-  "memory": {"captured": true, "id": "6f1c1c1e-7b1a-4c0e-8a55-3d1f0a9d0c11", "title": "Monthly ARR is the arr_daily snapshot on the last day of the month", "fact": "Monthly ARR is the arr_daily snapshot taken on the last day of the month, not the average of its days.", "status": "Approved", "visibility": "Shared", "sharedWith": ["FinanceAnalyst"], "savedAt": 1799999880000, "client": "Claude Desktop", "linkedAssets": [{"fqn": "Finance.ARR", "type": "metric", "url": "https://acme.getcollate.io/metric/Finance.ARR"}, {"fqn": "analytics.finance.public.arr_daily", "type": "table", "url": "https://acme.getcollate.io/table/analytics.finance.public.arr_daily"}], "url": "https://acme.getcollate.io/context-center/memories?memory=agent-memory-6f1c1c1e-7b1a-4c0e-8a55-3d1f0a9d0c11"}
+  "lineage": {
+    "root": {
+      "entityType": "table",
+      "name": "fct_revenue",
+      "fqn": "analytics.fct_revenue",
+      "url": "https://acme.getcollate.io/table/analytics.fct_revenue",
+      "tier": "Tier1",
+      "detail": "dbt · hourly"
+    },
+    "upstream": [
+      {
+        "entityType": "table",
+        "name": "orders",
+        "fqn": "raw.orders",
+        "url": "https://acme.getcollate.io/table/raw.orders",
+        "hop": 2
+      },
+      {
+        "entityType": "table",
+        "name": "refunds",
+        "fqn": "raw.refunds",
+        "url": "https://acme.getcollate.io/table/raw.refunds",
+        "hop": 1,
+        "hasFailingCheck": true,
+        "failingLabel": "Freshness failing"
+      },
+      {
+        "entityType": "table",
+        "name": "stg_fx_rates",
+        "fqn": "stg_fx_rates",
+        "url": "https://acme.getcollate.io/table/stg_fx_rates",
+        "hop": 1
+      }
+    ],
+    "downstream": [
+      {
+        "entityType": "dashboard",
+        "name": "Revenue Overview",
+        "fqn": "bi.revenue_overview",
+        "url": "https://acme.getcollate.io/dashboard/bi.revenue_overview",
+        "hop": 1
+      },
+      {
+        "entityType": "dashboard",
+        "name": "Exec QBR",
+        "fqn": "bi.exec_qbr",
+        "url": "https://acme.getcollate.io/dashboard/bi.exec_qbr",
+        "hop": 1
+      },
+      {
+        "entityType": "mlmodel",
+        "name": "churn_forecast",
+        "fqn": "ml.churn_forecast",
+        "url": "https://acme.getcollate.io/mlmodel/ml.churn_forecast",
+        "hop": 1
+      }
+    ],
+    "upstreamTotal": 3,
+    "downstreamTotal": 3,
+    "upstreamHops": 2,
+    "downstreamHops": 1,
+    "hiddenNodes": 0,
+    "impact": {
+      "downstream": [
+        {
+          "entityType": "dashboard",
+          "count": 2
+        },
+        {
+          "entityType": "mlmodel",
+          "count": 1
+        }
+      ],
+      "teams": 3,
+      "failingUpstream": [
+        "raw.refunds"
+      ]
+    },
+    "columns": [
+      {
+        "from": "raw.orders.amount",
+        "to": "fct_revenue.net_amount"
+      }
+    ],
+    "columnsTotal": 1
+  },
+  "ontology": {
+    "concept": {
+      "name": "Customer",
+      "fqn": "Commercial.Customer",
+      "url": "https://acme.getcollate.io/ontology/commercial/Customer"
+    },
+    "glossary": "Commercial",
+    "url": "https://acme.getcollate.io/ontology/commercial/Customer",
+    "totalRelations": 5,
+    "relations": [
+      {
+        "relation": "is a",
+        "term": {
+          "name": "Party",
+          "fqn": "Commercial.Party",
+          "url": "https://acme.getcollate.io/ontology/commercial/Party"
+        },
+        "table": {
+          "fqn": "dim_party",
+          "name": "dim_party",
+          "url": "https://acme.getcollate.io/table/dim_party",
+          "certified": true
+        }
+      },
+      {
+        "relation": "places",
+        "term": {
+          "name": "Order",
+          "fqn": "Commercial.Order",
+          "url": "https://acme.getcollate.io/ontology/commercial/Order"
+        },
+        "table": {
+          "fqn": "analytics.fct_orders",
+          "name": "fct_orders",
+          "url": "https://acme.getcollate.io/table/analytics.fct_orders",
+          "certified": true
+        }
+      },
+      {
+        "relation": "has",
+        "term": {
+          "name": "Subscription",
+          "fqn": "Commercial.Subscription",
+          "url": "https://acme.getcollate.io/ontology/commercial/Subscription"
+        },
+        "table": {
+          "fqn": "analytics.fct_subscriptions",
+          "name": "fct_subscriptions",
+          "url": "https://acme.getcollate.io/table/analytics.fct_subscriptions",
+          "certified": true
+        }
+      },
+      {
+        "relation": "belongs to",
+        "term": {
+          "name": "Account",
+          "fqn": "Commercial.Account",
+          "url": "https://acme.getcollate.io/ontology/commercial/Account"
+        },
+        "table": {
+          "fqn": "analytics.dim_account",
+          "name": "dim_account",
+          "url": "https://acme.getcollate.io/table/analytics.dim_account",
+          "certified": true
+        }
+      },
+      {
+        "relation": "generates",
+        "term": {
+          "name": "Revenue",
+          "fqn": "Commercial.Revenue",
+          "url": "https://acme.getcollate.io/ontology/commercial/Revenue"
+        },
+        "table": {
+          "fqn": "analytics.fct_revenue",
+          "name": "fct_revenue",
+          "url": "https://acme.getcollate.io/table/analytics.fct_revenue",
+          "certified": true
+        }
+      }
+    ],
+    "target": {
+      "name": "Revenue",
+      "fqn": "Commercial.Revenue"
+    },
+    "joinPath": [
+      {
+        "table": "dim_customer",
+        "column": "customer_id"
+      },
+      {
+        "table": "fct_orders",
+        "column": "customer_id"
+      },
+      {
+        "table": "fct_revenue",
+        "column": "order_id"
+      }
+    ]
+  },
+  "memory": {
+    "captured": true,
+    "id": "6f1c1c1e-7b1a-4c0e-8a55-3d1f0a9d0c11",
+    "title": "Monthly ARR is the arr_daily snapshot on the last day of the month",
+    "fact": "Monthly ARR is the arr_daily snapshot taken on the last day of the month, not the average of its days.",
+    "status": "Approved",
+    "visibility": "Shared",
+    "sharedWith": [
+      "FinanceAnalyst"
+    ],
+    "savedAt": 1799999880000,
+    "client": "Claude Desktop",
+    "linkedAssets": [
+      {
+        "fqn": "Finance.ARR",
+        "type": "metric",
+        "url": "https://acme.getcollate.io/metric/Finance.ARR"
+      },
+      {
+        "fqn": "analytics.finance.public.arr_daily",
+        "type": "table",
+        "url": "https://acme.getcollate.io/table/analytics.finance.public.arr_daily"
+      }
+    ],
+    "url": "https://acme.getcollate.io/context-center/memories?memory=agent-memory-6f1c1c1e-7b1a-4c0e-8a55-3d1f0a9d0c11"
+  },
+  "kgfind": {
+    "operation": "find",
+    "run": "6f1c2a90-1b2c-4d5e-8f90-a1b2c3d4e5f6",
+    "counts": {
+      "offered": 0,
+      "explored": 5,
+      "cited": 0,
+      "calls": 1
+    },
+    "nodes": [
+      {
+        "id": "https://open-metadata.org/entity/table/00000001",
+        "name": "orders",
+        "type": "table",
+        "state": "explored",
+        "tier": "Tier.Tier1",
+        "certification": "Certification.Gold",
+        "failingTests": 4,
+        "openIncidents": 3
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000002",
+        "name": "customers",
+        "type": "table",
+        "state": "explored",
+        "tier": "Tier.Tier1"
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000003",
+        "name": "customers_clean",
+        "type": "table",
+        "state": "explored",
+        "status": "Deprecated"
+      },
+      {
+        "id": "https://open-metadata.org/entity/glossaryTerm/00000004",
+        "name": "Customer Lifetime Value",
+        "type": "glossaryTerm",
+        "state": "explored"
+      },
+      {
+        "id": "https://open-metadata.org/entity/column/00000005",
+        "name": "orders.amount",
+        "type": "column",
+        "state": "explored"
+      }
+    ],
+    "memories": [
+      {
+        "id": "https://open-metadata.org/entity/contextMemory/1",
+        "title": "Orders with no lines are test tickets",
+        "stage": "Approved",
+        "about": "https://open-metadata.org/entity/table/00000001",
+        "origin": "card"
+      }
+    ]
+  },
+  "kgcite": {
+    "operation": "cite",
+    "run": "6f1c2a90-1b2c-4d5e-8f90-a1b2c3d4e5f6",
+    "counts": {
+      "offered": 3,
+      "explored": 4,
+      "cited": 3,
+      "calls": 6
+    },
+    "nodes": [
+      {
+        "id": "https://open-metadata.org/entity/table/00000001",
+        "name": "orders",
+        "type": "table",
+        "state": "cited",
+        "tier": "Tier.Tier1",
+        "failingTests": 4,
+        "openIncidents": 3
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000002",
+        "name": "customers",
+        "type": "table",
+        "state": "cited",
+        "certification": "Certification.Gold"
+      },
+      {
+        "id": "https://open-metadata.org/entity/glossaryTerm/00000003",
+        "name": "Customer Lifetime Value",
+        "type": "glossaryTerm",
+        "state": "cited"
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000004",
+        "name": "stg_orders",
+        "type": "table",
+        "state": "explored"
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000005",
+        "name": "raw_orders",
+        "type": "table",
+        "state": "explored"
+      },
+      {
+        "id": "https://open-metadata.org/entity/testCase/00000006",
+        "name": "orders_order_cost_not_null",
+        "type": "testCase",
+        "state": "explored",
+        "failingTests": 1,
+        "openIncidents": 1
+      },
+      {
+        "id": "https://open-metadata.org/entity/team/00000007",
+        "name": "growth",
+        "type": "team",
+        "state": "explored"
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000008",
+        "name": "customers_clean",
+        "type": "table",
+        "state": "offered",
+        "status": "Deprecated"
+      },
+      {
+        "id": "https://open-metadata.org/entity/table/00000009",
+        "name": "payments",
+        "type": "table",
+        "state": "offered"
+      },
+      {
+        "id": "https://open-metadata.org/entity/testCase/000000010",
+        "name": "orders_freshness",
+        "type": "testCase",
+        "state": "offered"
+      }
+    ],
+    "edges": [
+      {
+        "from": "https://open-metadata.org/entity/table/00000004",
+        "to": "https://open-metadata.org/entity/table/00000001",
+        "relationship": "om:upstream",
+        "state": "cited"
+      },
+      {
+        "from": "https://open-metadata.org/entity/table/00000005",
+        "to": "https://open-metadata.org/entity/table/00000004",
+        "relationship": "om:upstream",
+        "state": "explored"
+      },
+      {
+        "from": "https://open-metadata.org/entity/testCase/00000006",
+        "to": "https://open-metadata.org/entity/table/00000001",
+        "relationship": "om:testsEntity",
+        "state": "explored"
+      },
+      {
+        "from": "https://open-metadata.org/entity/table/00000001",
+        "to": "https://open-metadata.org/entity/team/00000007",
+        "relationship": "om:hasOwner",
+        "state": "explored"
+      },
+      {
+        "from": "https://open-metadata.org/entity/glossaryTerm/00000003",
+        "to": "https://open-metadata.org/entity/table/00000002",
+        "relationship": "om:boundAsset",
+        "state": "cited"
+      },
+      {
+        "from": "https://open-metadata.org/entity/testCase/000000010",
+        "to": "https://open-metadata.org/entity/table/00000001",
+        "relationship": "om:testsEntity",
+        "state": "explored"
+      }
+    ],
+    "memories": [
+      {
+        "id": "https://open-metadata.org/entity/contextMemory/1",
+        "title": "Orders with no lines are test tickets",
+        "stage": "Approved",
+        "about": "https://open-metadata.org/entity/table/00000001",
+        "origin": "card"
+      },
+      {
+        "id": "https://open-metadata.org/entity/contextMemory/2",
+        "title": "Refunds stay in the revenue of their month",
+        "stage": "Unprocessed",
+        "awaitingReview": true,
+        "origin": "saved"
+      }
+    ],
+    "steps": [
+      {
+        "sequence": 1,
+        "operation": "find",
+        "line": "“customer lifetime value” → 5 node(s)"
+      },
+      {
+        "sequence": 2,
+        "operation": "expand",
+        "line": "om:upstream from 1 node(s) → 2 node(s)"
+      },
+      {
+        "sequence": 3,
+        "operation": "expand",
+        "line": "om:testsEntity from 1 node(s) → 2 node(s)"
+      },
+      {
+        "sequence": 4,
+        "operation": "expand",
+        "line": "om:boundAsset from 1 node(s) → 1 node(s)"
+      },
+      {
+        "sequence": 5,
+        "operation": "query",
+        "line": "SELECT ?o WHERE { <orders> om:hasOwner ?o } → 1 node(s)"
+      },
+      {
+        "sequence": 6,
+        "operation": "cite",
+        "line": "3 node(s) cited → 0 node(s)"
+      }
+    ]
+  }
 }

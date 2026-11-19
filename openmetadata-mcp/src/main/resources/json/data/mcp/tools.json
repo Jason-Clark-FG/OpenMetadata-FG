@@ -1400,6 +1400,11 @@
     {
       "name": "knowledge_graph",
       "title": "Explore Knowledge Graph",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/knowledge-graph-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,

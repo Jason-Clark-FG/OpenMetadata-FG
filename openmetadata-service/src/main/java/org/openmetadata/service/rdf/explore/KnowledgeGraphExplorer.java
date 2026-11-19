@@ -112,6 +112,11 @@ public final class KnowledgeGraphExplorer {
         .toList();
   }
 
+  /** The cards of {@code nodes}, read without recording a step, for a card a host draws. */
+  public List<NodeCard> cards(final List<String> nodes) {
+    return cards.read(nodes);
+  }
+
   /** The memories the graph holds, read through this caller's graph reader. */
   public GraphMemories memories() {
     return new GraphMemories(graph);
