@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "為此伺服器建置、所有員工通用的同一套件。",
     "agent-harness-plugin-part-hooks": "在每個事件向 OpenMetadata 要求內容脈絡與防護規則決策。由 Claude Code 與 Cowork 執行。",
     "agent-harness-plugin-part-mcp": "伺服器 URL。成員登入一次。",
-    "agent-harness-plugin-part-skill": "如何使用 OpenMetadata：取得內容脈絡、加以引用，並遵循防護規則決策。",
     "agent-harness-plugin-persona-at-sign-in": "角色在登入時決定，因此一個套件即可服務所有員工。",
     "agent-harness-plugin-served-at-run-time": "指示與防護規則由 OpenMetadata 在執行時提供。",
     "agent-harness-preview-empty": "此事件不會注入任何內容。",

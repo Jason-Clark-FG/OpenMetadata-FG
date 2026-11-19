@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "همان بسته برای هر کارمند، ساخته‌شده برای این سرور.",
     "agent-harness-plugin-part-hooks": "در هر رویداد از OpenMetadata زمینه و تصمیم‌های محافظ را می‌خواهند. Claude Code و Cowork آن‌ها را اجرا می‌کنند.",
     "agent-harness-plugin-part-mcp": "نشانی URL سرور. اعضا یک بار وارد می‌شوند.",
-    "agent-harness-plugin-part-skill": "نحوه استفاده از OpenMetadata: دریافت زمینه، استناد به آن و پیروی از تصمیم‌های محافظ.",
     "agent-harness-plugin-persona-at-sign-in": "پرسونا هنگام ورود تعیین می‌شود، پس یک بسته برای هر کارمند کافی است.",
     "agent-harness-plugin-served-at-run-time": "دستورالعمل‌ها و محافظ‌ها در زمان اجرا توسط OpenMetadata ارائه می‌شوند.",
     "agent-harness-preview-empty": "در این رویداد چیزی تزریق نمی‌شود.",

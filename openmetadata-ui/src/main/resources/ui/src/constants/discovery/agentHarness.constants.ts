@@ -130,13 +130,8 @@ export const PLUGIN_ZIP_ENTRIES = [
   '.codex-plugin/plugin.json',
   '.mcp.json',
   'hooks/hooks.json',
-  'skills/openmetadata/SKILL.md',
 ];
-export const PLUGIN_INCLUDE_KEYS = [
-  'label.skill',
-  'label.mcp',
-  'label.hook-plural',
-];
+export const PLUGIN_INCLUDE_KEYS = ['label.mcp', 'label.hook-plural'];
 
 export const CLAUDE_MANAGED_SETTINGS_FILE = 'managed-settings.json';
 export const CODEX_REQUIREMENTS_FILE = 'requirements.toml';

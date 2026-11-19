@@ -884,10 +884,9 @@ call.
 |---|---|
 | `.mcp.json`: the OpenMetadata `/mcp` URL | The server URL changes |
 | `hooks/hooks.json`: which host events call `harness_hook`, with matchers | An OpenMetadata release adds an event or a matcher |
-| `skills/openmetadata/SKILL.md`: how to use OpenMetadata (call `get_context`, cite, follow decisions) | An OpenMetadata release changes the skill |
 | `.claude-plugin/plugin.json`: name and version | With either of the above |
 
-All three triggers are OpenMetadata releases or a URL change, never an admin edit. Even then,
+Both triggers are OpenMetadata releases or a URL change, never an admin edit. Even then,
 users take no action:
 - **Claude** org plugins are replaced by the admin, once, in Organization settings; members get the
   new version.

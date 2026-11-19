@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "แพ็กเกจเดียวกันสำหรับพนักงานทุกคน สร้างขึ้นสำหรับเซิร์ฟเวอร์นี้",
     "agent-harness-plugin-part-hooks": "ขอบริบทและการตัดสินของการป้องกันจาก OpenMetadata ในแต่ละเหตุการณ์ Claude Code และ Cowork เป็นผู้รัน",
     "agent-harness-plugin-part-mcp": "URL ของเซิร์ฟเวอร์ สมาชิกลงชื่อเข้าใช้ครั้งเดียว",
-    "agent-harness-plugin-part-skill": "วิธีใช้ OpenMetadata: ดึงบริบท อ้างอิงบริบท และทำตามการตัดสินของการป้องกัน",
     "agent-harness-plugin-persona-at-sign-in": "เพอร์โซนาจะถูกกำหนดตอนลงชื่อเข้าใช้ แพ็กเกจเดียวจึงใช้ได้กับพนักงานทุกคน",
     "agent-harness-plugin-served-at-run-time": "OpenMetadata ให้คำสั่งและการป้องกันขณะรันไทม์",
     "agent-harness-preview-empty": "ไม่มีการแทรกสิ่งใดในเหตุการณ์นี้",

@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "すべての従業員に同じパッケージ。このサーバー用にビルドされています。",
     "agent-harness-plugin-part-hooks": "各イベントで OpenMetadata にコンテキストとガードレールの判定を問い合わせます。Claude Code と Cowork が実行します。",
     "agent-harness-plugin-part-mcp": "サーバー URL。メンバーは一度サインインします。",
-    "agent-harness-plugin-part-skill": "OpenMetadata の使い方: コンテキストを取得し、引用し、ガードレールの判定に従います。",
     "agent-harness-plugin-persona-at-sign-in": "ペルソナはサインイン時に決まるため、1 つのパッケージですべての従業員に対応します。",
     "agent-harness-plugin-served-at-run-time": "指示とガードレールは実行時に OpenMetadata から提供されます。",
     "agent-harness-preview-empty": "このイベントでは何も挿入されません。",

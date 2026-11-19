@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "אותה חבילה לכל עובד, שנבנתה עבור שרת זה.",
     "agent-harness-plugin-part-hooks": "מבקשים מ-OpenMetadata הקשר והחלטות של מעקות בטיחות בכל אירוע. Claude Code ו-Cowork מריצים אותם.",
     "agent-harness-plugin-part-mcp": "כתובת ה-URL של השרת. החברים נכנסים פעם אחת.",
-    "agent-harness-plugin-part-skill": "איך להשתמש ב-OpenMetadata: לאחזר הקשר, לצטט אותו ולפעול לפי החלטות מעקות הבטיחות.",
     "agent-harness-plugin-persona-at-sign-in": "הפרסונה נקבעת בכניסה, ולכן חבילה אחת משרתת כל עובד.",
     "agent-harness-plugin-served-at-run-time": "ההנחיות ומעקות הבטיחות מסופקים על ידי OpenMetadata בזמן ריצה.",
     "agent-harness-preview-empty": "שום דבר לא מתווסף באירוע הזה.",

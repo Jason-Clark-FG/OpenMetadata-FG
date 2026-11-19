@@ -233,11 +233,6 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
       <div className="tw:grid tw:grid-cols-[repeat(auto-fit,minmax(200px,1fr))] tw:border-b tw:border-secondary">
         {[
           {
-            descriptionKey: 'message.agent-harness-plugin-part-skill',
-            file: 'skills/openmetadata/SKILL.md',
-            labelKey: 'label.skill',
-          },
-          {
             descriptionKey: 'message.agent-harness-plugin-part-mcp',
             file: '.mcp.json',
             labelKey: 'label.mcp',

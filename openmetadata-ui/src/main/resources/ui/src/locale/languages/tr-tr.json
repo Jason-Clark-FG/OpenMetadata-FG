@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Her çalışan için aynı paket, bu sunucu için oluşturuldu.",
     "agent-harness-plugin-part-hooks": "Her olayda OpenMetadata'dan bağlam ve koruma kararları ister. Claude Code ve Cowork bunları çalıştırır.",
     "agent-harness-plugin-part-mcp": "Sunucu URL'si. Üyeler bir kez oturum açar.",
-    "agent-harness-plugin-part-skill": "OpenMetadata nasıl kullanılır: bağlamı al, ona atıf yap, koruma kararlarına uy.",
     "agent-harness-plugin-persona-at-sign-in": "Persona oturum açılırken belirlenir, bu yüzden tek paket her çalışana hizmet eder.",
     "agent-harness-plugin-served-at-run-time": "Talimatlar ve korumalar çalışma anında OpenMetadata tarafından sunulur.",
     "agent-harness-preview-empty": "Bu olayda hiçbir şey eklenmez.",

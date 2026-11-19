@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "为此服务器构建、所有员工通用的同一软件包。",
     "agent-harness-plugin-part-hooks": "在每个事件中向 OpenMetadata 请求上下文和防护规则决策。由 Claude Code 和 Cowork 运行。",
     "agent-harness-plugin-part-mcp": "服务器 URL。成员登录一次。",
-    "agent-harness-plugin-part-skill": "如何使用 OpenMetadata：获取上下文、引用它并遵循防护规则决策。",
     "agent-harness-plugin-persona-at-sign-in": "角色在登录时确定，因此一个软件包即可服务所有员工。",
     "agent-harness-plugin-served-at-run-time": "指令和防护规则由 OpenMetadata 在运行时提供。",
     "agent-harness-preview-empty": "此事件不会注入任何内容。",
