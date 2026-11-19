@@ -671,7 +671,7 @@ export const getInstallCommand = (
     case SurfaceID.ClaudeCode:
       return `unzip ${PLUGIN_ZIP_NAME} -d ${PLUGIN_DIR}\nclaude --plugin-dir ./${PLUGIN_DIR}`;
     case SurfaceID.Codex:
-      return `codex mcp add ${serverName} --url ${serverUrl}`;
+      return `codex mcp add ${serverName} --url ${serverUrl}\ncodex mcp login ${serverName}`;
     default:
       return undefined;
   }

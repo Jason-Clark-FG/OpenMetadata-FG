@@ -33,7 +33,7 @@ describe('ConnectAiToolsModal', () => {
       'unzip openmetadata.zip -d openmetadata claude --plugin-dir ./openmetadata'
     );
     expect(screen.getByTestId('codex-command')).toHaveTextContent(
-      `codex mcp add openmetadata --url ${window.location.origin}/mcp`
+      `codex mcp add openmetadata --url ${window.location.origin}/mcp codex mcp login openmetadata`
     );
   });
 

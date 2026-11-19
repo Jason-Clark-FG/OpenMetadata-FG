@@ -101,7 +101,7 @@ describe('PluginPanel', () => {
     fireEvent.click(target('cli'));
 
     expect(screen.getByTestId('codex-command')).toHaveTextContent(
-      'codex mcp add openmetadata --url https://om.example.com/mcp'
+      'codex mcp add openmetadata --url https://om.example.com/mcp codex mcp login openmetadata'
     );
     expect(screen.getByTestId('claude-code-command')).toHaveTextContent(
       'claude --plugin-dir ./openmetadata'
