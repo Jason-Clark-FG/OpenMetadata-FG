@@ -67,7 +67,16 @@ final class HarnessDocuments {
       PersonaContextDefinition definition,
       PersonaContext context) {}
 
+  static final String REMEMBER_INSTRUCTION =
+      "## Remembering\n\nWhen the user corrects you or states a lasting fact about the data (a"
+          + " definition, which table to use, a caveat), call remember with the fact and the"
+          + " assets it is about.";
+
   private HarnessDocuments() {}
+
+  private static boolean captures(final AgentHarnessSpec spec) {
+    return spec.getMemory() != null && Boolean.TRUE.equals(spec.getMemory().getCapture());
+  }
 
   static Document from(final Sources sources) {
     return new Document(fixedItems(sources), knowledgeItems(sources));
@@ -99,6 +108,10 @@ final class HarnessDocuments {
     items.add(
         ContextItem.fixed(Origin.DEFAULT, ContextItem.INSTRUCTIONS, "answerCards", ANSWER_RULE));
     items.addAll(skillItems(sources));
+    if (captures(sources.effective())) {
+      items.add(
+          ContextItem.fixed(Origin.DEFAULT, ContextItem.MEMORY, "memory", REMEMBER_INSTRUCTION));
+    }
     return items;
   }
 

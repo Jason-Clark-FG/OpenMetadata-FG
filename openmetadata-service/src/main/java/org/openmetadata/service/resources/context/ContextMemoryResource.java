@@ -48,6 +48,7 @@ import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +64,7 @@ import org.openmetadata.schema.api.context.ExtractedMemoryApproval;
 import org.openmetadata.schema.api.context.ExtractionAvailability;
 import org.openmetadata.schema.api.data.RestoreEntity;
 import org.openmetadata.schema.entity.context.ContextMemory;
+import org.openmetadata.schema.entity.context.ContextMemorySourceType;
 import org.openmetadata.schema.entity.context.ContextMemoryStatus;
 import org.openmetadata.schema.entity.context.MemoryDerivation;
 import org.openmetadata.schema.entity.context.MemoryOutcomes;
@@ -242,9 +244,18 @@ public class ContextMemoryResource extends EntityResource<ContextMemory, Context
                   "Only return knowledge pills whose primaryEntity (the data asset the pill applies to) has this id",
               schema = @Schema(type = "string", format = "uuid"))
           @QueryParam("primaryEntityId")
-          UUID primaryEntityId)
+          UUID primaryEntityId,
+      @Parameter(
+              description =
+                  "Only return memories created this way, for example AgentCapture for the ones"
+                      + " agents recorded")
+          @QueryParam("sourceType")
+          String sourceType)
       throws IOException {
-    if (statuses != null || hasSearchBackedListParams(q, assets, author, pinned, sortBy, offset)) {
+    ContextMemorySourceType sourceTypeFilter = parseSourceType(sourceType);
+    if (statuses != null
+        || sourceTypeFilter != null
+        || hasSearchBackedListParams(q, assets, author, pinned, sortBy, offset)) {
       return withVisibleEvidence(
           securityContext,
           listMemoriesFromSearch(
@@ -265,7 +276,8 @@ public class ContextMemoryResource extends EntityResource<ContextMemory, Context
               sourceFileId,
               sourceEntityId,
               primaryEntityId,
-              statuses == null ? null : parseStatuses(statuses)));
+              statuses == null ? null : parseStatuses(statuses),
+              sourceTypeFilter));
     }
 
     ListFilter filter = new ListFilter(include);
@@ -386,11 +398,15 @@ public class ContextMemoryResource extends EntityResource<ContextMemory, Context
       UUID sourceFileId,
       UUID sourceEntityId,
       UUID primaryEntityId,
-      List<ContextMemoryStatus> statuses)
+      List<ContextMemoryStatus> statuses,
+      ContextMemorySourceType sourceType)
       throws IOException {
     validateSearchBackedListParams(before, after, sourceFileId, sourceEntityId, primaryEntityId);
     SearchListFilter searchListFilter =
         buildContextMemorySearchFilter(include, assets, author, pinned, null);
+    if (sourceType != null) {
+      searchListFilter.addQueryParam("sourceType", sourceType.value());
+    }
     if (statuses != null) {
       searchListFilter.withMemoryStatuses(statuses);
     }
@@ -435,6 +451,23 @@ public class ContextMemoryResource extends EntityResource<ContextMemory, Context
       throw new BadRequestException("Invalid memory status: " + value);
     }
     return status;
+  }
+
+  private static ContextMemorySourceType parseSourceType(String sourceType) {
+    if (CommonUtil.nullOrEmpty(sourceType)) {
+      return null;
+    }
+    try {
+      return ContextMemorySourceType.fromValue(sourceType.strip());
+    } catch (IllegalArgumentException unknown) {
+      throw new BadRequestException(
+          "Unsupported sourceType value '"
+              + sourceType
+              + "'. Allowed: "
+              + Arrays.stream(ContextMemorySourceType.values())
+                  .map(ContextMemorySourceType::value)
+                  .toList());
+    }
   }
 
   private static boolean hasSearchBackedListParams(

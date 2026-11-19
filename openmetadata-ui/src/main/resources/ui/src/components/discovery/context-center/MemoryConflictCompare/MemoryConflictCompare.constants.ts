@@ -26,6 +26,7 @@ export const CHANGED_CELL_CLASS = {
 };
 
 export const MEMORY_SOURCE_LABEL_KEYS: Record<SourceType, string> = {
+  [SourceType.AgentCapture]: 'label.agent',
   [SourceType.ChatPromotion]: 'label.conversation',
   [SourceType.ConversationExtraction]: 'label.conversation',
   [SourceType.FileExtraction]: 'label.file',

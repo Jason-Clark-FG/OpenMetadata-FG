@@ -97,7 +97,7 @@ public class CreateEntityTool implements McpTool {
     return result;
   }
 
-  private static void authorizeCreate(
+  static void authorizeCreate(
       Authorizer authorizer,
       Limits limits,
       CatalogSecurityContext securityContext,
@@ -131,7 +131,7 @@ public class CreateEntityTool implements McpTool {
     }
   }
 
-  private static RestUtil.PutResponse<EntityInterface<?>> persist(
+  static RestUtil.PutResponse<EntityInterface<?>> persist(
       EntityCreationSpec type, EntityInterface<?> entity, String userName) {
     EntityRepository<EntityInterface<?>> repository = type.typedRepository();
     String impersonatedBy = ImpersonationContext.getImpersonatedBy();

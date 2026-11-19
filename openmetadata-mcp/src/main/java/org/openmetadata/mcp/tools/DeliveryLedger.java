@@ -29,7 +29,7 @@ public final class DeliveryLedger {
 
   /** Who is calling. {@code sessionId} is null when the transport carries none. */
   public record Caller(String user, String client, String persona, String sessionId) {
-    private String conversationKey() {
+    public String conversationKey() {
       return String.join("\n", user, nonNull(client), nonNull(persona), nonNull(sessionId));
     }
 

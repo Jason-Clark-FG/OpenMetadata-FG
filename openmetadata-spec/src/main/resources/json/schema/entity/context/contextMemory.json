@@ -36,16 +36,17 @@
     },
     "sourceType": {
       "javaType": "org.openmetadata.schema.entity.context.ContextMemorySourceType",
-      "description": "How the memory was created. ConversationExtraction is captured automatically at the end of a chat turn; it is ground truth, not regenerable like a file or page pill.",
+      "description": "How the memory was created. ConversationExtraction is captured automatically at the end of a chat turn; it is ground truth, not regenerable like a file or page pill. AgentCapture is written by an agent through the remember tool, under the memory settings of the agent harness its caller is served by.",
       "type": "string",
-      "enum": ["Manual", "ChatPromotion", "RememberRequest", "FileExtraction", "PageExtraction", "ConversationExtraction"],
+      "enum": ["Manual", "ChatPromotion", "RememberRequest", "FileExtraction", "PageExtraction", "ConversationExtraction", "AgentCapture"],
       "javaEnums": [
         { "name": "MANUAL" },
         { "name": "CHAT_PROMOTION" },
         { "name": "REMEMBER_REQUEST" },
         { "name": "FILE_EXTRACTION" },
         { "name": "PAGE_EXTRACTION" },
-        { "name": "CONVERSATION_EXTRACTION" }
+        { "name": "CONVERSATION_EXTRACTION" },
+        { "name": "AGENT_CAPTURE" }
       ],
       "default": "Manual"
     },

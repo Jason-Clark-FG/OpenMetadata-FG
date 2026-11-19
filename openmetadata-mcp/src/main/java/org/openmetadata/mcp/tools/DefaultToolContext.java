@@ -100,6 +100,11 @@ public class DefaultToolContext {
               new FinishAnswerTool().call(authorizer, securityContext, params),
               elapsedMs(startNanos),
               null);
+        case "remember":
+          return new CallToolOutcome(
+              new RememberTool().call(authorizer, limits, securityContext, params),
+              elapsedMs(startNanos),
+              null);
         case "get_user_context":
           result = new GetUserContextTool().execute(authorizer, securityContext, params);
           break;

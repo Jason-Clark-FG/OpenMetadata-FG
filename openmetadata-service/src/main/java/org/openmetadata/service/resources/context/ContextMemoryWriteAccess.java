@@ -161,6 +161,10 @@ public final class ContextMemoryWriteAccess {
   }
 
   /** A memory is read by its own visibility rule; any other entity by the anchor rule. */
+  public static boolean canViewReference(String writer, EntityReference reference) {
+    return canView(writer, reference);
+  }
+
   private static boolean canView(String writer, EntityReference reference) {
     return Entity.CONTEXT_MEMORY.equals(reference.getType())
         ? canReadMemory(writer, reference)
