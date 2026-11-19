@@ -72,7 +72,7 @@ public final class AgentMemoryDuplicates {
     return normalize(memory.getAnswer()).equals(normalize(answer));
   }
 
-  static String normalize(final String text) {
+  public static String normalize(final String text) {
     return text == null
         ? ""
         : text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").strip();

@@ -266,12 +266,12 @@ class RememberToolIT extends McpTestBase {
     assertThat(result.path("content").get(0).path("text").asText()).contains("2000");
   }
 
-  private record Caller(User user, String token) {}
+  record Caller(User user, String token) {}
 
-  private record Team(Caller owner, Caller peer, Caller outsider) {}
+  record Team(Caller owner, Caller peer, Caller outsider) {}
 
   /** An owner and a peer who hold a persona whose harness carries the memory settings, and an outsider. */
-  private static Team team(
+  static Team team(
       final String prefix,
       final AgentMemoryReview review,
       final AgentMemoryVisibility visibility,
@@ -308,11 +308,11 @@ class RememberToolIT extends McpTestBase {
         new Caller(outsider, AgentHarnessApi.tokenFor(outsider)));
   }
 
-  private static Map<String, Object> asset(final Table table) {
+  static Map<String, Object> asset(final Table table) {
     return Map.of("fqn", table.getFullyQualifiedName(), "entityType", "table");
   }
 
-  private static JsonNode memory(final Caller caller, final String id) throws Exception {
+  static JsonNode memory(final Caller caller, final String id) throws Exception {
     final HttpResponse<String> response =
         getResponse(
             "contextCenter/memories/" + id + "?fields=primaryEntity,relatedEntities,owners",
@@ -321,8 +321,7 @@ class RememberToolIT extends McpTestBase {
     return OBJECT_MAPPER.readTree(response.body());
   }
 
-  private static JsonNode listedBySource(final Caller caller, final String sourceType)
-      throws Exception {
+  static JsonNode listedBySource(final Caller caller, final String sourceType) throws Exception {
     final HttpResponse<String> response =
         getResponse("contextCenter/memories?limit=100&sourceType=" + sourceType, caller.token());
     assertThat(response.statusCode()).as(response.body()).isEqualTo(200);

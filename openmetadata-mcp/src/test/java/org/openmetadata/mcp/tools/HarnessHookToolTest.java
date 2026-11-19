@@ -37,6 +37,40 @@ class HarnessHookToolTest {
   }
 
   @Test
+  void aSavedMemoryNoteLeadsTheContextAndStandsAloneWhenNothingElseCompiled() {
+    final Optional<String> note = Optional.of("Saved to OpenMetadata as a memory (Private): X.");
+
+    assertEquals(
+        Map.of(
+            "hookSpecificOutput",
+            Map.of(
+                "hookEventName",
+                "UserPromptSubmit",
+                "additionalContext",
+                "Saved to OpenMetadata as a memory (Private): X.\n\nCite FQNs.")),
+        HarnessHookTool.hookOutput("UserPromptSubmit", compiled("Cite FQNs.", null), 10_000, note));
+    assertEquals(
+        Map.of(
+            "hookSpecificOutput",
+            Map.of(
+                "hookEventName",
+                "UserPromptSubmit",
+                "additionalContext",
+                "Saved to OpenMetadata as a memory (Private): X.")),
+        HarnessHookTool.hookOutput("UserPromptSubmit", compiled("", null), 10_000, note));
+  }
+
+  @Test
+  void theNoteIsReservedOutOfTheCompilesBudget() {
+    final CompileAgentContext request =
+        HarnessHookTool.HookInput.from(Map.of("hook_event_name", "UserPromptSubmit"))
+            .request(400)
+            .orElseThrow();
+
+    assertEquals((10_000 - 400) / 4, request.getMaxTokens());
+  }
+
+  @Test
   void aDenyBecomesAPermissionDecisionWithItsReasons() {
     assertEquals(
         Map.of(

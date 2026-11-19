@@ -83,7 +83,34 @@ public class RememberTool {
       final Limits limits,
       final CatalogSecurityContext securityContext,
       final Map<String, Object> params) {
-    final Request request = Request.parse(params);
+    return run(authorizer, limits, securityContext, Request.parse(params));
+  }
+
+  /**
+   * Saves a fact a hook read from the user's prompt, under the same settings, dedup and linking as
+   * a fact the model records. The memory says it was recorded automatically.
+   */
+  public McpSchema.CallToolResult captureFromPrompt(
+      final Authorizer authorizer,
+      final Limits limits,
+      final CatalogSecurityContext securityContext,
+      final String fact,
+      final List<SessionAssets.Asset> about,
+      final String conversation,
+      final String client) {
+    return run(
+        authorizer,
+        limits,
+        securityContext,
+        new Request(
+            fact, null, null, ContextMemoryType.LEARNING, about, conversation, client, true));
+  }
+
+  private McpSchema.CallToolResult run(
+      final Authorizer authorizer,
+      final Limits limits,
+      final CatalogSecurityContext securityContext,
+      final Request request) {
     final String user = CommonUtils.principal(securityContext);
     final Optional<AppliedMemory> applied =
         GetContextTool.compiler(authorizer).memory(securityContext);
@@ -155,13 +182,21 @@ public class RememberTool {
             .withPrimaryEntity(links.primary())
             .withRelatedEntities(links.related())
             .withSourceType(ContextMemorySourceType.AGENT_CAPTURE);
-    memory.setDescription(
-        request.client() == null
-            ? null
-            : "Recorded by " + request.client() + " through the remember tool.");
+    memory.setDescription(describe(request));
     memory.setUpdatedBy(user);
     memory.setUpdatedAt(System.currentTimeMillis());
     return memory;
+  }
+
+  private static String describe(final Request request) {
+    final String by = request.client() == null ? "an agent" : request.client();
+    String description = null;
+    if (request.automatic()) {
+      description = "Recorded automatically from the user's prompt by " + by + ".";
+    } else if (request.client() != null) {
+      description = "Recorded by " + by + " through the remember tool.";
+    }
+    return description;
   }
 
   private static McpSchema.CallToolResult created(
@@ -377,7 +412,8 @@ public class RememberTool {
       ContextMemoryType memoryType,
       List<SessionAssets.Asset> about,
       String conversation,
-      String client) {
+      String client,
+      boolean automatic) {
 
     static Request parse(final Map<String, Object> params) {
       final Object fact = params.get("fact");
@@ -395,7 +431,8 @@ public class RememberTool {
           memoryType(params.get("memoryType")),
           about(params.get("about")),
           params.get(CONVERSATION_PARAM) instanceof String key ? key : null,
-          optionalText(params, CLIENT_PARAM, 100));
+          optionalText(params, CLIENT_PARAM, 100),
+          false);
     }
 
     private static String optionalText(

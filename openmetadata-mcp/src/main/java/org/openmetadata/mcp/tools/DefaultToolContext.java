@@ -93,7 +93,7 @@ public class DefaultToolContext {
           result = new GetContextTool().execute(authorizer, securityContext, params);
           break;
         case "harness_hook":
-          result = new HarnessHookTool().execute(authorizer, securityContext, params);
+          result = new HarnessHookTool().execute(authorizer, limits, securityContext, params);
           break;
         case "finish_answer":
           return new CallToolOutcome(
