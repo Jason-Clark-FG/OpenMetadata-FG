@@ -20,9 +20,12 @@ import {
   HOOK_EVENT_ORDER,
   PICKABLE_SOURCE_ENTITY_TYPE,
   PICKED_RULE_NAMES,
+  PLUGIN_DIR,
+  PLUGIN_ZIP_NAME,
   TOOL_ACCESS_LEVEL_ORDER,
 } from '../../../constants/discovery/agentHarness.constants';
 import { EntityType } from '../../../enums/entity.enum';
+import { AgentHarnessManagedSettings } from '../../../generated/api/context/agentHarnessManagedSettings';
 import { AgentHarnessPersonaSummary } from '../../../generated/api/context/agentHarnessPersonaSummary';
 import {
   AgentHarness,
@@ -45,6 +48,7 @@ import {
 } from '../../../generated/api/context/agentHarnessState';
 import {
   Surface,
+  SurfaceID,
   SurfaceStatus,
 } from '../../../generated/api/context/agentHarnessSurfaces';
 import { Segment } from '../../../generated/api/context/compiledAgentContext';
@@ -653,4 +657,19 @@ export const surfacesCellText = (
       total: surfaces.length,
     }),
   };
+};
+
+/** The shell command that installs the plugin on a CLI host; undefined for the other surfaces. */
+export const getInstallCommand = (
+  surface: SurfaceID,
+  { serverName, serverUrl }: AgentHarnessManagedSettings
+) => {
+  switch (surface) {
+    case SurfaceID.ClaudeCode:
+      return `unzip ${PLUGIN_ZIP_NAME} -d ${PLUGIN_DIR}\nclaude --plugin-dir ./${PLUGIN_DIR}`;
+    case SurfaceID.Codex:
+      return `codex mcp add ${serverName} --url ${serverUrl}`;
+    default:
+      return undefined;
+  }
 };

@@ -47,12 +47,16 @@ export const CONTEXT_CENTER_DOCUMENTS_ENTITY_LINK = EntityLink.getEntityLink(
   CONTEXT_CENTER_DOCUMENTS_FQN
 );
 
-export const getContextCenterHeaderPresentation = (isAiMode: boolean) => ({
+export const getContextCenterHeaderPresentation = (
+  isAiMode: boolean,
+  isBanded = false
+) => ({
   // OSS does not override the extension hooks, so AI mode itself must opt into
-  // the same embedded header treatment used by downstream applications.
+  // the same embedded header treatment used by downstream applications. A banded
+  // page asks for that treatment in every mode.
   breadcrumbInsideCard:
-    isAiMode || contextCenterClassBase.isBreadcrumbInsideCard(),
-  isEmbedded: isAiMode || contextCenterClassBase.isEmbeddedMode(),
+    isAiMode || isBanded || contextCenterClassBase.isBreadcrumbInsideCard(),
+  isEmbedded: isAiMode || isBanded || contextCenterClassBase.isEmbeddedMode(),
 });
 
 export const formatBytes = (bytes?: number): string => {

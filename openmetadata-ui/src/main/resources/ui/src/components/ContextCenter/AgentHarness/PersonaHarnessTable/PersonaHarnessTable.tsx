@@ -99,25 +99,20 @@ const PersonaHarnessTable = ({
 
   const renderBudget = (row: AgentHarnessPersonaSummary) => {
     const percent = contextBudgetPercent(row);
-    if (percent === undefined) {
-      return (
-        <Typography className="tw:text-tertiary" size="text-sm">
-          {t('message.no-context-generated')}
-        </Typography>
-      );
-    }
 
     return (
       <Box direction="col" gap={1}>
         <ProgressBarBase
           aria-label={t('label.context-budget-used')}
-          value={percent}
+          value={percent ?? 0}
         />
-        <Typography className="tw:text-tertiary" size="text-sm">
-          {t('message.agent-harness-budget-percent', {
-            budget: digitFormatter(row.characterBudget),
-            percent,
-          })}
+        <Typography className="tw:text-tertiary" size="text-xs">
+          {percent === undefined
+            ? t('label.not-measured-yet')
+            : t('message.agent-harness-budget-percent', {
+                budget: digitFormatter(row.characterBudget),
+                percent,
+              })}
         </Typography>
       </Box>
     );

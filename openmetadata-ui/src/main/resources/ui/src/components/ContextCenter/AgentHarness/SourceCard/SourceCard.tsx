@@ -42,62 +42,73 @@ const SourceCard = ({
   onManage,
 }: SourceCardProps) => {
   const { t } = useTranslation();
-  const label = t(SOURCE_LABEL_KEYS[source]);
   const hidden = count - Math.min(chips.length, SOURCE_CARD_CHIPS);
+  const ruleLabelKey =
+    count === 1 ? 'label.rule-lowercase' : 'label.rule-lowercase-plural';
+  // The Assets count is a count of rules; the other sources count picked items.
+  const countLabelKey =
+    source === HarnessSource.Assets ? ruleLabelKey : 'label.added-lowercase';
 
   return (
-    <Card
-      className="tw:flex tw:flex-col tw:gap-3 tw:px-4 tw:py-4"
-      data-testid={`source-card-${source}`}>
-      <Box align="center" justify="between">
-        <Typography weight="semibold">{label}</Typography>
-        {canEdit && (
-          <Button
-            color="link-color"
-            data-testid={`manage-${source}`}
-            size="sm"
-            onPress={onManage}>
-            {t('label.manage')}
-          </Button>
-        )}
-      </Box>
-      <Box direction="col">
-        <Typography
-          data-testid={`source-count-${source}`}
-          size="display-xs"
-          weight="semibold">
-          {count}
-        </Typography>
-        <Typography className="tw:text-tertiary" size="text-sm">
-          {source === HarnessSource.Assets
-            ? t('label.asset-rule-plural')
-            : t('label.added-here')}
-        </Typography>
-        {inheritedCount > 0 && (
-          <Typography
-            className="tw:text-quaternary"
-            data-testid={`source-inherited-${source}`}
-            size="text-xs">
-            {t('message.agent-harness-inherited-count', {
-              count: inheritedCount,
-            })}
+    <Card data-testid={`source-card-${source}`}>
+      <Box className="tw:p-4" direction="col" gap={3}>
+        <Box align="center" justify="between">
+          <Typography size="text-sm" weight="semibold">
+            {t(SOURCE_LABEL_KEYS[source])}
           </Typography>
-        )}
-      </Box>
-      {chips.length > 0 && (
-        <Box gap={1} wrap="wrap">
-          {chips.slice(0, SOURCE_CARD_CHIPS).map((chip) => (
-            <Badge color="gray" key={chip} size="sm">
-              {chip}
-            </Badge>
-          ))}
-          {hidden > 0 && (
-            <Badge color="gray" size="sm">
-              {`+${hidden}`}
-            </Badge>
+          {canEdit && (
+            <Button
+              color="link-color"
+              data-testid={`manage-${source}`}
+              size="sm"
+              onPress={onManage}>
+              {t('label.manage')}
+            </Button>
           )}
         </Box>
-      )}
+        <Box direction="col" gap={1}>
+          <Box align="baseline" gap={2}>
+            <Typography
+              data-testid={`source-count-${source}`}
+              size="display-xs"
+              weight="semibold">
+              {count}
+            </Typography>
+            <Typography className="tw:text-tertiary" size="text-sm">
+              {t(countLabelKey)}
+            </Typography>
+          </Box>
+          {inheritedCount > 0 && (
+            <Typography
+              className="tw:text-tertiary"
+              data-testid={`source-inherited-${source}`}
+              size="text-xs">
+              {t('message.agent-harness-inherited-count', {
+                count: inheritedCount,
+              })}
+            </Typography>
+          )}
+        </Box>
+        {chips.length > 0 && (
+          <Box gap={1} wrap="wrap">
+            {chips.slice(0, SOURCE_CARD_CHIPS).map((chip) => (
+              <Badge
+                className="tw:font-mono"
+                color="gray"
+                key={chip}
+                size="sm"
+                type="color">
+                {chip}
+              </Badge>
+            ))}
+            {hidden > 0 && (
+              <Badge color="gray" size="sm" type="color">
+                {t('message.persona-context-more-sections', { count: hidden })}
+              </Badge>
+            )}
+          </Box>
+        )}
+      </Box>
     </Card>
   );
 };

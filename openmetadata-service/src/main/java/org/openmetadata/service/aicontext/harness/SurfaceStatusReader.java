@@ -68,7 +68,7 @@ public final class SurfaceStatusReader {
               true,
               true,
               List.of("Claude CLI")),
-          new Surface(AgentHarnessSurfaceId.CODEX, "Codex", true, true, false, List.of("Codex%")),
+          new Surface(AgentHarnessSurfaceId.CODEX, "Codex", true, true, true, List.of("Codex%")),
           new Surface(
               AgentHarnessSurfaceId.CHAT_GPT,
               "ChatGPT",

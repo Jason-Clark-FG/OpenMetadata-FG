@@ -51,9 +51,49 @@ export const styles = sortCx({
   },
 });
 
+// `segmented`: the items sit on a grey track and the selected one is a raised white pill.
+// `pill`: separate rounded chips; the selected one takes the brand tint.
+const variantStyles = sortCx({
+  segmented: {
+    group:
+      'tw:inline-flex tw:w-max tw:gap-0.5 tw:rounded-lg tw:bg-secondary_alt tw:p-0.5 tw:outline-1 tw:-outline-offset-1 tw:outline-secondary',
+    root: [
+      'tw:group/button-group tw:relative tw:inline-flex tw:h-max tw:cursor-pointer tw:items-center tw:rounded-md tw:font-semibold tw:whitespace-nowrap tw:text-tertiary tw:outline-brand tw:transition tw:duration-100 tw:ease-linear',
+      'tw:hover:text-secondary tw:focus-visible:z-10 tw:focus-visible:outline-2 tw:focus-visible:outline-offset-2',
+      'tw:selected:bg-primary_alt tw:selected:text-primary tw:selected:shadow-xs',
+      'tw:disabled:cursor-not-allowed tw:disabled:opacity-40',
+    ].join(' '),
+    sizes: {
+      sm: 'tw:gap-1.5 tw:px-3 tw:py-1 tw:text-sm',
+      md: 'tw:gap-1.5 tw:px-3.5 tw:py-1.5 tw:text-sm',
+      lg: 'tw:gap-2 tw:px-4 tw:py-2 tw:text-md',
+    },
+  },
+  pill: {
+    group: 'tw:inline-flex tw:flex-wrap tw:gap-1',
+    root: [
+      'tw:group/button-group tw:relative tw:inline-flex tw:h-max tw:cursor-pointer tw:items-center tw:rounded-full tw:bg-primary tw:font-semibold tw:whitespace-nowrap tw:text-tertiary tw:outline-brand tw:transition tw:duration-100 tw:ease-linear',
+      `${borderAfter} tw:after:outline-secondary`,
+      'tw:hover:text-secondary tw:focus-visible:outline-2 tw:focus-visible:outline-offset-2',
+      'tw:selected:bg-brand-primary tw:selected:text-brand-secondary tw:selected:after:outline-utility-brand-200',
+      'tw:disabled:cursor-not-allowed tw:disabled:opacity-40',
+    ].join(' '),
+    sizes: {
+      sm: 'tw:gap-1 tw:px-2.5 tw:py-1 tw:text-xs',
+      md: 'tw:gap-1.5 tw:px-3 tw:py-1 tw:text-sm',
+      lg: 'tw:gap-1.5 tw:px-3.5 tw:py-1.5 tw:text-sm',
+    },
+  },
+});
+
 type ButtonSize = keyof typeof styles.sizes;
 
-const ButtonGroupContext = createContext<{ size: ButtonSize }>({ size: 'md' });
+export type ButtonGroupVariant = 'default' | keyof typeof variantStyles;
+
+const ButtonGroupContext = createContext<{
+  size: ButtonSize;
+  variant: ButtonGroupVariant;
+}>({ size: 'md', variant: 'default' });
 
 interface ButtonGroupItemProps
   extends ToggleButtonProps,
@@ -79,14 +119,18 @@ export const ButtonGroupItem = ({
     );
   }
 
-  const { size } = context;
+  const { size, variant } = context;
 
   const isIcon = (IconLeading || IconTrailing) && !children;
+  const rootClassName =
+    variant === 'default'
+      ? cx(styles.common.root, styles.sizes[size].root)
+      : cx(variantStyles[variant].root, variantStyles[variant].sizes[size]);
 
   return (
     <AriaToggleButton
       {...otherProps}
-      className={cx(styles.common.root, styles.sizes[size].root, className)}
+      className={cx(rootClassName, className)}
       data-icon-leading={IconLeading ? true : undefined}
       data-icon-only={isIcon ? true : undefined}>
       {isReactComponent(IconLeading) && (
@@ -112,22 +156,26 @@ interface ButtonGroupProps
   extends Omit<ToggleButtonGroupProps, 'orientation'>,
     RefAttributes<HTMLDivElement> {
   size?: ButtonSize;
+  variant?: ButtonGroupVariant;
   className?: string;
 }
 
 export const ButtonGroup = ({
   children,
   size = 'md',
+  variant = 'default',
   className,
   ...otherProps
 }: ButtonGroupProps) => {
-  const contextValue = useMemo(() => ({ size }), [size]);
+  const contextValue = useMemo(() => ({ size, variant }), [size, variant]);
 
   return (
     <ButtonGroupContext.Provider value={contextValue}>
       <AriaToggleButtonGroup
         className={cx(
-          'tw:relative tw:z-0 tw:inline-flex tw:w-max tw:-space-x-px tw:rounded-lg tw:shadow-xs',
+          variant === 'default'
+            ? 'tw:relative tw:z-0 tw:inline-flex tw:w-max tw:-space-x-px tw:rounded-lg tw:shadow-xs'
+            : variantStyles[variant].group,
           className
         )}
         selectionMode="single"

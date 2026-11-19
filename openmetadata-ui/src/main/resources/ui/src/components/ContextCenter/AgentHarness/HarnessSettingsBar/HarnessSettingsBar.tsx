@@ -12,6 +12,7 @@
  */
 import {
   Box,
+  Divider,
   NumberInput,
   Toggle,
   Typography,
@@ -36,21 +37,82 @@ export interface HarnessSettingsBarProps {
   eventTokens: number;
   errors: HarnessBudgetErrors;
   saveState: DraftSaveState;
+  /** The server holds edits that are not published yet. */
+  hasDraft: boolean;
+  publishedVersion?: number;
   onEnabledChange: (enabled: boolean) => void;
   onChange: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
 }
 
-const SAVE_STATE_KEYS: Record<DraftSaveState, string> = {
+const SAVE_STATE_KEYS: Record<Exclude<DraftSaveState, 'saved'>, string> = {
   failed: 'message.agent-harness-save-failed',
   invalid: 'message.agent-harness-save-invalid',
   pending: 'label.unsaved-changes',
-  saved: 'label.draft-saved',
   saving: 'label.saving',
 };
 
 /** NumberField reports a cleared input as NaN; the spec stores it as absent. */
 const numberOrUndefined = (value: number) =>
   Number.isNaN(value) ? undefined : value;
+
+interface BudgetFieldProps {
+  label: string;
+  unit: string;
+  error?: string;
+  value?: number;
+  widthClassName: string;
+  testId: string;
+  isDisabled: boolean;
+  onChange: (value: number) => void;
+}
+
+const BudgetField = ({
+  label,
+  unit,
+  error,
+  value,
+  widthClassName,
+  testId,
+  isDisabled,
+  onChange,
+}: BudgetFieldProps) => (
+  <Box direction="col" gap={2}>
+    <Typography
+      aria-hidden
+      className="tw:text-tertiary"
+      size="text-xs"
+      weight="medium">
+      {label}
+    </Typography>
+    <Box align="center" gap={2}>
+      <NumberInput
+        aria-label={label}
+        className={widthClassName}
+        formatOptions={{ maximumFractionDigits: 0 }}
+        inputDataTestId={testId}
+        isDisabled={isDisabled}
+        isInvalid={Boolean(error)}
+        showSteppers={false}
+        value={value ?? NaN}
+        onChange={onChange}
+      />
+      <Typography
+        className="tw:text-tertiary"
+        data-testid={`${testId}-unit`}
+        size="text-sm">
+        {unit}
+      </Typography>
+    </Box>
+    {error && (
+      <Typography
+        className="tw:max-w-60 tw:text-error-primary"
+        data-testid={`${testId}-error`}
+        size="text-xs">
+        {error}
+      </Typography>
+    )}
+  </Box>
+);
 
 const HarnessSettingsBar = ({
   canEdit,
@@ -59,6 +121,8 @@ const HarnessSettingsBar = ({
   eventTokens,
   errors,
   saveState,
+  hasDraft,
+  publishedVersion,
   onEnabledChange,
   onChange,
 }: HarnessSettingsBarProps) => {
@@ -76,51 +140,60 @@ const HarnessSettingsBar = ({
         context: { ...current.context, [field]: numberOrUndefined(value) },
       }));
 
+  const statusText = () => {
+    if (saveState !== 'saved') {
+      return t(SAVE_STATE_KEYS[saveState]);
+    }
+    if (hasDraft) {
+      return t('message.agent-harness-draft-unpublished');
+    }
+
+    return publishedVersion === undefined
+      ? undefined
+      : t('label.published-version', {
+          version: `v${publishedVersion.toFixed(1)}`,
+        });
+  };
+  const status = canEdit ? statusText() : undefined;
+
   return (
     <Box
-      align="start"
-      className="tw:rounded-lg tw:border tw:border-secondary tw:px-4 tw:py-3"
+      align="center"
+      className="tw:rounded-xl tw:border tw:border-secondary tw:px-5 tw:py-4"
       data-testid="harness-settings-bar"
-      gap={6}
+      gap={7}
       wrap="wrap">
-      <Box className="tw:pt-7">
+      <Box align="center" gap={3}>
+        <Typography aria-hidden size="text-sm" weight="semibold">
+          {t('label.enabled')}
+        </Typography>
         <Toggle
+          aria-label={t('label.enabled')}
           data-testid="harness-enabled"
           isDisabled={!canEdit}
           isSelected={enabled}
-          label={t('label.enabled')}
-          size="sm"
           onChange={onEnabledChange}
         />
       </Box>
-      <NumberInput
-        className="tw:w-44"
-        formatOptions={{ maximumFractionDigits: 0 }}
-        hint={
-          errorText(errors.characterBudget, CHARACTER_BUDGET_RANGE) ??
-          t('label.chars')
-        }
-        inputDataTestId="harness-character-budget"
+      <Divider className="tw:self-stretch" orientation="vertical" />
+      <BudgetField
+        error={errorText(errors.characterBudget, CHARACTER_BUDGET_RANGE)}
         isDisabled={!canEdit}
-        isInvalid={Boolean(errors.characterBudget)}
         label={t('label.character-budget')}
-        showSteppers={false}
-        value={spec.context?.characterBudget ?? NaN}
+        testId="harness-character-budget"
+        unit={t('label.chars')}
+        value={spec.context?.characterBudget}
+        widthClassName="tw:w-28"
         onChange={setContext('characterBudget')}
       />
-      <NumberInput
-        className="tw:w-44"
-        formatOptions={{ maximumFractionDigits: 0 }}
-        hint={
-          errorText(errors.perTurnTokenBudget, { tokens: eventTokens }) ??
-          t('label.tokens')
-        }
-        inputDataTestId="harness-per-turn-budget"
+      <BudgetField
+        error={errorText(errors.perTurnTokenBudget, { tokens: eventTokens })}
         isDisabled={!canEdit}
-        isInvalid={Boolean(errors.perTurnTokenBudget)}
         label={t('label.per-turn-budget')}
-        showSteppers={false}
-        value={spec.perTurnTokenBudget ?? NaN}
+        testId="harness-per-turn-budget"
+        unit={t('label.tokens')}
+        value={spec.perTurnTokenBudget}
+        widthClassName="tw:w-25"
         onChange={(value) =>
           onChange((current) => ({
             ...current,
@@ -128,27 +201,22 @@ const HarnessSettingsBar = ({
           }))
         }
       />
-      <NumberInput
-        className="tw:w-36"
-        formatOptions={{ maximumFractionDigits: 0 }}
-        hint={
-          errorText(errors.cacheTtlMinutes, CACHE_TTL_MINUTES_RANGE) ??
-          t('label.minute-plural')
-        }
-        inputDataTestId="harness-cache-ttl"
+      <BudgetField
+        error={errorText(errors.cacheTtlMinutes, CACHE_TTL_MINUTES_RANGE)}
         isDisabled={!canEdit}
-        isInvalid={Boolean(errors.cacheTtlMinutes)}
         label={t('label.cache-ttl')}
-        showSteppers={false}
-        value={spec.context?.cacheTtlMinutes ?? NaN}
+        testId="harness-cache-ttl"
+        unit={t('label.minute-short')}
+        value={spec.context?.cacheTtlMinutes}
+        widthClassName="tw:w-16"
         onChange={setContext('cacheTtlMinutes')}
       />
-      {canEdit && (
+      {status && (
         <Typography
-          className="tw:ml-auto tw:self-center tw:text-tertiary"
+          className="tw:ml-auto tw:text-tertiary"
           data-testid="harness-save-state"
           size="text-sm">
-          {t(SAVE_STATE_KEYS[saveState])}
+          {status}
         </Typography>
       )}
     </Box>

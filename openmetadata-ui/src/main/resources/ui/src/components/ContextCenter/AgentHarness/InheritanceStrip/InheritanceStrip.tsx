@@ -16,7 +16,7 @@ import {
   Toggle,
   Typography,
 } from '@openmetadata/ui-core-components';
-import { ArrowRight, InfoCircle } from '@openmetadata/ui-core-components/icons';
+import { ArrowRight } from '@openmetadata/ui-core-components/icons';
 import { useTranslation } from 'react-i18next';
 
 export type InheritanceStripProps =
@@ -35,12 +35,9 @@ const InheritanceStrip = (props: InheritanceStripProps) => {
   if (props.kind === 'default') {
     return (
       <Box
-        align="center"
-        className="tw:rounded-lg tw:border tw:border-brand tw:bg-brand-primary tw:px-4 tw:py-3"
-        data-testid="default-harness-banner"
-        gap={3}>
-        <InfoCircle className="tw:size-5 tw:shrink-0 tw:text-fg-brand-primary" />
-        <Typography className="tw:text-brand-secondary" size="text-sm">
+        className="tw:rounded-lg tw:border tw:border-secondary tw:bg-secondary_subtle tw:px-4 tw:py-3"
+        data-testid="default-harness-banner">
+        <Typography className="tw:text-tertiary" size="text-sm">
           {t('message.agent-harness-default-banner')}
         </Typography>
       </Box>
@@ -50,31 +47,42 @@ const InheritanceStrip = (props: InheritanceStripProps) => {
   return (
     <Box
       align="center"
-      className="tw:rounded-lg tw:border tw:border-secondary tw:bg-secondary tw:px-4 tw:py-3"
+      className="tw:rounded-lg tw:border tw:border-secondary tw:bg-secondary_subtle tw:px-4 tw:py-3"
       data-testid="inheritance-strip"
       gap={3}
       wrap="wrap">
       <Box align="center" gap={2}>
-        <Badge color="gray" size="sm">
+        <Badge color="gray" size="md">
           {t('label.company-default-version', {
             version: `v${props.defaultVersion?.toFixed(1) ?? '0.1'}`,
           })}
         </Badge>
         <ArrowRight className="tw:size-4 tw:text-fg-quaternary" />
-        <Badge color="brand" size="sm">
+        <Badge color="brand" data-testid="inheritance-persona" size="md">
           {props.personaName}
         </Badge>
       </Box>
-      <Typography className="tw:flex-1 tw:text-tertiary" size="text-sm">
+      <Typography
+        className="tw:min-w-50 tw:flex-1 tw:text-tertiary"
+        size="text-sm">
         {t('message.agent-harness-inheritance-hint')}
       </Typography>
-      <Toggle
-        data-testid="show-inherited"
-        isSelected={props.showInherited}
-        label={t('label.show-inherited')}
-        size="sm"
-        onChange={props.onShowInheritedChange}
-      />
+      <Box align="center" gap={2}>
+        <Typography
+          aria-hidden
+          className="tw:text-secondary"
+          size="text-sm"
+          weight="medium">
+          {t('label.show-inherited')}
+        </Typography>
+        <Toggle
+          aria-label={t('label.show-inherited')}
+          data-testid="show-inherited"
+          isSelected={props.showInherited}
+          size="sm"
+          onChange={props.onShowInheritedChange}
+        />
+      </Box>
     </Box>
   );
 };

@@ -44,9 +44,13 @@ import {
   withPickedIds,
   withRule,
 } from '../../../../utils/discovery/context-center/agentHarness.utils';
+import {
+  getRuleQuery,
+  ruleConditionText,
+} from '../../../../utils/discovery/context-center/contextRule.utils';
 import { getEntityName } from '../../../../utils/EntityNameUtils';
-import { ContextRuleCard } from '../ContextRuleCard/ContextRuleCard.component';
 import { ContextRuleEditor } from '../ContextRuleEditor/ContextRuleEditor.component';
+import HarnessRuleCard from '../HarnessRuleCard/HarnessRuleCard';
 import SourceCard from '../SourceCard/SourceCard';
 import SourcePickerDrawer from '../SourcePickerDrawer/SourcePickerDrawer';
 
@@ -124,7 +128,15 @@ const ContextTab = ({
 
   const chipsOf = (source: HarnessSource) =>
     source === HarnessSource.Assets
-      ? ownAssetRules.map(({ name }) => name)
+      ? ownAssetRules.map((rule) => {
+          const query = getRuleQuery(rule);
+
+          return query.kind === 'conditions'
+            ? query.conditions
+                .map(ruleConditionText)
+                .join(` ${query.conjunction} `)
+            : rule.name;
+        })
       : pickedNames[source] ?? [];
 
   const editingId = editor.open ? editor.rule?.id : undefined;
@@ -141,11 +153,11 @@ const ContextTab = ({
   };
 
   return (
-    <Box data-testid="context-tab" direction="col" gap={6}>
+    <Box data-testid="context-tab" direction="col" gap={4}>
       <Typography className="tw:text-tertiary" size="text-sm">
         {t('message.agent-harness-context-intro')}
       </Typography>
-      <div className="tw:grid tw:grid-cols-[repeat(auto-fit,minmax(200px,1fr))] tw:gap-4">
+      <div className="tw:grid tw:grid-cols-[repeat(auto-fit,minmax(200px,1fr))] tw:gap-3">
         {SOURCE_ORDER.map((source) => (
           <SourceCard
             canEdit={canEdit}
@@ -162,9 +174,9 @@ const ContextTab = ({
           />
         ))}
       </div>
-      <Box direction="col" gap={3}>
+      <Box className="tw:mt-1" direction="col" gap={3}>
         <Box align="center" gap={2}>
-          <h3 className="tw:m-0 tw:text-md tw:font-semibold tw:text-primary">
+          <h3 className="tw:m-0 tw:text-lg tw:font-semibold tw:text-primary">
             {t('label.asset-rule-plural')}
           </h3>
           <Badge color="gray" data-testid="asset-rule-count" size="sm">
@@ -179,7 +191,7 @@ const ContextTab = ({
               isDisabled={own.length >= MAX_HARNESS_RULES}
               size="sm"
               onPress={() => setEditor({ open: true })}>
-              {t('label.add-rule')}
+              {t('label.add-entity', { entity: t('label.rule-lowercase') })}
             </Button>
           )}
         </Box>
@@ -189,7 +201,7 @@ const ContextTab = ({
           </Typography>
         ) : (
           assetRules.map(({ inherited, rule }) => (
-            <ContextRuleCard
+            <HarnessRuleCard
               canEdit={canEdit}
               inherited={inherited}
               key={`${inherited ? 'inherited' : 'own'}-${rule.id ?? rule.name}`}

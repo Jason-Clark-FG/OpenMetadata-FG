@@ -19,6 +19,7 @@ import {
   getRuleConditionCount,
   getRuleExplorePath,
   getRuleFilterTree,
+  getRuleQuery,
   isKnowledgeContextRule,
   isRuleFilterFullyRendered,
   isSearchScopedRule,
@@ -286,5 +287,91 @@ describe('getRuleExplorePath', () => {
     expect(fieldsIn(getRuleExplorePath(EntityType.TABLE, already))).toContain(
       '"field":"extension.table.testCp.keyword"'
     );
+  });
+});
+
+describe('getRuleQuery', () => {
+  const ownersAdmin = { term: { 'owners.displayName.keyword': 'admin' } };
+  const tier1 = { term: { 'tier.tagFQN': 'Tier.Tier1' } };
+  const queryOf = (query: unknown) =>
+    getRuleQuery({ queryFilter: JSON.stringify({ query }) });
+
+  it('reads one condition as a field, an operator and a value', () => {
+    expect(queryOf({ bool: { must: [ownersAdmin] } })).toEqual({
+      conditions: [{ field: 'Owners', operator: '=', value: 'admin' }],
+      conjunction: 'AND',
+      kind: 'conditions',
+    });
+  });
+
+  it('keeps every condition of a flat AND or OR filter', () => {
+    expect(queryOf({ bool: { should: [ownersAdmin, tier1] } })).toEqual({
+      conditions: [
+        { field: 'Owners', operator: '=', value: 'admin' },
+        { field: 'Tier', operator: '=', value: 'Tier.Tier1' },
+      ],
+      conjunction: 'OR',
+      kind: 'conditions',
+    });
+  });
+
+  it('turns an excluded value into a not-equal condition', () => {
+    expect(queryOf({ bool: { must_not: [tier1] } })).toEqual({
+      conditions: [{ field: 'Tier', operator: '!=', value: 'Tier.Tier1' }],
+      conjunction: 'AND',
+      kind: 'conditions',
+    });
+  });
+
+  const rule = (field: string, operator: string, value: unknown) => ({
+    properties: { field, operator, value: [value] },
+    type: 'rule',
+  });
+
+  it('reads a stored any-of condition with all its values', () => {
+    const filterJsonTree = JSON.stringify({
+      children1: {
+        a: rule('owners.displayName.keyword', 'select_any_in', [
+          'admin',
+          'bob',
+        ]),
+      },
+      properties: { conjunction: 'AND' },
+      type: 'group',
+    });
+
+    expect(getRuleQuery({ filterJsonTree })).toEqual({
+      conditions: [{ field: 'Owners', operator: 'in', value: 'admin, bob' }],
+      conjunction: 'AND',
+      kind: 'conditions',
+    });
+  });
+
+  it('counts the conditions of a stored filter that mixes AND and OR', () => {
+    const filterJsonTree = JSON.stringify({
+      children1: {
+        a: {
+          children1: {
+            b: rule('owners.displayName.keyword', 'select_equals', 'admin'),
+            c: rule('tier.tagFQN', 'select_equals', 'Tier.Tier1'),
+          },
+          properties: { conjunction: 'OR' },
+          type: 'group',
+        },
+        d: rule('service.displayName.keyword', 'select_equals', 'mysql'),
+      },
+      properties: { conjunction: 'AND' },
+      type: 'group',
+    });
+
+    expect(getRuleQuery({ filterJsonTree })).toEqual({
+      count: 3,
+      kind: 'count',
+    });
+  });
+
+  it('selects every entity when the rule has no filter', () => {
+    expect(getRuleQuery({ queryFilter: '' })).toEqual({ kind: 'all' });
+    expect(getRuleQuery({})).toEqual({ kind: 'all' });
   });
 });

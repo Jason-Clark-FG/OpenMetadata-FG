@@ -120,3 +120,35 @@ export const WithTrailingIcon: StoryObj = {
     </ButtonGroup>
   ),
 };
+
+export const Segmented: StoryObj = {
+  render: () => (
+    <ButtonGroup
+      disallowEmptySelection
+      aria-label="Level"
+      defaultSelectedKeys={['warn']}
+      size="sm"
+      variant="segmented">
+      <ButtonGroupItem isDisabled id="off">
+        Off
+      </ButtonGroupItem>
+      <ButtonGroupItem id="warn">Warn</ButtonGroupItem>
+      <ButtonGroupItem id="block">Block</ButtonGroupItem>
+    </ButtonGroup>
+  ),
+};
+
+export const Pill: StoryObj = {
+  render: () => (
+    <ButtonGroup
+      disallowEmptySelection
+      aria-label="Preview as"
+      defaultSelectedKeys={['session']}
+      size="sm"
+      variant="pill">
+      <ButtonGroupItem id="session">Session start</ButtonGroupItem>
+      <ButtonGroupItem id="prompt">Prompt</ButtonGroupItem>
+      <ButtonGroupItem id="tool">Tool use</ButtonGroupItem>
+    </ButtonGroup>
+  ),
+};

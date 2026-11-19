@@ -25,6 +25,18 @@ import { getContextCenterHeaderPresentation } from '../../../utils/ContextCenter
 import HeaderBreadcrumb from '../../common/HeaderBreadcrumb/HeaderBreadcrumb.component';
 import { ContextCenterHeaderProps } from './ContextCenterHeader.interface';
 
+const HeaderTitle = ({
+  banded,
+  title,
+}: Pick<ContextCenterHeaderProps, 'banded' | 'title'>) =>
+  banded ? (
+    <h1 className="tw:m-0 tw:min-w-0 tw:truncate tw:text-display-xs tw:font-semibold tw:text-primary">
+      {title}
+    </h1>
+  ) : (
+    <>{title}</>
+  );
+
 const ContextCenterHeader: FC<ContextCenterHeaderProps> = ({
   breadcrumbs,
   title,
@@ -34,6 +46,7 @@ const ContextCenterHeader: FC<ContextCenterHeaderProps> = ({
   onCreateArticle,
   onUploadFile,
   actionsSlot,
+  banded,
   searchQuery,
   searchPlaceholder,
   onSearch,
@@ -41,7 +54,7 @@ const ContextCenterHeader: FC<ContextCenterHeaderProps> = ({
   const { t } = useTranslation();
   const isAiMode = useIsAiMode();
   const { breadcrumbInsideCard, isEmbedded } =
-    getContextCenterHeaderPresentation(isAiMode);
+    getContextCenterHeaderPresentation(isAiMode, banded);
 
   const resolvedBreadcrumbs = [
     contextCenterClassBase.getContextCenterRootBreadcrumb(t),
@@ -104,7 +117,7 @@ const ContextCenterHeader: FC<ContextCenterHeaderProps> = ({
         breadcrumb={breadcrumbInsideCard ? breadcrumbEl : undefined}
         className={className}
         subtitle={subtitle}
-        title={title}
+        title={<HeaderTitle banded={banded} title={title} />}
         variant={isEmbedded ? 'gradient' : 'flat'}
       />
     </div>

@@ -71,6 +71,21 @@ describe('MemoryTab', () => {
     );
   });
 
+  it('holds the toggles, review and visibility in one container', () => {
+    renderTab();
+
+    const settings = screen.getByTestId('memory-settings');
+
+    ['memory-capture', 'memory-linkAssets', 'memory-dedup'].forEach((id) =>
+      expect(within(settings).getByTestId(id)).toBeInTheDocument()
+    );
+
+    expect(within(settings).getByTestId('memory-review')).toBeInTheDocument();
+    expect(
+      within(settings).getByTestId('memory-visibility')
+    ).toBeInTheDocument();
+  });
+
   it('copies the default settings into the persona on its first change', () => {
     const { applied } = renderTab();
 

@@ -10,7 +10,13 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -165,13 +171,29 @@ describe('AgentHarnessEditorPage', () => {
     expect(screen.getByTestId('context-center-header')).toHaveTextContent(
       'Data Analyst'
     );
-    expect(screen.getByTestId('harness-version')).toHaveTextContent(
-      'v1.2 · label.published'
+    expect(screen.getByTestId('harness-version')).toHaveTextContent(/^v1\.2$/);
+    expect(screen.getByTestId('harness-save-state')).toHaveTextContent(
+      'label.published-version'
     );
     expect(getPersonaAgentHarness).toHaveBeenCalledWith('Analyst');
     expect(
       await screen.findByText('label.company-default-version')
     ).toBeInTheDocument();
+  });
+
+  it('puts the preview rail under the tabs, beside the tab content', async () => {
+    renderEditor('/context-center/agent-harness/persona/Analyst');
+
+    const body = await screen.findByTestId('harness-tab-body');
+    const tabs = screen.getByRole('tablist');
+
+    expect(
+      within(body).getByTestId('compiled-context-rail')
+    ).toBeInTheDocument();
+    expect(body).not.toContainElement(tabs);
+    expect(
+      tabs.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('allows publishing only when there is a draft', async () => {
@@ -190,6 +212,9 @@ describe('AgentHarnessEditorPage', () => {
     const publish = await screen.findByTestId('publish-harness');
 
     expect(publish).not.toBeDisabled();
+    expect(screen.getByTestId('harness-save-state')).toHaveTextContent(
+      'message.agent-harness-draft-unpublished'
+    );
 
     fireEvent.click(publish);
 

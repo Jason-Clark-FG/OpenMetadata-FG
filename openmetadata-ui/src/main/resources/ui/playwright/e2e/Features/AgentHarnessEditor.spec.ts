@@ -81,15 +81,15 @@ test.describe.serial(
 
       expect(draftSpec(await saved).context?.cacheTtlMinutes).toBe(45);
       await expect(page.getByTestId('harness-save-state')).toHaveText(
-        'Draft saved'
+        'Draft has unpublished changes'
       );
 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await waitForAllLoadersToDisappear(page);
 
       await expect(page.getByTestId('harness-cache-ttl')).toHaveValue('45');
-      await expect(page.getByTestId('harness-version')).toContainText(
-        'Draft changes'
+      await expect(page.getByTestId('harness-save-state')).toHaveText(
+        'Draft has unpublished changes'
       );
     });
 
@@ -138,7 +138,7 @@ test.describe.serial(
       await page.getByTestId('toggle-preview').click();
 
       await expect(page.getByTestId('toggle-preview')).toContainText(
-        'Preview Context'
+        'Show preview'
       );
       await expect(rail).toHaveCount(0);
     });
@@ -218,8 +218,8 @@ test.describe.serial(
       await publish.click();
       await published;
 
-      await expect(page.getByTestId('harness-version')).toContainText(
-        'Published'
+      await expect(page.getByTestId('harness-save-state')).toContainText(
+        'Published v'
       );
       await expect(publish).toBeDisabled();
 
