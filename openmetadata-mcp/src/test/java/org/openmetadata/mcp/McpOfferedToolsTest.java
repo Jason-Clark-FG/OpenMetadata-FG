@@ -155,7 +155,7 @@ class McpOfferedToolsTest {
         .contains("short form", "full cards", "matched", "rest", "assignee and severity");
     assertThat(instructions).contains("notes people saved", "preferences", "name it");
     assertThat(instructions.length()).isLessThan(800);
-    assertThat(initialize(OfferedTools.ALL).instructions()).isNull();
+    assertThat(initialize(OfferedTools.ALL).instructions()).isEqualTo(McpServer.INSTRUCTIONS);
     assertThat(
             initialize(OfferedTools.parse(KNOWLEDGE_GRAPH + ",search_metadata", registered()))
                 .instructions())
