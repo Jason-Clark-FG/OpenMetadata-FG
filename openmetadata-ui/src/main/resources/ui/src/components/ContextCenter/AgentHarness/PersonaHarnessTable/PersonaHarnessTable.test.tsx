@@ -139,7 +139,7 @@ describe('PersonaHarnessTable', () => {
       within(consumer).getByText('label.uses-default')
     ).toBeInTheDocument();
     expect(
-      within(consumer).getByText('message.no-context-generated')
+      within(consumer).getByText('label.not-measured-yet')
     ).toBeInTheDocument();
   });
 

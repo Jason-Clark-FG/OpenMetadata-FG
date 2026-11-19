@@ -68,7 +68,6 @@ const renderTab = (
       canEdit
       errors={{ events: {} }}
       kind={HarnessKind.Persona}
-      perTurnTokenBudget={20000}
       rows={ROWS}
       onChange={onChange}
       {...props}
@@ -102,11 +101,48 @@ describe('DeliveryTab', () => {
       'delivery-event-Stop',
     ]);
     expect(screen.getAllByText('label.from-default')).toHaveLength(3);
-    expect(switchOf(HookEvent.SessionStart)).toBeDisabled();
     expect(switchOf(HookEvent.Stop)).not.toBeDisabled();
     expect(screen.getByTestId('delivery-event-Stop')).toHaveClass(
       'tw:opacity-55'
     );
+  });
+
+  it('holds every event row in one container', () => {
+    renderTab();
+
+    const container = screen.getByTestId('delivery-events');
+
+    expect(within(container).getAllByTestId(/^delivery-event-/)).toHaveLength(
+      5
+    );
+    expect(
+      screen.queryByTestId('delivery-per-turn-summary')
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an event the default delivers as on and locked', () => {
+    renderTab();
+
+    const inherited = switchOf(HookEvent.SessionStart);
+
+    expect(inherited).toBeChecked();
+    expect(inherited).toHaveAttribute('aria-readonly', 'true');
+
+    fireEvent.click(inherited);
+
+    expect(inherited).toBeChecked();
+  });
+
+  it('puts the tokens unit to the right of the budget input', () => {
+    renderTab();
+
+    const input = screen.getByTestId('delivery-budget-SessionStart');
+    const unit = screen.getByTestId('delivery-budget-unit-SessionStart');
+
+    expect(unit).toHaveTextContent('label.tokens');
+    expect(
+      input.compareDocumentPosition(unit) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('turns on an event the persona adds, keeping its budget', () => {
@@ -131,20 +167,14 @@ describe('DeliveryTab', () => {
     ]);
   });
 
-  it('explains an event budget above the default and a short per-turn budget', () => {
+  it('explains an event budget above the default', () => {
     renderTab({
-      errors: {
-        events: { [HookEvent.SessionStart]: 'aboveDefault' },
-        perTurnTokenBudget: 'belowEvents',
-      },
+      errors: { events: { [HookEvent.SessionStart]: 'aboveDefault' } },
     });
 
     expect(
-      screen.getByText('message.agent-harness-budget-above-default')
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('delivery-per-turn-summary')).toHaveClass(
-      'tw:text-error-primary'
-    );
+      screen.getByTestId('delivery-budget-error-SessionStart')
+    ).toHaveTextContent('message.agent-harness-budget-above-default');
   });
 
   it('is read-only without edit rights', () => {

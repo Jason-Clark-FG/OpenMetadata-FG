@@ -125,8 +125,8 @@ test.describe(
         await page.getByTestId('publish-harness').click();
         await published;
 
-        await expect(page.getByTestId('harness-version')).toContainText(
-          'Published'
+        await expect(page.getByTestId('harness-save-state')).toContainText(
+          'Published v'
         );
         await expect(page.getByTestId('publish-harness')).toBeDisabled();
 

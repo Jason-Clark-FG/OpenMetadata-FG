@@ -17,7 +17,6 @@ import {
   PageLayout,
   Tabs,
 } from '@openmetadata/ui-core-components';
-import { Eye, EyeOff } from '@openmetadata/ui-core-components/icons';
 import { AxiosError } from 'axios';
 import classNames from 'classnames';
 import { Key, useEffect, useMemo, useState } from 'react';
@@ -40,7 +39,6 @@ import SurfacesTab from '../../../components/ContextCenter/AgentHarness/Surfaces
 import ContextCenterHeader from '../../../components/ContextCenter/ContextCenterHeader/ContextCenterHeader.component';
 import { useContextCenterPageLayout } from '../../../components/ContextCenter/ContextCenterLayout/useContextCenterPageLayout';
 import {
-  HARNESS_STATUS_BADGE,
   HARNESS_TABS,
   HARNESS_TAB_LABEL_KEYS,
 } from '../../../constants/discovery/agentHarness.constants';
@@ -138,6 +136,9 @@ const AgentHarnessEditorPage = () => {
     ? (persona && getEntityName(persona)) || fqn
     : t('label.company-default-harness');
 
+  const hasDraft = (state: AgentHarnessState) =>
+    Boolean(state.draft) || saveState !== 'saved';
+
   const handleCreate = async () => {
     setIsCreating(true);
     try {
@@ -161,30 +162,30 @@ const AgentHarnessEditorPage = () => {
       return undefined;
     }
     const { state } = load;
-    const badge = HARNESS_STATUS_BADGE[state.status];
-    const hasDraft = Boolean(state.draft) || saveState !== 'saved';
+    const version = versionLabel(state);
 
     return (
-      <Box align="center" gap={3}>
-        <Badge
-          color={badge.color}
-          data-testid="harness-version"
-          size="sm"
-          type="pill-color">
-          {[versionLabel(state), t(badge.labelKey)].filter(Boolean).join(' · ')}
-        </Badge>
+      <Box align="center" gap={2}>
+        {version && (
+          <Badge
+            color="gray"
+            data-testid="harness-version"
+            size="lg"
+            type="modern">
+            {version}
+          </Badge>
+        )}
         <Button
           color="secondary"
           data-testid="toggle-preview"
-          iconLeading={showPreview ? EyeOff : Eye}
           size="sm"
           onPress={() => setShowPreview((shown) => !shown)}>
-          {t(showPreview ? 'label.hide-preview' : 'label.preview-context')}
+          {t(showPreview ? 'label.hide-preview' : 'label.show-preview')}
         </Button>
         <Button
           color="primary"
           data-testid="publish-harness"
-          isDisabled={!hasDraft || isInvalid}
+          isDisabled={!hasDraft(state) || isInvalid}
           isLoading={draft.isPublishing}
           size="sm"
           onPress={draft.publish}>
@@ -217,7 +218,6 @@ const AgentHarnessEditorPage = () => {
             canEdit={canEdit}
             errors={errors}
             kind={state.published.kind}
-            perTurnTokenBudget={spec.perTurnTokenBudget}
             rows={rows}
             onChange={draft.update}
           />
@@ -305,44 +305,52 @@ const AgentHarnessEditorPage = () => {
           enabled={state.published.enabled ?? true}
           errors={errors}
           eventTokens={enabledEventTokens(rows)}
+          hasDraft={Boolean(state.draft)}
+          publishedVersion={state.published.version}
           saveState={saveState}
           spec={spec}
           onChange={draft.update}
           onEnabledChange={draft.setEnabled}
         />
-        <Box align="start" gap={6}>
-          <div className="tw:min-w-0 tw:flex-1">
-            <Tabs selectedKey={activeTab} onSelectionChange={handleTabChange}>
-              <Tabs.List
-                aria-label={t('label.agent-harness')}
-                size="sm"
-                type="underline">
-                {HARNESS_TABS.map((tab) => (
-                  <Tabs.Item
-                    badge={tabBadge(tab)}
-                    data-testid={`harness-tab-${tab}`}
-                    id={tab}
-                    key={tab}>
-                    {t(HARNESS_TAB_LABEL_KEYS[tab])}
-                  </Tabs.Item>
-                ))}
-              </Tabs.List>
+        <Tabs selectedKey={activeTab} onSelectionChange={handleTabChange}>
+          <Tabs.List
+            aria-label={t('label.agent-harness')}
+            size="sm"
+            type="underline">
+            {HARNESS_TABS.map((tab) => (
+              <Tabs.Item
+                badge={tabBadge(tab)}
+                data-testid={`harness-tab-${tab}`}
+                id={tab}
+                key={tab}>
+                {t(HARNESS_TAB_LABEL_KEYS[tab])}
+              </Tabs.Item>
+            ))}
+          </Tabs.List>
+          <Box
+            align="start"
+            className="tw:pt-4"
+            data-testid="harness-tab-body"
+            gap={5}
+            wrap="wrap">
+            <div className="tw:min-w-0 tw:flex-[1_1_560px]">
               {HARNESS_TABS.map((tab) => (
-                <Tabs.Panel className="tw:pt-5" id={tab} key={tab}>
+                <Tabs.Panel id={tab} key={tab}>
                   {renderTabPanel(tab)}
                 </Tabs.Panel>
               ))}
-            </Tabs>
-          </div>
-          {showPreview && (
-            <CompiledContextRail
-              harnessId={state.published.id}
-              isValid={!isInvalid}
-              perTurnTokenBudget={spec.perTurnTokenBudget}
-              spec={spec}
-            />
-          )}
-        </Box>
+            </div>
+            {showPreview && (
+              <CompiledContextRail
+                harnessId={state.published.id}
+                isDraft={hasDraft(state)}
+                isValid={!isInvalid}
+                perTurnTokenBudget={spec.perTurnTokenBudget}
+                spec={spec}
+              />
+            )}
+          </Box>
+        </Tabs>
       </Box>
     );
   };
@@ -402,6 +410,7 @@ const AgentHarnessEditorPage = () => {
           data-testid="context-center-page-layout">
           <PageLayout.Header className={pageLayoutClassNames.header}>
             <ContextCenterHeader
+              banded
               actionsSlot={renderHeaderActions()}
               breadcrumbs={[
                 {

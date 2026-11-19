@@ -15,7 +15,6 @@ import {
   Box,
   Card,
   NumberInput,
-  Toggle,
   Typography,
 } from '@openmetadata/ui-core-components';
 import classNames from 'classnames';
@@ -32,15 +31,12 @@ import {
   DeliveryRow,
   HarnessBudgetErrors,
 } from '../../../../interface/discovery/agentHarness.interface';
-import {
-  enabledEventTokens,
-  withEventDelivery,
-} from '../../../../utils/discovery/context-center/agentHarness.utils';
+import { withEventDelivery } from '../../../../utils/discovery/context-center/agentHarness.utils';
+import HarnessToggle from '../HarnessToggle/HarnessToggle';
 
 export interface DeliveryTabProps {
   kind: HarnessKind;
   rows: DeliveryRow[];
-  perTurnTokenBudget?: number;
   errors: HarnessBudgetErrors;
   canEdit: boolean;
   onChange: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
@@ -49,7 +45,6 @@ export interface DeliveryTabProps {
 const DeliveryTab = ({
   kind,
   rows,
-  perTurnTokenBudget,
   errors,
   canEdit,
   onChange,
@@ -62,110 +57,112 @@ const DeliveryTab = ({
   const renderRow = (row: DeliveryRow, index: number) => {
     const copy = HOOK_EVENT_COPY[row.id];
     const error = errors.events[row.id];
+    const label = t(copy.labelKey);
 
     return (
-      <Card
-        className={classNames('tw:px-4 tw:py-4', {
-          'tw:opacity-55': !row.enabled,
-        })}
+      <Box
+        align="start"
+        className={classNames(
+          'tw:border-t tw:border-secondary tw:px-5 tw:py-4 tw:first:border-t-0',
+          { 'tw:opacity-55': !row.enabled }
+        )}
         data-testid={`delivery-event-${row.id}`}
+        gap={4}
         key={row.id}>
-        <Box align="start" gap={4} wrap="wrap">
-          <Typography
-            className="tw:w-6 tw:shrink-0 tw:text-quaternary"
-            size="text-sm"
-            weight="semibold">
-            {index + 1}
-          </Typography>
-          <Box className="tw:min-w-60 tw:flex-1" direction="col" gap={2}>
-            <Box align="center" gap={2} wrap="wrap">
-              <Typography weight="semibold">{t(copy.labelKey)}</Typography>
-              <Typography
-                className="tw:font-mono tw:text-tertiary"
-                size="text-xs">
-                {row.id}
-              </Typography>
-              {row.inherited && (
-                <Badge color="gray" size="sm">
-                  {t('label.from-default')}
-                </Badge>
-              )}
-            </Box>
-            <Typography className="tw:text-tertiary" size="text-sm">
-              {t(copy.descriptionKey)}
+        <Typography
+          aria-hidden
+          className="tw:flex tw:size-7 tw:shrink-0 tw:items-center tw:justify-center tw:rounded-full tw:bg-brand-primary tw:text-brand-secondary"
+          size="text-xs"
+          weight="semibold">
+          {index + 1}
+        </Typography>
+        <Box className="tw:min-w-0 tw:flex-1" direction="col" gap={2}>
+          <Box align="center" gap={2} wrap="wrap">
+            <Typography size="text-sm" weight="semibold">
+              {label}
             </Typography>
-            <Box align="center" gap={1} wrap="wrap">
-              <Typography className="tw:text-quaternary" size="text-xs">
-                {t('label.injects')}
-              </Typography>
-              {copy.injectKeys.map((key) => (
-                <Badge color="gray" key={key} size="sm">
-                  {t(key)}
-                </Badge>
-              ))}
-            </Box>
+            <Typography
+              className="tw:font-mono tw:text-tertiary"
+              size="text-xs">
+              {row.id}
+            </Typography>
+            {row.inherited && (
+              <Badge color="gray" size="sm" type="pill-color">
+                {t('label.from-default')}
+              </Badge>
+            )}
           </Box>
-          <NumberInput
-            aria-label={t('label.budget-of-entity', {
-              entity: t(copy.labelKey),
-            })}
-            className="tw:w-36"
-            formatOptions={{ maximumFractionDigits: 0 }}
-            hint={
-              error
-                ? t(BUDGET_ERROR_KEYS[error], {
-                    tokens: row.maxTokenBudget ?? 0,
-                  })
-                : t('label.tokens')
-            }
-            inputDataTestId={`delivery-budget-${row.id}`}
-            isDisabled={!canEdit || !row.enabled}
-            isInvalid={Boolean(error)}
-            label={t('label.budget')}
-            showSteppers={false}
-            value={row.tokenBudget}
-            onChange={(value) =>
-              setRow({
-                ...row,
-                tokenBudget: Number.isNaN(value) ? 0 : value,
-              })
-            }
-          />
-          <Box className="tw:pt-7">
-            <Toggle
-              aria-label={t('label.enable-entity', {
-                entity: t(copy.labelKey),
-              })}
-              data-testid={`delivery-enabled-${row.id}`}
-              isDisabled={!canEdit || row.inherited}
-              isSelected={row.enabled}
-              onChange={(enabled) => setRow({ ...row, enabled })}
-            />
+          <Typography className="tw:text-tertiary" size="text-sm">
+            {t(copy.descriptionKey)}
+          </Typography>
+          <Box gap={2} wrap="wrap">
+            {copy.injectKeys.map((key) => (
+              <Badge color="gray" key={key} size="sm" type="modern">
+                {t(key)}
+              </Badge>
+            ))}
           </Box>
         </Box>
-      </Card>
+        <Box align="end" className="tw:shrink-0" direction="col" gap={1}>
+          <Typography aria-hidden className="tw:text-quaternary" size="text-xs">
+            {t('label.budget')}
+          </Typography>
+          <Box align="center" gap={2}>
+            <NumberInput
+              aria-label={t('label.budget-of-entity', { entity: label })}
+              className="tw:w-20"
+              formatOptions={{ maximumFractionDigits: 0 }}
+              inputClassName="tw:text-right"
+              inputDataTestId={`delivery-budget-${row.id}`}
+              isDisabled={!canEdit || !row.enabled}
+              isInvalid={Boolean(error)}
+              showSteppers={false}
+              value={row.tokenBudget}
+              onChange={(value) =>
+                setRow({
+                  ...row,
+                  tokenBudget: Number.isNaN(value) ? 0 : value,
+                })
+              }
+            />
+            <Typography
+              className="tw:text-tertiary"
+              data-testid={`delivery-budget-unit-${row.id}`}
+              size="text-xs">
+              {t('label.tokens')}
+            </Typography>
+          </Box>
+          {error && (
+            <Typography
+              className="tw:max-w-50 tw:text-right tw:text-error-primary"
+              data-testid={`delivery-budget-error-${row.id}`}
+              size="text-xs">
+              {t(BUDGET_ERROR_KEYS[error], {
+                tokens: row.maxTokenBudget ?? 0,
+              })}
+            </Typography>
+          )}
+        </Box>
+        <Box className="tw:shrink-0 tw:pt-6">
+          <HarnessToggle
+            aria-label={t('label.enable-entity', { entity: label })}
+            data-testid={`delivery-enabled-${row.id}`}
+            inherited={row.inherited}
+            isDisabled={!canEdit}
+            isSelected={row.enabled}
+            onChange={(enabled) => setRow({ ...row, enabled })}
+          />
+        </Box>
+      </Box>
     );
   };
 
   return (
-    <Box data-testid="delivery-tab" direction="col" gap={4}>
+    <Box data-testid="delivery-tab" direction="col" gap={3}>
       <Typography className="tw:text-tertiary" size="text-sm">
         {t('message.agent-harness-delivery-intro')}
       </Typography>
-      {rows.map(renderRow)}
-      <Typography
-        className={
-          errors.perTurnTokenBudget
-            ? 'tw:text-error-primary'
-            : 'tw:text-tertiary'
-        }
-        data-testid="delivery-per-turn-summary"
-        size="text-sm">
-        {t('message.agent-harness-events-per-turn', {
-          budget: perTurnTokenBudget ?? 0,
-          tokens: enabledEventTokens(rows),
-        })}
-      </Typography>
+      <Card data-testid="delivery-events">{rows.map(renderRow)}</Card>
     </Box>
   );
 };

@@ -47,6 +47,7 @@ const SegmentedControl = <T extends string>({
     isDisabled={isDisabled}
     selectedKeys={[value]}
     size="sm"
+    variant="segmented"
     onSelectionChange={(keys) => {
       const [selected] = [...keys];
       const option = options.find(({ id }) => id === selected);
@@ -56,7 +57,6 @@ const SegmentedControl = <T extends string>({
     }}>
     {options.map((option) => (
       <ButtonGroupItem
-        className="tw:selected:bg-brand-primary tw:selected:text-brand-secondary tw:disabled:opacity-40"
         data-testid={`${testId}-${option.id}`}
         id={option.id}
         isDisabled={isDisabled || option.isDisabled}

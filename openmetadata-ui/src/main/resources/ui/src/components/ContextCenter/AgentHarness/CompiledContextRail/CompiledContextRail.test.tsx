@@ -55,6 +55,7 @@ describe('CompiledContextRail', () => {
       <CompiledContextRail
         isValid
         harnessId="harness-1"
+        isDraft={false}
         perTurnTokenBudget={20000}
         spec={SPEC}
       />
@@ -69,10 +70,60 @@ describe('CompiledContextRail', () => {
     expect(
       screen
         .getAllByTestId('compiled-context-segment')
-        .map((row) => row.textContent)
-    ).toEqual(['Instructions1,200', 'Glossary3,800']);
+        .map((row) => row.firstElementChild?.nextElementSibling?.textContent)
+    ).toEqual(['Instructions', 'Glossary']);
+    expect(screen.getAllByTestId('compiled-context-bar-segment')).toHaveLength(
+      2
+    );
     expect(screen.getByTestId('compiled-context-text')).toHaveTextContent(
       '# Company instructions'
+    );
+  });
+
+  it('reads top to bottom as budget, legend, preview events, then the text', async () => {
+    render(
+      <CompiledContextRail
+        isValid
+        harnessId="harness-1"
+        isDraft={false}
+        perTurnTokenBudget={20000}
+        spec={SPEC}
+      />
+    );
+    await settle();
+
+    const order = [
+      'compiled-context-status',
+      'compiled-context-budget',
+      'compiled-context-legend',
+      'compiled-context-preview-as',
+      'compiled-context-text',
+    ].map((id) => screen.getByTestId(id));
+
+    order
+      .slice(1)
+      .forEach((node, index) =>
+        expect(
+          order[index].compareDocumentPosition(node) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+        ).toBeTruthy()
+      );
+  });
+
+  it('labels the preview of unpublished changes as a draft', async () => {
+    render(
+      <CompiledContextRail
+        isDraft
+        isValid
+        harnessId="harness-1"
+        perTurnTokenBudget={20000}
+        spec={SPEC}
+      />
+    );
+    await settle();
+
+    expect(screen.getByTestId('compiled-context-status')).toHaveTextContent(
+      'label.draft'
     );
   });
 
@@ -81,6 +132,7 @@ describe('CompiledContextRail', () => {
       <CompiledContextRail
         isValid
         harnessId="harness-1"
+        isDraft={false}
         perTurnTokenBudget={20000}
         spec={SPEC}
       />
@@ -102,6 +154,7 @@ describe('CompiledContextRail', () => {
       <CompiledContextRail
         isValid
         harnessId="harness-1"
+        isDraft={false}
         perTurnTokenBudget={20000}
         spec={SPEC}
       />
@@ -111,6 +164,7 @@ describe('CompiledContextRail', () => {
         <CompiledContextRail
           isValid
           harnessId="harness-1"
+          isDraft={false}
           perTurnTokenBudget={perTurnTokenBudget}
           spec={{ ...SPEC, perTurnTokenBudget }}
         />
@@ -130,6 +184,7 @@ describe('CompiledContextRail', () => {
     render(
       <CompiledContextRail
         harnessId="harness-1"
+        isDraft={false}
         isValid={false}
         perTurnTokenBudget={20000}
         spec={SPEC}

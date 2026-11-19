@@ -25,6 +25,8 @@ export interface ContextCenterHeaderProps {
   onUploadFile?: () => void;
   /** Replaces the default action buttons with a custom slot */
   actionsSlot?: React.ReactNode;
+  /** Brand-tinted header band with the trail inside it and a page-sized title, in both modes. */
+  banded?: boolean;
   searchQuery?: string;
   searchPlaceholder?: string;
   onSearch?: (value: string) => void;

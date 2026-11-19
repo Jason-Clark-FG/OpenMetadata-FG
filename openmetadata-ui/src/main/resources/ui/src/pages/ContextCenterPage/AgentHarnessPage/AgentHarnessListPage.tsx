@@ -281,6 +281,7 @@ const AgentHarnessListPage = () => {
         data-testid="context-center-page-layout">
         <PageLayout.Header className={pageLayoutClassNames.header}>
           <ContextCenterHeader
+            banded
             actionsSlot={
               isAdminUser ? (
                 <Box gap={3}>

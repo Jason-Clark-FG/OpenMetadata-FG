@@ -138,12 +138,12 @@ const DefaultHarnessCard = ({
           className="tw:shrink-0"
           color="brand"
           icon={Building07}
-          size="lg"
-          theme="light"
+          size="md"
+          theme="dark"
         />
         <Box className="tw:min-w-0 tw:flex-1" direction="col" gap={1}>
           <Box align="center" gap={2} wrap="wrap">
-            <h2 className="tw:m-0 tw:text-md tw:font-semibold tw:text-primary">
+            <h2 className="tw:m-0 tw:text-lg tw:font-semibold tw:text-primary">
               {t('label.company-default-harness')}
             </h2>
             <Badge
@@ -182,13 +182,16 @@ const DefaultHarnessCard = ({
             direction="col"
             gap={1}
             key={cell.key}>
-            <Typography className="tw:text-tertiary" size="text-sm">
+            <Typography
+              className="tw:text-quaternary"
+              size="text-xs"
+              weight="medium">
               {cell.label}
             </Typography>
-            <Typography size="text-sm" weight="semibold">
+            <Typography size="text-md" weight="semibold">
               {cell.value}
             </Typography>
-            <Typography className="tw:text-tertiary" size="text-sm">
+            <Typography className="tw:text-tertiary" size="text-xs">
               {cell.sub}
             </Typography>
           </Box>
