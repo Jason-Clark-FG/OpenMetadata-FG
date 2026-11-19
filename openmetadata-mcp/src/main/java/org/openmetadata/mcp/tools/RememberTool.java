@@ -12,6 +12,7 @@
  */
 package org.openmetadata.mcp.tools;
 
+import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
 import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 
 import io.modelcontextprotocol.spec.McpSchema;
@@ -21,15 +22,20 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.openmetadata.schema.EntityInterface;
 import org.openmetadata.schema.api.configuration.OpenMetadataBaseUrlConfiguration;
 import org.openmetadata.schema.entity.context.ContextMemory;
 import org.openmetadata.schema.entity.context.ContextMemoryScope;
 import org.openmetadata.schema.entity.context.ContextMemorySourceType;
 import org.openmetadata.schema.entity.context.ContextMemoryType;
+import org.openmetadata.schema.entity.context.MemoryShareConfig;
+import org.openmetadata.schema.entity.context.MemorySharedPrincipal;
 import org.openmetadata.schema.settings.SettingsType;
 import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.Include;
@@ -66,6 +72,8 @@ public class RememberTool {
   static final int MAX_ABOUT = 10;
   static final int MAX_LINKED = 20;
   private static final int DERIVED_TITLE_CHARS = 80;
+  private static final Pattern RECORDED_BY =
+      Pattern.compile("Recorded by (.+) through the remember tool\\.");
   private static final String CAPTURE_OFF =
       "Memory capture is turned off for your agent harness, so nothing was saved. Tell the user"
           + " if they asked you to remember something.";
@@ -184,6 +192,14 @@ public class RememberTool {
         memory.getShareConfig() == null
             ? plan.shareConfig().getVisibility().value()
             : memory.getShareConfig().getVisibility().value());
+    structured.put("fact", memory.getAnswer());
+    structured.put("savedAt", memory.getUpdatedAt());
+    structured.put("sharedWith", sharedWith(memory, plan));
+    final Matcher recorder =
+        memory.getDescription() == null ? null : RECORDED_BY.matcher(memory.getDescription());
+    if (recorder != null && recorder.matches()) {
+      structured.put("client", recorder.group(1));
+    }
     structured.put("linkedAssets", links.linked());
     if (!links.skipped().isEmpty()) {
       structured.put("skipped", links.skipped());
@@ -193,6 +209,20 @@ public class RememberTool {
     }
     structured.put("url", memoryUrl(memory));
     return structured;
+  }
+
+  private static List<String> sharedWith(final ContextMemory memory, final AgentMemoryPlan plan) {
+    final MemoryShareConfig config =
+        memory.getShareConfig() == null ? plan.shareConfig() : memory.getShareConfig();
+    return listOrEmpty(config.getSharedWith()).stream()
+        .map(MemorySharedPrincipal::getPrincipal)
+        .filter(Objects::nonNull)
+        .map(
+            principal ->
+                nullOrEmpty(principal.getDisplayName())
+                    ? principal.getName()
+                    : principal.getDisplayName())
+        .toList();
   }
 
   private static String summary(

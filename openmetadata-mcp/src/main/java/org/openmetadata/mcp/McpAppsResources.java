@@ -45,6 +45,8 @@ public final class McpAppsResources {
 
   public static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
 
+  public static final String MEMORY_URI = "ui://openmetadata/memory-v1.html";
+
   private static final String VIEWS_DIR = "mcp-apps/";
   private static final Pattern STYLESHEET =
       Pattern.compile("<link rel=\"stylesheet\" href=\"([^\"]+)\">");
@@ -104,6 +106,15 @@ public final class McpAppsResources {
             "Card for get_concept_relations: the terms related to a glossary term, the table for each"
                 + " and the join path to a target term",
             "ontology-v1.html",
+            fontBase,
+            meta),
+        view(
+            MEMORY_URI,
+            "memory",
+            "Memory",
+            "Card for the memory saved by remember: the fact, the assets it is linked to, who can"
+                + " read it and whether it needs review",
+            "memory-v1.html",
             fontBase,
             meta));
   }

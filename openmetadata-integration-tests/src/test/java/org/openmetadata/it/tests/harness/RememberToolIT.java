@@ -81,7 +81,11 @@ class RememberToolIT extends McpTestBase {
     assertThat(saved.path("linkedAssets").get(0).path("fqn").asText())
         .isEqualTo(table.getFullyQualifiedName());
     assertThat(saved.path("linkedAssets").get(0).path("type").asText()).isEqualTo("table");
-    assertThat(saved.path("url").asText()).contains("/context-center/memories?memory=");
+    assertThat(saved.path("url").asText())
+        .contains("/context-center/memories?memory=agent-memory-" + saved.path("id").asText());
+    assertThat(saved.path("fact").asText()).isEqualTo(fact);
+    assertThat(saved.path("savedAt").asLong()).isPositive();
+    assertThat(saved.path("sharedWith")).hasSize(1);
     final String id = saved.path("id").asText();
 
     final JsonNode seenByOwner = memory(team.owner(), id);

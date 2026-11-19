@@ -39,6 +39,7 @@ class McpAppsResourceIT extends McpTestBase {
   private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
   private static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
   private static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
+  private static final String MEMORY_URI = "ui://openmetadata/memory-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @BeforeAll
@@ -161,6 +162,7 @@ class McpAppsResourceIT extends McpTestBase {
                 "get_concept_context", ASSET_URI,
                 "find_context", ASSET_URI,
                 "get_entity_lineage", LINEAGE_URI,
-                "get_concept_relations", ONTOLOGY_URI));
+                "get_concept_relations", ONTOLOGY_URI,
+                "remember", MEMORY_URI));
   }
 }

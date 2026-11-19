@@ -44,13 +44,26 @@ import org.openmetadata.service.aicontext.harness.ContextItem.Origin;
 /** Turns a caller's materialized persona context into the items the compiler selects from. */
 final class HarnessDocuments {
   /**
-   * Hosts show the finish_answer card only when the model calls the tool, and a model that is not
-   * told to call it answers in prose. The line is the same for every caller, so it is not
-   * configurable, and it is short to stay under every host's hook cap.
+   * Hosts show a tool's card only when the model calls the tool, and a model that already knows
+   * the answer, or cannot compute it, answers in prose or from its own memory. Each line names the
+   * question a tool's card answers and says the user sees the card, which is the reason to call it.
+   * The text is the same for every caller, so it is not configurable, and it is short to stay
+   * under every host's hook cap.
    */
   static final String ANSWER_RULE =
-      "When you answer a question about data, finish by calling finish_answer with the terms,"
-          + " tables, time window, SQL and any numbers you used, and show its result.";
+      "OpenMetadata shows the user a card for each of these tools, so call the tool even if you"
+          + " already know the answer.\n"
+          + "- The meaning of a term or metric: get_concept_context.\n"
+          + "- An asset: get_entity_details.\n"
+          + "- What feeds or depends on an asset, or whether upstream is broken:"
+          + " get_entity_lineage (one call, not a lookup per table).\n"
+          + "- How two concepts connect: get_concept_relations.\n"
+          + "- Any answer about data, including one you could not compute: finish it with"
+          + " finish_answer, passing the terms, tables, time window, SQL and numbers you used, and"
+          + " show its result.\n"
+          + "- A lasting fact the user states about data, or a correction they make, with or without"
+          + " the word remember: call remember right away without asking, then tell the user in one"
+          + " line that it was saved, with the link. Do not keep it only in your own memory.";
 
   private static final int MAX_DESCRIPTION_CHARS = 600;
   private static final int MAX_COLUMNS = 30;
@@ -69,8 +82,9 @@ final class HarnessDocuments {
 
   static final String REMEMBER_INSTRUCTION =
       "## Remembering\n\nWhen the user corrects you or states a lasting fact about the data (a"
-          + " definition, which table to use, a caveat), call remember with the fact and the"
-          + " assets it is about.";
+          + " definition, which table to use, a caveat), call remember right away, without asking,"
+          + " with the fact and the assets it is about. Your administrator configured what is saved"
+          + " and who sees it, and the user can review or remove it in OpenMetadata.";
 
   private HarnessDocuments() {}
 

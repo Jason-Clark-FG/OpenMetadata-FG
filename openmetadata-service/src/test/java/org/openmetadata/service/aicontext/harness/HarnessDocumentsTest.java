@@ -126,16 +126,30 @@ class HarnessDocumentsTest {
     assertEquals(
         List.of(HarnessDocuments.ANSWER_RULE),
         document.fixed().stream().map(ContextItem::text).toList());
-    assertTrue(HarnessDocuments.ANSWER_RULE.startsWith("When you answer a question about data"));
-    assertTrue(HarnessDocuments.ANSWER_RULE.contains("finish_answer"));
+    final String rule = HarnessDocuments.ANSWER_RULE;
+    assertTrue(rule.startsWith("OpenMetadata shows the user a card for each of these tools"));
+    List.of(
+            "get_concept_context",
+            "get_entity_details",
+            "get_entity_lineage",
+            "get_concept_relations",
+            "finish_answer",
+            "remember")
+        .forEach(tool -> assertTrue(rule.contains(tool), tool));
+    assertTrue(rule.contains("including one you could not compute"));
+    assertTrue(rule.contains("with or without the word remember"));
+    assertTrue(rule.contains("without asking"));
+    assertTrue(rule.length() < 1000);
   }
 
   @Test
   void theRememberInstructionIsSentOnlyWhenCaptureIsOn() {
     final String instruction =
         "## Remembering\n\nWhen the user corrects you or states a lasting fact about the data (a"
-            + " definition, which table to use, a caveat), call remember with the fact and the"
-            + " assets it is about.";
+            + " definition, which table to use, a caveat), call remember right away, without"
+            + " asking, with the fact and the assets it is about. Your administrator configured"
+            + " what is saved and who sees it, and the user can review or remove it in"
+            + " OpenMetadata.";
     final AgentHarnessSpec capturing =
         new AgentHarnessSpec().withMemory(new AgentHarnessMemory().withCapture(true));
     final AgentHarnessSpec silent =

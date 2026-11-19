@@ -33,6 +33,7 @@ class McpAppsResourcesTest {
   private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
   private static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
   private static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
+  private static final String MEMORY_URI = "ui://openmetadata/memory-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
   private static final String BASE_URL = "https://om.example.com:8585/ctx/";
   private static final String ORIGIN = "https://om.example.com:8585";
@@ -43,7 +44,7 @@ class McpAppsResourcesTest {
 
     assertThat(resources)
         .extracting(McpSchema.Resource::uri)
-        .containsExactlyInAnyOrder(CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI);
+        .containsExactlyInAnyOrder(CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI);
     assertThat(resources)
         .allSatisfy(
             resource -> {
@@ -53,7 +54,7 @@ class McpAppsResourcesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI})
+  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI})
   void aCardIsReadAsOneSelfContainedHtmlFile(final String uri) {
     final McpSchema.TextResourceContents card = read(uri);
 
@@ -74,7 +75,7 @@ class McpAppsResourcesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI})
+  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI})
   void aCardWritesCatalogTextAsTextAndLoadsOnlyItsFonts(final String uri) {
     final String card = read(uri).text();
 
@@ -144,17 +145,20 @@ class McpAppsResourcesTest {
             "find_context",
             "get_concept_context",
             "get_concept_relations",
-            "get_entity_lineage")
+            "get_entity_lineage",
+            "remember")
         .containsEntry("finish_answer", Map.of("ui", Map.of("resourceUri", CITATION_URI)))
         .containsEntry("get_entity_details", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
         .containsEntry("find_context", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
         .containsEntry("get_concept_context", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
         .containsEntry("get_concept_relations", Map.of("ui", Map.of("resourceUri", ONTOLOGY_URI)))
-        .containsEntry("get_entity_lineage", Map.of("ui", Map.of("resourceUri", LINEAGE_URI)));
+        .containsEntry("get_entity_lineage", Map.of("ui", Map.of("resourceUri", LINEAGE_URI)))
+        .containsEntry("remember", Map.of("ui", Map.of("resourceUri", MEMORY_URI)));
     assertThat(McpAppsResources.ANSWER_CITATION_URI).isEqualTo(CITATION_URI);
     assertThat(McpAppsResources.ENTITY_URI).isEqualTo(ASSET_URI);
     assertThat(McpAppsResources.LINEAGE_URI).isEqualTo(LINEAGE_URI);
     assertThat(McpAppsResources.ONTOLOGY_URI).isEqualTo(ONTOLOGY_URI);
+    assertThat(McpAppsResources.MEMORY_URI).isEqualTo(MEMORY_URI);
   }
 
   @Test
@@ -166,6 +170,15 @@ class McpAppsResourcesTest {
         .contains("Upstream", "This asset", "Downstream", "Column lineage")
         .doesNotContain("Join path");
     assertThat(ontology).contains("Join path", "om-relation").doesNotContain("Column lineage");
+  }
+
+  @Test
+  void theMemoryCardIsItsOwnPage() {
+    final String memory = read(MEMORY_URI).text();
+
+    assertThat(memory)
+        .contains("Linked to", "Visible to", "Capture off", "Merged into an existing memory")
+        .doesNotContain("Join path", "Column lineage", "Key columns");
   }
 
   private static McpSchema.TextResourceContents read(final String uri) {

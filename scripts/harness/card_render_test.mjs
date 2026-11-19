@@ -119,4 +119,47 @@ check("a find_context result with no clear concept draws no card", () => {
   assert.equal(card.document.querySelectorAll(".om-card").length, 0);
 });
 
+check("memory card shows the fact, what it is linked to, who reads it, and links to the memory", () => {
+  const card = open("memory-v1.html", fixtures.memory);
+  assert.equal(card.text(".om-pill")[0], "Approved");
+  assert.equal(card.text(".om-body-text")[0], fixtures.memory.fact);
+  assert.deepEqual(card.text(".om-kind"), ["Metric", "Table"]);
+  assert.deepEqual(card.text(".om-row .om-name"), ["Finance.ARR", "analytics.finance.public.arr_daily"]);
+  assert.deepEqual(card.text(".om-notice-label"), ["Visible to"]);
+  assert.deepEqual(card.text(".om-notice-body"), ["FinanceAnalyst persona"]);
+  assert.equal(card.text(".om-footer")[0], "Saved 2 minutes ago · Claude DesktopOpen in OpenMetadata ↗");
+  const open_ = card.document.querySelector(".om-footer a");
+  assert.equal(open_.href, fixtures.memory.url);
+  assert.equal(card.click(open_), true);
+});
+
+check("memory card says when a restatement was merged, and who sees a private memory awaiting review", () => {
+  const data = { ...structuredClone(fixtures.memory), captured: false, deduplicatedInto: fixtures.memory.id,
+    status: "In Review", visibility: "Private", sharedWith: [], note: "No persona applies to you." };
+  const card = open("memory-v1.html", data);
+  assert.equal(card.text(".om-pill")[0], "Pending review");
+  assert.equal(card.text(".om-label")[0], "Already remembered");
+  assert.deepEqual(card.text(".om-notice-label"), ["Merged", "Visible to", "Note"]);
+  assert.deepEqual(card.text(".om-notice-body"), [
+    "Merged into an existing memory, so nothing new was saved.", "Only you", "No persona applies to you."
+  ]);
+});
+
+check("memory card with capture off says nothing was saved and offers no link", () => {
+  const card = open("memory-v1.html", { captured: false, reason: "Memory capture is turned off for your agent harness, so nothing was saved." });
+  assert.equal(card.text(".om-pill")[0], "Capture off");
+  assert.equal(card.text(".om-label")[0], "Not saved");
+  assert.match(card.text(".om-body-text")[0], /nothing was saved/);
+  assert.equal(card.document.querySelectorAll("a").length, 0);
+});
+
+check("a memory fact or asset named with markup stays text", () => {
+  const data = structuredClone(fixtures.memory);
+  data.fact = "<img src=x onerror=alert(1)>";
+  data.linkedAssets[0].fqn = "<b>x</b>";
+  const card = open("memory-v1.html", data);
+  assert.equal(card.document.querySelectorAll("img, b").length, 0);
+  assert.equal(card.text(".om-body-text")[0], "<img src=x onerror=alert(1)>");
+});
+
 console.log(`${passed} checks passed`);
