@@ -19,16 +19,24 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.mcp.util.ResponseBudget;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
+import org.openmetadata.schema.entity.teams.User;
+import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.RdfSparqlService;
+import org.openmetadata.service.rdf.RdfUtils;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.SparqlQueryExecutionGuard.QueryTimeoutException;
+import org.openmetadata.service.rdf.SparqlQueryLimits.OutputLimitExceededException;
 import org.openmetadata.service.rdf.explore.Citation;
 import org.openmetadata.service.rdf.explore.CiteResult;
 import org.openmetadata.service.rdf.explore.ExpandPage;
@@ -36,7 +44,11 @@ import org.openmetadata.service.rdf.explore.ExpandRequest;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
 import org.openmetadata.service.rdf.explore.FindRequest;
 import org.openmetadata.service.rdf.explore.FindResult;
+import org.openmetadata.service.rdf.explore.GraphMemories;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
+import org.openmetadata.service.rdf.explore.MemoryEntry;
+import org.openmetadata.service.rdf.explore.MemoryListing;
+import org.openmetadata.service.rdf.explore.MemoryNote;
 import org.openmetadata.service.rdf.explore.NoRows;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
@@ -52,6 +64,7 @@ import org.openmetadata.service.rdf.explore.TraceNode;
 import org.openmetadata.service.rdf.explore.TraceStep;
 import org.openmetadata.service.rdf.federation.SparqlFederationGuard;
 import org.openmetadata.service.security.Authorizer;
+import org.openmetadata.service.security.DefaultAuthorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
 
 /**
@@ -60,6 +73,7 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
  * of the sibling RDF tools; {@code query} is {@code sparql_query} itself. See
  * ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards.
  */
+@Slf4j
 public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> {
 
   /**
@@ -70,6 +84,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
 
   /** Room the response keeps beyond its cards: run, operation, counts and skip notes. */
   private static final long ENVELOPE_RESERVE = 1_000;
+
+  /** Room for a field's name and separators. */
+  private static final long FIELD_CHARS = 24;
+
+  /** Room for the note on memories, kept whenever notes or preferences are sent. */
+  private static final long NOTE_CHARS = MemoryNote.TEXT.length() + FIELD_CHARS;
 
   private final SparqlQueryTool sparqlQuery;
   private final StartingPoints startingPoints;
@@ -132,7 +152,11 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       int moreMatched,
       @JsonInclude(JsonInclude.Include.NON_NULL) String rest,
       String termLookupSkipped,
-      String semanticSearchSkipped)
+      String semanticSearchSkipped,
+      MemoryListing notes,
+      String notesSkipped,
+      List<MemoryEntry> preferences,
+      String aboutMemories)
       implements Response {}
 
   /** {@code properties} as in find; {@code nextCursor} is null on the last page. */
@@ -142,7 +166,9 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       List<ExpansionGroup> expansions,
       List<NodeCard> nodes,
       Map<String, RelationshipAbout> properties,
-      String nextCursor)
+      String nextCursor,
+      @JsonInclude(JsonInclude.Include.NON_NULL) List<MemoryEntry> preferences,
+      @JsonInclude(JsonInclude.Include.NON_NULL) String aboutMemories)
       implements Response {}
 
   /**
@@ -157,7 +183,9 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       SparqlQueryTool.Result result,
       QueryRows rows,
       NoRows noRows,
-      List<String> prefixesAdded)
+      List<String> prefixesAdded,
+      List<MemoryEntry> preferences,
+      String aboutMemories)
       implements Response {}
 
   /** What a cite recorded, and what it refused because the run never reached it. */
@@ -181,13 +209,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final KnowledgeGraphCall call = KnowledgeGraphCall.parse(params);
     final RdfRepository repository = repository();
     final RunContext run = new RunContext(call.runOrNew(), principalOf(securityContext));
+    final boolean firstCall = call.run() == null;
     return switch (call.request()) {
       case KnowledgeGraphCall.Find find -> find(
-          authorizer, securityContext, repository, new Turn(run, budget()), find);
+          authorizer, securityContext, repository, new Turn(run, budget(), firstCall), find);
       case KnowledgeGraphCall.Expand expand -> expand(
-          securityContext, repository, new Turn(run, budget()), expand);
+          securityContext, repository, new Turn(run, budget(), firstCall), expand);
       case KnowledgeGraphCall.Query query -> query(
-          securityContext, repository, new Turn(run, budget()), query);
+          securityContext, repository, new Turn(run, budget(), firstCall), query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
       case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
     };
@@ -199,8 +228,47 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     throw new UnsupportedOperationException("knowledge_graph needs the authorizer for find");
   }
 
-  /** A call's run and the characters its answer may fill. */
-  private record Turn(RunContext run, long budget) {}
+  /** A call's run, the characters its answer may fill, and whether it is the run's first. */
+  private record Turn(RunContext run, long budget, boolean firstCall) {}
+
+  /**
+   * The caller's preferences on the first call of a run and on no other
+   * (ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards, v19).
+   */
+  private static List<MemoryEntry> preferences(
+      final Turn turn,
+      final CatalogSecurityContext securityContext,
+      final KnowledgeGraphExplorer explorer,
+      final String baseUri) {
+    final User caller = DefaultAuthorizer.getSubjectContext(securityContext).user();
+    List<MemoryEntry> preferences = List.of();
+    if (turn.firstCall() && caller != null && caller.getId() != null) {
+      try {
+        preferences =
+            explorer
+                .memories()
+                .preferences(RdfUtils.entityUri(baseUri, Entity.USER, caller.getId()));
+      } catch (QueryTimeoutException | OutputLimitExceededException failure) {
+        LOG.warn(
+            "[KnowledgeGraph] answered without the caller's preferences: {}", failure.getMessage());
+      }
+    }
+    return preferences;
+  }
+
+  /** The characters a part of an answer takes, with its field name. */
+  private static long chars(final Object part) {
+    return part == null ? 0 : JsonUtils.pojoToJson(part).length() + FIELD_CHARS;
+  }
+
+  /** The note on memories, once, when the answer carries any. */
+  private static String aboutMemories(final boolean carriesMemories) {
+    return carriesMemories ? MemoryNote.TEXT : null;
+  }
+
+  private static List<MemoryEntry> orNull(final List<MemoryEntry> entries) {
+    return entries.isEmpty() ? null : entries;
+  }
 
   private FindResponse find(
       final Authorizer authorizer,
@@ -212,13 +280,34 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final RunContext run = turn.run();
     requireReadyProjectionForNonAdmin(securityContext);
     final CatalogHits catalog = catalogHits(authorizer, securityContext, find);
+    final KnowledgeGraphExplorer explorer = explorer(securityContext, repository);
+    final List<MemoryEntry> preferences =
+        preferences(turn, securityContext, explorer, repository.getBaseUri());
+    final GraphMemories.Matches matches = explorer.memories().matching(find.question());
+    final long offered = chars(orNull(preferences)) + chars(matches.beside(Set.of()).listing());
+    final long memoryChars = offered == 0 ? 0 : offered + NOTE_CHARS;
     final FindResult found =
-        explorer(securityContext, repository)
-            .find(
-                run,
-                new FindRequest(find.question(), find.termKinds(), find.limit(), turn.budget()),
-                catalog.hits());
+        explorer.find(
+            run,
+            new FindRequest(
+                find.question(), find.termKinds(), find.limit(), turn.budget() - memoryChars),
+            catalog.hits());
+    final GraphMemories.Notes notes =
+        matches.beside(found.nodes().stream().map(NodeCard::id).collect(Collectors.toSet()));
+    return findResponse(run, find, found, catalog, new FindMemories(notes, preferences));
+  }
+
+  /** What a find carries of memories beside its cards. */
+  private record FindMemories(GraphMemories.Notes notes, List<MemoryEntry> preferences) {}
+
+  private static FindResponse findResponse(
+      final RunContext run,
+      final KnowledgeGraphCall.Find find,
+      final FindResult found,
+      final CatalogHits catalog,
+      final FindMemories memories) {
     final int matched = found.nodes().size() + found.moreMatched();
+    final MemoryListing notes = memories.notes().listing();
     return new FindResponse(
         run.run(),
         Operation.FIND,
@@ -228,7 +317,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         found.moreMatched(),
         findRest(matched, found.nodes().size(), find.limit()),
         found.termLookupSkipped(),
-        catalog.semanticSearchSkipped());
+        catalog.semanticSearchSkipped(),
+        notes,
+        memories.notes().skipped(),
+        orNull(memories.preferences()),
+        aboutMemories(
+            found.carriesMemories() || notes != null || !memories.preferences().isEmpty()));
   }
 
   private static String findRest(final int matched, final int shown, final int limit) {
@@ -262,15 +356,21 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final KnowledgeGraphCall.Expand expand) {
     requireReadyProjectionForNonAdmin(securityContext);
     final RunContext run = turn.run();
+    final KnowledgeGraphExplorer explorer = explorer(securityContext, repository);
+    final List<MemoryEntry> preferences =
+        preferences(turn, securityContext, explorer, repository.getBaseUri());
+    final long memoryChars = preferences.isEmpty() ? 0 : chars(preferences) + NOTE_CHARS;
     final ExpandPage page =
-        explorer(securityContext, repository).expand(run, expandRequest(expand, turn.budget()));
+        explorer.expand(run, expandRequest(expand, turn.budget() - memoryChars));
     return new ExpandResponse(
         run.run(),
         Operation.EXPAND,
         page.expansions(),
         page.nodes(),
         page.properties(),
-        page.nextOffset() == null ? null : PageCursor.encodeOffset(page.nextOffset()));
+        page.nextOffset() == null ? null : PageCursor.encodeOffset(page.nextOffset()),
+        orNull(preferences),
+        aboutMemories(page.carriesMemories() || !preferences.isEmpty()));
   }
 
   /**
@@ -306,18 +406,37 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final SparqlQueryTool.Result result =
         sparqlQuery.executeWhole(securityContext, sparql.sparql());
     final KnowledgeGraphExplorer explorer = explorer(securityContext, repository);
+    final List<MemoryEntry> preferences =
+        preferences(turn, securityContext, explorer, repository.getBaseUri());
+    final long budget =
+        turn.budget() - (preferences.isEmpty() ? 0 : chars(preferences) + NOTE_CHARS);
     final QueryRows.Fitted fitted =
         QueryRows.fit(
                 result,
                 candidate -> queryResponse(run, candidate, null, sparql),
-                size -> size <= turn.budget())
-            .orElseGet(() -> new QueryRows.Fitted(bounded(result, turn.budget()), null));
+                size -> size <= budget)
+            .orElseGet(() -> new QueryRows.Fitted(bounded(result, budget), null));
     explorer.recordQuery(run, sparql.sparql(), fitted.result().body());
     final NoRows noRows =
         fitted.rows() != null && fitted.rows().isEmpty()
             ? explorer.explainNoRows(sparql.sparql())
             : null;
-    return queryResponse(run, fitted, noRows, sparql);
+    return withPreferences(queryResponse(run, fitted, noRows, sparql), preferences);
+  }
+
+  private static QueryResponse withPreferences(
+      final QueryResponse response, final List<MemoryEntry> preferences) {
+    return preferences.isEmpty()
+        ? response
+        : new QueryResponse(
+            response.run(),
+            response.operation(),
+            response.result(),
+            response.rows(),
+            response.noRows(),
+            response.prefixesAdded(),
+            preferences,
+            MemoryNote.TEXT);
   }
 
   /** A body that is not SELECT rows, such as an ASK or a graph, cut at the answer's size. */
@@ -340,7 +459,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final NoRows noRows,
       final QueryPrefixes.Completed sparql) {
     return new QueryResponse(
-        run.run(), Operation.QUERY, fitted.result(), fitted.rows(), noRows, sparql.added());
+        run.run(),
+        Operation.QUERY,
+        fitted.result(),
+        fitted.rows(),
+        noRows,
+        sparql.added(),
+        null,
+        null);
   }
 
   private CiteResponse cite(
