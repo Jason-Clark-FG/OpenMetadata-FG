@@ -21,6 +21,8 @@ import jakarta.ws.rs.core.SecurityContext;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +53,7 @@ import org.openmetadata.service.aicontext.PersonaContextBuilder;
 import org.openmetadata.service.aicontext.PersonaContextCache;
 import org.openmetadata.service.aicontext.harness.CompileSelector.Document;
 import org.openmetadata.service.aicontext.harness.CompileSelector.Packed;
+import org.openmetadata.service.aicontext.harness.ContextItem.AssetRef;
 import org.openmetadata.service.aicontext.harness.ContextItem.Origin;
 import org.openmetadata.service.aicontext.harness.GuardrailEvaluators.Finding;
 import org.openmetadata.service.aicontext.harness.GuardrailEvaluators.LiveAsset;
@@ -205,7 +208,8 @@ public final class AgentHarnessCompiler {
     final Document document = document(turn, documents);
     final Optional<GuardrailDecision> decision = decision(turn, document);
     final boolean opening = opensSession(turn);
-    final List<ContextItem> candidates = candidates(turn, document, decision, opening);
+    final List<ContextItem> candidates =
+        withAssetUses(turn, candidates(turn, document, decision, opening));
     final Packed packed = CompileSelector.pack(candidates, budget(turn, opening));
     remember(turn, packed);
     markStarted(turn);
@@ -214,6 +218,31 @@ public final class AgentHarnessCompiler {
         .withTokens(packed.tokens())
         .withSegments(packed.segments())
         .withDecision(decision.orElse(null));
+  }
+
+  /**
+   * Names the assets that answer each selected glossary term or metric, so the agent can go from
+   * the business term to a table. Done after selection and before packing so the added text counts
+   * against the budget.
+   */
+  private static List<ContextItem> withAssetUses(
+      final Turn turn, final List<ContextItem> candidates) {
+    final List<AssetRef> subjects =
+        candidates.stream().map(ContextItem::knowledge).filter(Objects::nonNull).toList();
+    List<ContextItem> enriched = candidates;
+    if (!subjects.isEmpty()) {
+      final Map<AssetRef, List<AssetUse>> uses =
+          new KnowledgeAssetLookup(Entity.getSearchRepository(), turn.securityContext())
+              .usesOf(subjects);
+      enriched = candidates.stream().map(item -> withUses(item, uses)).toList();
+    }
+    return enriched;
+  }
+
+  private static ContextItem withUses(
+      final ContextItem item, final Map<AssetRef, List<AssetUse>> uses) {
+    final String line = AssetUse.render(uses.getOrDefault(item.knowledge(), List.of()));
+    return line.isEmpty() ? item : item.withText(item.text().stripTrailing() + "\n" + line);
   }
 
   private Document document(final Turn turn, final DocumentSource documents) {

@@ -24,6 +24,7 @@ import java.util.List;
  * @param key identity within a session, so an item is not sent twice
  * @param names names a prompt or tool call can mention the item by
  * @param asset the catalog asset the item describes, when it describes one
+ * @param knowledge the glossary term or metric the item describes, when it describes one
  */
 public record ContextItem(
     Origin origin,
@@ -32,7 +33,8 @@ public record ContextItem(
     String text,
     List<String> names,
     boolean alwaysInContext,
-    AssetRef asset) {
+    AssetRef asset,
+    AssetRef knowledge) {
 
   public enum Origin {
     DEFAULT,
@@ -41,6 +43,10 @@ public record ContextItem(
 
   /** A catalog asset by entity type and fully qualified name. */
   public record AssetRef(String entityType, String fullyQualifiedName) {}
+
+  public ContextItem withText(final String newText) {
+    return new ContextItem(origin, kind, key, newText, names, alwaysInContext, asset, knowledge);
+  }
 
   public static final String INSTRUCTIONS = "Instructions";
   public static final String PROMPT = "Prompt";
@@ -60,6 +66,6 @@ public record ContextItem(
   /** An item that no prompt or tool call selects by name. */
   public static ContextItem fixed(
       final Origin origin, final String kind, final String key, final String text) {
-    return new ContextItem(origin, kind, key, text, List.of(), false, null);
+    return new ContextItem(origin, kind, key, text, List.of(), false, null, null);
   }
 }

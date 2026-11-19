@@ -144,7 +144,8 @@ class CompileSelectorTest {
         name + " card",
         List.of(name),
         alwaysInContext,
-        asset);
+        asset,
+        null);
   }
 
   private static ContextItem sized(final Origin origin, final String key, final int chars) {

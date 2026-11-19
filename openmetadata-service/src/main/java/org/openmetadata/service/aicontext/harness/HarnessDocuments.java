@@ -168,7 +168,8 @@ final class HarnessDocuments {
         rule != null && Boolean.TRUE.equals(rule.getAlwaysInContext()),
         ContextItem.ASSETS.equals(kind)
             ? new AssetRef(entityType, entity.getFullyQualifiedName())
-            : null);
+            : null,
+        knowledgeRef(kind, entityType, entity.getFullyQualifiedName()));
   }
 
   /**
@@ -208,7 +209,15 @@ final class HarnessDocuments {
             + truncated(item.getContent()),
         names(item.getName(), item.getDisplayName(), item.getFullyQualifiedName()),
         false,
-        null);
+        null,
+        knowledgeRef(kind, entityType, item.getFullyQualifiedName()));
+  }
+
+  private static AssetRef knowledgeRef(
+      final String kind, final String entityType, final String fqn) {
+    return ContextItem.GLOSSARY.equals(kind) || ContextItem.METRICS.equals(kind)
+        ? new AssetRef(entityType, fqn)
+        : null;
   }
 
   static Origin originOf(final String ruleName) {

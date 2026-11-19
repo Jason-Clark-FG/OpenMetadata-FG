@@ -13,6 +13,7 @@
 package org.openmetadata.it.tests.harness;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.openmetadata.it.tests.harness.AgentHarnessApi.ADMIN_TOKEN;
 import static org.openmetadata.it.tests.harness.AgentHarnessApi.HARNESS;
 import static org.openmetadata.it.tests.harness.AgentHarnessApi.admin;
@@ -49,10 +50,16 @@ import org.openmetadata.schema.api.context.CompileAgentContext;
 import org.openmetadata.schema.api.context.CompileEvent;
 import org.openmetadata.schema.api.context.CompiledAgentContext;
 import org.openmetadata.schema.api.context.PreviewAgentHarness;
+import org.openmetadata.schema.api.data.CreateGlossary;
+import org.openmetadata.schema.api.data.CreateGlossaryTerm;
+import org.openmetadata.schema.api.data.CreateMetric;
 import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.ToolAccessDefault;
 import org.openmetadata.schema.entity.context.ToolAccessLevel;
 import org.openmetadata.schema.entity.context.ToolAccessServer;
+import org.openmetadata.schema.entity.data.Glossary;
+import org.openmetadata.schema.entity.data.GlossaryTerm;
+import org.openmetadata.schema.entity.data.Metric;
 import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.entity.teams.Persona;
 import org.openmetadata.schema.entity.teams.User;
@@ -195,6 +202,108 @@ class AgentHarnessCompileIT extends McpTestBase {
             caller.token(), "get_context", Map.of(), other.persona().getFullyQualifiedName());
     assertThat(viaHeader.path("harness").path("persona").path("id").asText())
         .isEqualTo(caller.harnessId().toString());
+  }
+
+  @Test
+  void aGlossaryTermNamesTheCertifiedAssetsTaggedWithItAndNotTheDeprecatedOnes() throws Exception {
+    final String termName = uniqueName("ARR").replace("_", "");
+    final String termFqn = createGlossaryTerm(termName);
+    final Table certified = createServiceDatabaseSchemaTable("harness_use_gold");
+    final Table deprecated = createServiceDatabaseSchemaTable("harness_use_old");
+    tagWithTerm(certified, termFqn);
+    tagWithTerm(deprecated, termFqn);
+    patch(
+        "tables/" + certified.getId(),
+        "[{\"op\":\"add\",\"path\":\"/certification\",\"value\":{\"tagLabel\":"
+            + "{\"tagFQN\":\"Certification.Gold\",\"source\":\"Classification\","
+            + "\"labelType\":\"Manual\",\"state\":\"Confirmed\"}}}]");
+    patch(
+        "tables/" + deprecated.getId(),
+        "[{\"op\":\"add\",\"path\":\"/entityStatus\",\"value\":\"Deprecated\"}]");
+    final Caller caller =
+        callerWithHarness(
+            "compile_uses",
+            spec -> {
+              spec.getContext()
+                  .withRules(
+                      List.of(
+                          new ContextRule()
+                              .withName("terms")
+                              .withEntityType(Entity.GLOSSARY_TERM)
+                              .withQueryFilter(
+                                  "{\"query\":{\"term\":{\"fullyQualifiedName\":\""
+                                      + termFqn
+                                      + "\"}}}")
+                              .withSections(Set.of())
+                              .withMaxAssets(1)
+                              .withEnabled(true)
+                              .withAlwaysInContext(true)
+                              .withFilteredInSearch(false)));
+              return spec;
+            });
+
+    await("search indexes the tagged tables")
+        .atMost(Duration.ofSeconds(60))
+        .pollInterval(Duration.ofSeconds(2))
+        .untilAsserted(
+            () ->
+                assertThat(compile(caller.token(), CompileEvent.SESSION_START).getText())
+                    .contains("Use: `" + certified.getFullyQualifiedName() + "` (table, Gold)"));
+    final String text = compile(caller.token(), CompileEvent.SESSION_START).getText();
+
+    assertThat(text)
+        .contains("`" + termFqn + "`")
+        .doesNotContain(deprecated.getFullyQualifiedName());
+  }
+
+  @Test
+  void aMetricNamesTheVisibleNonDeprecatedAssetsItIsComputedOn() throws Exception {
+    final Table live = createServiceDatabaseSchemaTable("harness_metric_live");
+    final Table retired = createServiceDatabaseSchemaTable("harness_metric_old");
+    patch(
+        "tables/" + retired.getId(),
+        "[{\"op\":\"add\",\"path\":\"/entityStatus\",\"value\":\"Deprecated\"}]");
+    final String metricName = uniqueName("harness_metric").replace("_", "");
+    final Metric metric =
+        post(
+            "metrics",
+            new CreateMetric()
+                .withName(metricName)
+                .withDescription("Monthly recurring revenue")
+                .withAssets(List.of(live.getEntityReference(), retired.getEntityReference())),
+            Metric.class);
+    final Caller caller =
+        callerWithHarness(
+            "compile_metric_uses",
+            spec -> {
+              spec.getContext()
+                  .withRules(
+                      List.of(
+                          new ContextRule()
+                              .withName("metrics")
+                              .withEntityType(Entity.METRIC)
+                              .withQueryFilter(
+                                  "{\"query\":{\"term\":{\"fullyQualifiedName\":\""
+                                      + metric.getFullyQualifiedName()
+                                      + "\"}}}")
+                              .withSections(Set.of())
+                              .withMaxAssets(1)
+                              .withEnabled(true)
+                              .withAlwaysInContext(true)
+                              .withFilteredInSearch(false)));
+              return spec;
+            });
+
+    await("search indexes the metric's tables")
+        .atMost(Duration.ofSeconds(60))
+        .pollInterval(Duration.ofSeconds(2))
+        .untilAsserted(
+            () ->
+                assertThat(compile(caller.token(), CompileEvent.SESSION_START).getText())
+                    .contains("Use: `" + live.getFullyQualifiedName() + "` (table)"));
+
+    assertThat(compile(caller.token(), CompileEvent.SESSION_START).getText())
+        .doesNotContain(retired.getFullyQualifiedName());
   }
 
   @Test
@@ -396,6 +505,33 @@ class AgentHarnessCompileIT extends McpTestBase {
         admin("PUT", "/" + id + "/draft", spec, created.getDraftRevision());
     admin("POST", "/" + id + "/publish", null, drafted.getDraftRevision());
     return new Caller(persona, id, AgentHarnessApi.tokenFor(user), prompt);
+  }
+
+  private static String createGlossaryTerm(final String termName) throws Exception {
+    final Glossary glossary =
+        post(
+            "glossaries",
+            new CreateGlossary()
+                .withName(uniqueName("harness_glossary"))
+                .withDescription("Glossary for harness asset uses"),
+            Glossary.class);
+    return post(
+            "glossaryTerms",
+            new CreateGlossaryTerm()
+                .withGlossary(glossary.getFullyQualifiedName())
+                .withName(termName)
+                .withDescription("Annual Recurring Revenue"),
+            GlossaryTerm.class)
+        .getFullyQualifiedName();
+  }
+
+  private static void tagWithTerm(final Table table, final String termFqn) throws Exception {
+    patch(
+        "tables/" + table.getId(),
+        "[{\"op\":\"add\",\"path\":\"/tags\",\"value\":[{\"tagFQN\":\""
+            + termFqn
+            + "\",\"source\":\"Glossary\",\"labelType\":\"Manual\","
+            + "\"state\":\"Confirmed\"}]}]");
   }
 
   private static void addDefaultServer(final String server, final ToolAccessLevel level) {
