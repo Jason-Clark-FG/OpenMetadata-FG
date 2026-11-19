@@ -1196,6 +1196,7 @@
       ],
       "tests": [
         "org/openmetadata/it/tests/mcp/**",
+        "org/openmetadata/it/tests/harness/**",
         "*Mcp*IT",
         "AI*IT",
         "*Agent*IT",
