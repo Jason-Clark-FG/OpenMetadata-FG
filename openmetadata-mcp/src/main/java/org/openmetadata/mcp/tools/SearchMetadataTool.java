@@ -99,6 +99,8 @@ public class SearchMetadataTool implements McpTool {
           "tags",
           "owners",
           "tier",
+          "entityStatus",
+          "certification",
           "tableType",
           "columnNames",
           "deleted",

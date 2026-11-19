@@ -32,6 +32,21 @@ class SearchMetadataCleanTest {
   }
 
   @Test
+  void aDeprecatedTableSaysSoWithoutAskingForTheField() {
+    Map<String, Object> cleaned =
+        hit(
+            Map.of(
+                "entityType", "table",
+                "name", "arr_v1",
+                "entityStatus", "Deprecated"));
+
+    assertEquals(
+        "Deprecated",
+        cleaned.get("entityStatus"),
+        "an agent told a deprecated table had no deprecation marker and offered to add one");
+  }
+
+  @Test
   void aMetricHitShowsWhereItSitsInTheHierarchy() {
     Map<String, Object> cleaned =
         hit(
