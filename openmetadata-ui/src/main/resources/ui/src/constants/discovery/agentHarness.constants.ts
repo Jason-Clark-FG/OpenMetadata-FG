@@ -22,6 +22,7 @@ import {
   ToolAccessDefault,
   ToolAccessLevel,
 } from '../../generated/api/context/agentHarnessState';
+import { SurfaceID } from '../../generated/api/context/agentHarnessSurfaces';
 import { CompileEvent } from '../../generated/api/context/compileAgentContext';
 import { PreviewAgentHarness } from '../../generated/api/context/previewAgentHarness';
 import {
@@ -31,8 +32,40 @@ import {
   HarnessTab,
   PickableSource,
   PluginTarget,
+  SurfaceAction,
   ToolAccessError,
 } from '../../interface/discovery/agentHarness.interface';
+
+/** How each surface gets the harness, and the one action its row offers. */
+export const SURFACE_ROWS: Record<
+  SurfaceID,
+  { viaKey: string; action: SurfaceAction }
+> = {
+  [SurfaceID.ClaudeChat]: {
+    action: SurfaceAction.ShowSetup,
+    viaKey: 'message.agent-harness-surface-via-admin-console',
+  },
+  [SurfaceID.ClaudeDesktop]: {
+    action: SurfaceAction.ShowSetup,
+    viaKey: 'message.agent-harness-surface-via-admin-console',
+  },
+  [SurfaceID.Cowork]: {
+    action: SurfaceAction.ShowSetup,
+    viaKey: 'message.agent-harness-surface-via-admin-console',
+  },
+  [SurfaceID.ChatGPT]: {
+    action: SurfaceAction.CopyConnectorUrl,
+    viaKey: 'message.agent-harness-surface-via-workspace-connector',
+  },
+  [SurfaceID.ClaudeCode]: {
+    action: SurfaceAction.CopyInstallCommand,
+    viaKey: 'label.plugin',
+  },
+  [SurfaceID.Codex]: {
+    action: SurfaceAction.CopyInstallCommand,
+    viaKey: 'label.plugin',
+  },
+};
 
 /** Guardrail levels from loosest to strictest; a persona harness may only move right. */
 export const GUARDRAIL_LEVEL_ORDER: GuardrailLevel[] = [
@@ -91,6 +124,7 @@ export const PLUGIN_TARGETS: { target: PluginTarget; labelKey: string }[] = [
 
 /** The zip the server serves (`PluginBuilder`); its entries never change with the harness. */
 export const PLUGIN_ZIP_NAME = 'openmetadata.zip';
+export const PLUGIN_DIR = PLUGIN_ZIP_NAME.replace(/\.zip$/, '');
 export const PLUGIN_ZIP_ENTRIES = [
   '.claude-plugin/plugin.json',
   '.codex-plugin/plugin.json',

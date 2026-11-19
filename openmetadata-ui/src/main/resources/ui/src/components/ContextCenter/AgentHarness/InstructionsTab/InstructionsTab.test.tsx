@@ -129,7 +129,21 @@ describe('InstructionsTab', () => {
     expect(screen.getByTestId('skill-find-context')).toHaveTextContent(
       'label.from-default'
     );
-    expect(skillSwitch('find-context')).toBeDisabled();
+    expect(skillSwitch('find-context')).toBeChecked();
+    expect(skillSwitch('find-context')).toHaveAttribute(
+      'aria-readonly',
+      'true'
+    );
+
+    fireEvent.click(skillSwitch('find-context'));
+
+    expect(skillSwitch('find-context')).toBeChecked();
+  });
+
+  it('disables Add skill when every registered skill is already listed', () => {
+    renderTab(HarnessKind.Default, { skills: [SKILLS[0]] });
+
+    expect(screen.getByTestId('add-skill')).toBeDisabled();
   });
 
   it('hides inherited skills and instructions with Show inherited off', () => {

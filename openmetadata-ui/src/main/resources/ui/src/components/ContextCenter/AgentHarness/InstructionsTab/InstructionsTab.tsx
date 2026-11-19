@@ -17,7 +17,7 @@ import {
   Card,
   Dropdown,
   TextArea,
-  Toggle,
+  Tooltip,
   Typography,
 } from '@openmetadata/ui-core-components';
 import { Plus } from '@openmetadata/ui-core-components/icons';
@@ -35,6 +35,7 @@ import {
   skillRows,
   withSkill,
 } from '../../../../utils/discovery/context-center/agentHarness.utils';
+import HarnessToggle from '../HarnessToggle/HarnessToggle';
 
 export interface InstructionsTabProps {
   kind: HarnessKind;
@@ -91,7 +92,7 @@ const InstructionsTab = ({
     }
 
     return (
-      <Card className="tw:bg-secondary" data-testid="company-instructions">
+      <Card color="secondary" data-testid="company-instructions">
         <Card.Header
           extra={
             <Badge color="gray" size="sm">
@@ -128,7 +129,7 @@ const InstructionsTab = ({
             {row.name}
           </Typography>
           {row.inherited && (
-            <Badge color="gray" size="sm">
+            <Badge color="gray" size="sm" type="pill-color">
               {t('label.from-default')}
             </Badge>
           )}
@@ -137,10 +138,11 @@ const InstructionsTab = ({
           {row.description}
         </Typography>
       </Box>
-      <Toggle
+      <HarnessToggle
         aria-label={t('label.enable-entity', { entity: row.name })}
         data-testid={`skill-enabled-${row.name}`}
-        isDisabled={!canEdit || row.inherited}
+        inherited={row.inherited}
+        isDisabled={!canEdit}
         isSelected={row.enabled}
         onChange={(enabled) =>
           onChange((current) => withSkill(current, row.name, enabled))
@@ -148,6 +150,50 @@ const InstructionsTab = ({
       />
     </Box>
   );
+
+  const renderAddSkill = () => {
+    const button = (
+      <Button
+        color="secondary"
+        data-testid="add-skill"
+        iconLeading={Plus}
+        isDisabled={addable.length === 0}
+        size="sm">
+        {t('label.add-skill')}
+      </Button>
+    );
+
+    if (addable.length === 0) {
+      return (
+        <Tooltip title={t('message.agent-harness-no-skills-to-add')}>
+          {button}
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Dropdown.Root>
+        {button}
+        <Dropdown.Popover className="tw:w-80">
+          <Dropdown.Menu
+            aria-label={t('label.add-skill')}
+            selectionMode="none"
+            onAction={(name) =>
+              onChange((current) => withSkill(current, String(name), true))
+            }>
+            {addable.map((skill) => (
+              <Dropdown.Item
+                data-testid={`add-skill-${skill.name}`}
+                id={skill.name}
+                key={skill.name}
+                label={skill.name}
+              />
+            ))}
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown.Root>
+    );
+  };
 
   return (
     <Box data-testid="instructions-tab" direction="col" gap={4}>
@@ -173,54 +219,25 @@ const InstructionsTab = ({
           </Card.Content>
         </Card>
       )}
-      <Card data-testid="skills">
-        <Card.Header
-          extra={
-            canEdit &&
-            addable.length > 0 && (
-              <Dropdown.Root>
-                <Button
-                  color="secondary"
-                  data-testid="add-skill"
-                  iconLeading={Plus}
-                  size="sm">
-                  {t('label.add-skill')}
-                </Button>
-                <Dropdown.Popover className="tw:w-80">
-                  <Dropdown.Menu
-                    aria-label={t('label.add-skill')}
-                    selectionMode="none"
-                    onAction={(name) =>
-                      onChange((current) =>
-                        withSkill(current, String(name), true)
-                      )
-                    }>
-                    {addable.map((skill) => (
-                      <Dropdown.Item
-                        data-testid={`add-skill-${skill.name}`}
-                        id={skill.name}
-                        key={skill.name}
-                        label={skill.name}
-                      />
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown.Root>
-            )
-          }
-          subtitle={t('message.agent-harness-skills-hint')}
-          title={t('label.skill-plural')}
-        />
-        {visibleRows.length === 0 ? (
-          <Card.Content>
-            <Typography className="tw:text-tertiary" size="text-sm">
-              {t('message.agent-harness-no-skills')}
-            </Typography>
-          </Card.Content>
-        ) : (
-          <div>{visibleRows.map(renderSkill)}</div>
-        )}
-      </Card>
+      <Box data-testid="skills" direction="col" gap={3}>
+        <Box align="center" gap={2} justify="between">
+          <h3 className="tw:m-0 tw:text-lg tw:font-semibold tw:text-primary">
+            {t('label.skill-plural')}
+          </h3>
+          {canEdit && renderAddSkill()}
+        </Box>
+        <Card>
+          {visibleRows.length === 0 ? (
+            <Card.Content>
+              <Typography className="tw:text-tertiary" size="text-sm">
+                {t('message.agent-harness-no-skills')}
+              </Typography>
+            </Card.Content>
+          ) : (
+            visibleRows.map(renderSkill)
+          )}
+        </Card>
+      </Box>
     </Box>
   );
 };

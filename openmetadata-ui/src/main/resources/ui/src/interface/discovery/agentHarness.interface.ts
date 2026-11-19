@@ -114,3 +114,11 @@ export enum PluginTarget {
   ChatGpt = 'chatGpt',
   Cli = 'cli',
 }
+
+/** What the action button on a surface row does. */
+export enum SurfaceAction {
+  /** Admin-console hosts: open the plugin panel at their upload steps. */
+  ShowSetup = 'showSetup',
+  CopyConnectorUrl = 'copyConnectorUrl',
+  CopyInstallCommand = 'copyInstallCommand',
+}

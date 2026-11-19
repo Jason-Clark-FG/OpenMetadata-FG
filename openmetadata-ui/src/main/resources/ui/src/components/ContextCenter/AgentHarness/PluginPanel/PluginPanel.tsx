@@ -32,9 +32,11 @@ import {
   PLUGIN_ZIP_NAME,
 } from '../../../../constants/discovery/agentHarness.constants';
 import { AgentHarnessManagedSettings } from '../../../../generated/api/context/agentHarnessManagedSettings';
+import { SurfaceID } from '../../../../generated/api/context/agentHarnessSurfaces';
 import { PluginTarget } from '../../../../interface/discovery/agentHarness.interface';
 import { getAgentHarnessPlugin } from '../../../../rest/AgentHarnessAPI';
 import { downloadBlob } from '../../../../utils/ContextCenterPureUtils';
+import { getInstallCommand } from '../../../../utils/discovery/context-center/agentHarness.utils';
 import { showErrorToast } from '../../../../utils/ToastUtils';
 import CopyButton from '../../../common/CopyButton/CopyButton';
 import SegmentedControl from '../SegmentedControl/SegmentedControl';
@@ -43,8 +45,6 @@ export interface PluginPanelProps {
   /** Server URL and host settings; undefined while they load. */
   settings?: AgentHarnessManagedSettings;
 }
-
-const PLUGIN_DIR = PLUGIN_ZIP_NAME.replace(/\.zip$/, '');
 
 const PluginPanel = ({ settings }: PluginPanelProps) => {
   const { t } = useTranslation();
@@ -223,14 +223,14 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
           {t('message.agent-harness-plugin-claude-code-step')}
         </Typography>
         {renderCode(
-          `unzip ${PLUGIN_ZIP_NAME} -d ${PLUGIN_DIR}\nclaude --plugin-dir ./${PLUGIN_DIR}`,
+          getInstallCommand(SurfaceID.ClaudeCode, settings) ?? '',
           'claude-code-command'
         )}
         <Typography size="text-sm" weight="semibold">
           {t('label.codex')}
         </Typography>
         {renderCode(
-          `codex mcp add ${settings.serverName} --url ${settings.serverUrl}`,
+          getInstallCommand(SurfaceID.Codex, settings) ?? '',
           'codex-command'
         )}
         <Typography size="text-sm" weight="semibold">

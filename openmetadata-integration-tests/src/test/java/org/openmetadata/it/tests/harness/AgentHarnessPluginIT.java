@@ -150,6 +150,9 @@ class AgentHarnessPluginIT extends McpTestBase {
     final AgentHarnessSurface claudeCode = surface(after, AgentHarnessSurfaceId.CLAUDE_CODE);
     assertThat(List.of(claudeCode.getSkills(), claudeCode.getConnector(), claudeCode.getHooks()))
         .containsOnly(true);
+    final AgentHarnessSurface codex = surface(after, AgentHarnessSurfaceId.CODEX);
+    assertThat(List.of(codex.getSkills(), codex.getConnector(), codex.getHooks()))
+        .containsOnly(true);
     final AgentHarnessSurface chatGpt = surface(after, AgentHarnessSurfaceId.CHAT_GPT);
     assertThat(List.of(chatGpt.getSkills(), chatGpt.getConnector(), chatGpt.getHooks()))
         .containsExactly(false, true, false);

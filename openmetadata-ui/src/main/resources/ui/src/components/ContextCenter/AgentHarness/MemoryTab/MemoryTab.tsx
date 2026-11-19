@@ -118,7 +118,7 @@ const MemoryTab = ({
           </Typography>
         </Box>
       )}
-      <Card>
+      <Card data-testid="memory-settings">
         {TOGGLES.map(({ key, labelKey, hintKey }) => (
           <Box
             align="center"
@@ -142,9 +142,11 @@ const MemoryTab = ({
             />
           </Box>
         ))}
-      </Card>
-      <Card>
-        <Box align="center" className="tw:px-4 tw:py-4" gap={4} wrap="wrap">
+        <Box
+          align="center"
+          className="tw:border-t tw:border-secondary tw:px-4 tw:py-4"
+          gap={4}
+          wrap="wrap">
           <Box className="tw:min-w-60 tw:flex-1" direction="col" gap={1}>
             <Typography size="text-sm" weight="semibold">
               {t('label.review')}

@@ -69,6 +69,46 @@ describe('SurfacesTab', () => {
       'label.not-connected'
     );
     expect(screen.getByTestId('surface-chatGpt')).toHaveTextContent('—');
+    expect(
+      screen.getByTestId('surface-last-seen-claudeCode')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('surface-last-seen-chatGpt')
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers the action each surface installs with', async () => {
+    render(<SurfacesTab />);
+
+    expect(
+      await screen.findByTestId('surface-action-claudeCode')
+    ).toHaveTextContent('label.copy-install-command');
+    expect(screen.getByTestId('surface-action-chatGpt')).toHaveTextContent(
+      'label.copy-connector-url'
+    );
+    expect(screen.getByTestId('surface-claudeCode')).toHaveTextContent(
+      'label.plugin'
+    );
+  });
+
+  it('opens the plugin panel from an admin-console surface', async () => {
+    (getAgentHarnessSurfaces as jest.Mock).mockResolvedValue({
+      surfaces: [
+        {
+          connector: true,
+          hooks: true,
+          id: SurfaceID.Cowork,
+          name: 'Cowork',
+          skills: true,
+          status: SurfaceStatus.Connected,
+        },
+      ],
+    });
+    render(<SurfacesTab />);
+
+    fireEvent.click(await screen.findByTestId('surface-action-cowork'));
+
+    expect(await screen.findByTestId('plugin-panel')).toBeInTheDocument();
   });
 
   it('opens and closes the plugin panel from the banner', async () => {
