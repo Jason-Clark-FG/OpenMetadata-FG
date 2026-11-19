@@ -14,10 +14,15 @@ package org.openmetadata.service.aicontext.harness;
 
 import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
 
+import java.time.DateTimeException;
+import java.time.MonthDay;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +31,8 @@ import java.util.stream.Stream;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.ResolvedAgentHarness;
 import org.openmetadata.schema.api.context.ResolvedHarnessEvent;
+import org.openmetadata.schema.entity.context.AgentHarnessAnswer;
+import org.openmetadata.schema.entity.context.AgentHarnessCalendar;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
@@ -46,6 +53,9 @@ import org.openmetadata.service.aicontext.PersonaContextDefinitionValidation;
  * names the setting.
  */
 public final class HarnessDraftValidator {
+  private static final DateTimeFormatter MONTH_DAY =
+      DateTimeFormatter.ofPattern("MM-dd", Locale.ROOT);
+
   private HarnessDraftValidator() {}
 
   public static AgentHarnessSpec forDefault(final AgentHarnessSpec requested) {
@@ -55,6 +65,7 @@ public final class HarnessDraftValidator {
           "The default harness has no persona prompt. Put company-wide text in companyInstructions");
     }
     validateOwnSettings(spec);
+    validateAnswerHarness(spec.getAnswerHarness());
     requirePerTurnCoversEvents(HarnessResolver.display(spec));
     return spec;
   }
@@ -65,6 +76,11 @@ public final class HarnessDraftValidator {
     if (spec.getCompanyInstructions() != null) {
       throw new IllegalArgumentException(
           "companyInstructions belong to the default harness. A persona harness sets context.prompt");
+    }
+    if (spec.getAnswerHarness() != null) {
+      throw new IllegalArgumentException(
+          "answerHarness belongs to the default harness. Two calendars would give two answers to "
+              + "one question");
     }
     validateOwnSettings(spec);
     requireOwnRuleIds(spec, publishedDefault);
@@ -151,6 +167,20 @@ public final class HarnessDraftValidator {
         throw new IllegalArgumentException("Guardrail " + guardrail.getId() + " needs a level");
       }
       requireListedOnce(listed.add(guardrail.getId()), "Guardrail", guardrail.getId());
+    }
+  }
+
+  private static void validateAnswerHarness(final AgentHarnessAnswer answer) {
+    final AgentHarnessCalendar calendar = answer == null ? null : answer.getCalendar();
+    if (calendar != null) {
+      try {
+        MonthDay.parse(calendar.getFiscalYearStart(), MONTH_DAY);
+        ZoneId.of(calendar.getTimeZone());
+      } catch (DateTimeException exception) {
+        throw new IllegalArgumentException(
+            "answerHarness.calendar needs a real MM-DD fiscalYearStart and an IANA timeZone: "
+                + exception.getMessage());
+      }
     }
   }
 

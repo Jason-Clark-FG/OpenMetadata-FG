@@ -61,6 +61,7 @@ public class AgentHarnessRepository extends EntityRepository<AgentHarness> {
   private static final String FIELD_SKILLS = "skills";
   private static final String FIELD_GUARDRAILS = "guardrails";
   private static final String FIELD_MEMORY = "memory";
+  private static final String FIELD_ANSWER_HARNESS = "answerHarness";
 
   /** The draft of one harness and the revision a writer must name to replace it. */
   public record DraftSlot(int revision, AgentHarnessSpec draft) {
@@ -344,6 +345,8 @@ public class AgentHarnessRepository extends EntityRepository<AgentHarness> {
       recordChange(FIELD_SKILLS, original.getSkills(), updated.getSkills(), true);
       recordChange(FIELD_GUARDRAILS, original.getGuardrails(), updated.getGuardrails(), true);
       recordChange(FIELD_MEMORY, original.getMemory(), updated.getMemory(), true);
+      recordChange(
+          FIELD_ANSWER_HARNESS, original.getAnswerHarness(), updated.getAnswerHarness(), true);
     }
   }
 }

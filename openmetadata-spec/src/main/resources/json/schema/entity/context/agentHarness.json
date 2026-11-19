@@ -187,6 +187,78 @@
         { "name": "ORGANIZATION" }
       ]
     },
+    "answerHarness": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessAnswer",
+      "description": "How `finish_answer` writes the \"How I got this\" block. Only the default harness's settings apply, because two fiscal calendars would give two answers to one question. Unset groups take built-in defaults.",
+      "type": "object",
+      "properties": {
+        "calendar": {
+          "description": "The organization's calendar for time phrases such as last quarter.",
+          "type": "object",
+          "javaType": "org.openmetadata.schema.entity.context.AgentHarnessCalendar",
+          "properties": {
+            "fiscalYearStart": {
+              "description": "Month and day the fiscal year starts, as MM-DD.",
+              "type": "string",
+              "pattern": "^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+              "default": "01-01"
+            },
+            "timeZone": {
+              "description": "IANA time zone that decides where a day starts and ends.",
+              "type": "string",
+              "default": "UTC"
+            },
+            "weekStart": {
+              "description": "First day of the week.",
+              "type": "string",
+              "enum": ["Monday", "Sunday", "Saturday"],
+              "default": "Monday"
+            }
+          },
+          "additionalProperties": false
+        },
+        "trust": {
+          "description": "Which trust signals the block reports.",
+          "type": "object",
+          "javaType": "org.openmetadata.schema.entity.context.AgentHarnessAnswerTrust",
+          "properties": {
+            "failingTests": {
+              "description": "Whether failing data quality tests on a cited table appear in the block.",
+              "type": "string",
+              "enum": ["ignore", "warn"],
+              "default": "warn"
+            },
+            "openIncidents": {
+              "description": "Whether open incidents on a cited table appear in the block.",
+              "type": "string",
+              "enum": ["ignore", "warn"],
+              "default": "warn"
+            },
+            "staleAfter": {
+              "description": "Age after which a table's freshness is flagged, as a number of hours (h) or days (d), for example 24h.",
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,3}[hd]$",
+              "default": "24h"
+            }
+          },
+          "additionalProperties": false
+        },
+        "answer": {
+          "description": "What the block shows.",
+          "type": "object",
+          "javaType": "org.openmetadata.schema.entity.context.AgentHarnessAnswerDisplay",
+          "properties": {
+            "showSql": {
+              "description": "Whether the block includes the SQL. A query that was not run always shows it.",
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "memorySettings": {
       "javaType": "org.openmetadata.schema.entity.context.AgentHarnessMemory",
       "description": "How memories that agents capture are stored. A persona harness that sets these replaces the default's settings for its members.",
@@ -301,6 +373,10 @@
     "memory": {
       "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
       "$ref": "#/definitions/memorySettings"
+    },
+    "answerHarness": {
+      "description": "How `finish_answer` writes its citation block. Read from the default harness only.",
+      "$ref": "#/definitions/answerHarness"
     },
     "version": {
       "description": "Metadata version of the entity.",

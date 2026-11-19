@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
+import org.openmetadata.schema.entity.context.AgentHarnessAnswer;
+import org.openmetadata.schema.entity.context.AgentHarnessCalendar;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
@@ -59,6 +61,44 @@ class HarnessDraftValidatorTest {
     assertNotNull(rule.getId());
     assertEquals("Marketing", rule.getName());
     assertNull(requested.getContext().getRules().getFirst().getId(), "the request is not changed");
+  }
+
+  @Test
+  void aCalendarBelongsToTheDefaultAndMustBeReal() {
+    AgentHarnessAnswer february =
+        new AgentHarnessAnswer()
+            .withCalendar(
+                new AgentHarnessCalendar()
+                    .withFiscalYearStart("02-01")
+                    .withTimeZone("America/Chicago"));
+    AgentHarnessSpec defaultSpec = HarnessSpecs.specOf(HarnessSpecs.seedDefault(1L));
+
+    assertEquals(
+        "02-01",
+        HarnessDraftValidator.forDefault(defaultSpec.withAnswerHarness(february))
+            .getAnswerHarness()
+            .getCalendar()
+            .getFiscalYearStart());
+    assertEquals(
+        "answerHarness belongs to the default harness. Two calendars would give two answers to one"
+            + " question",
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    HarnessDraftValidator.forPersona(
+                        personaSpec().withAnswerHarness(february), PUBLISHED_DEFAULT))
+            .getMessage());
+    for (AgentHarnessCalendar impossible :
+        List.of(
+            new AgentHarnessCalendar().withFiscalYearStart("02-30"),
+            new AgentHarnessCalendar().withTimeZone("Mars/Olympus"))) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              HarnessDraftValidator.forDefault(
+                  HarnessSpecs.specOf(HarnessSpecs.seedDefault(1L))
+                      .withAnswerHarness(new AgentHarnessAnswer().withCalendar(impossible))));
+    }
   }
 
   @Test

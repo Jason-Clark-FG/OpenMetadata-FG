@@ -42,7 +42,8 @@ public final class HarnessSpecs {
             .withSkills(harness.getSkills())
             .withGuardrails(harness.getGuardrails())
             .withToolAccess(harness.getToolAccess())
-            .withMemory(harness.getMemory()),
+            .withMemory(harness.getMemory())
+            .withAnswerHarness(harness.getAnswerHarness()),
         AgentHarnessSpec.class);
   }
 
@@ -56,7 +57,8 @@ public final class HarnessSpecs {
         .withSkills(copy.getSkills())
         .withGuardrails(copy.getGuardrails())
         .withToolAccess(copy.getToolAccess())
-        .withMemory(copy.getMemory());
+        .withMemory(copy.getMemory())
+        .withAnswerHarness(copy.getAnswerHarness());
   }
 
   /** A copy of the harness as it would be if {@code spec} were published and it were enabled. */

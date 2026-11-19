@@ -18,6 +18,10 @@
  */
 export interface AgentHarnessSpec {
     /**
+     * How `finish_answer` writes its citation block. Only on the default harness.
+     */
+    answerHarness?: AnswerHarness;
+    /**
      * Instructions every agent receives. Only on the default harness.
      */
     companyInstructions?: string;
@@ -54,6 +58,94 @@ export interface AgentHarnessSpec {
      * default's decisions stricter.
      */
     toolAccess?: ToolAccess;
+}
+
+/**
+ * How `finish_answer` writes its citation block. Only on the default harness.
+ *
+ * How `finish_answer` writes the "How I got this" block. Only the default harness's
+ * settings apply, because two fiscal calendars would give two answers to one question.
+ * Unset groups take built-in defaults.
+ */
+export interface AnswerHarness {
+    /**
+     * What the block shows.
+     */
+    answer?: Answer;
+    /**
+     * The organization's calendar for time phrases such as last quarter.
+     */
+    calendar?: Calendar;
+    /**
+     * Which trust signals the block reports.
+     */
+    trust?: Trust;
+}
+
+/**
+ * What the block shows.
+ */
+export interface Answer {
+    /**
+     * Whether the block includes the SQL. A query that was not run always shows it.
+     */
+    showSql?: boolean;
+}
+
+/**
+ * The organization's calendar for time phrases such as last quarter.
+ */
+export interface Calendar {
+    /**
+     * Month and day the fiscal year starts, as MM-DD.
+     */
+    fiscalYearStart?: string;
+    /**
+     * IANA time zone that decides where a day starts and ends.
+     */
+    timeZone?: string;
+    /**
+     * First day of the week.
+     */
+    weekStart?: WeekStart;
+}
+
+/**
+ * First day of the week.
+ */
+export enum WeekStart {
+    Monday = "Monday",
+    Saturday = "Saturday",
+    Sunday = "Sunday",
+}
+
+/**
+ * Which trust signals the block reports.
+ */
+export interface Trust {
+    /**
+     * Whether failing data quality tests on a cited table appear in the block.
+     */
+    failingTests?: FailingTests;
+    /**
+     * Whether open incidents on a cited table appear in the block.
+     */
+    openIncidents?: FailingTests;
+    /**
+     * Age after which a table's freshness is flagged, as a number of hours (h) or days (d), for
+     * example 24h.
+     */
+    staleAfter?: string;
+}
+
+/**
+ * Whether failing data quality tests on a cited table appear in the block.
+ *
+ * Whether open incidents on a cited table appear in the block.
+ */
+export enum FailingTests {
+    Ignore = "ignore",
+    Warn = "warn",
 }
 
 /**
