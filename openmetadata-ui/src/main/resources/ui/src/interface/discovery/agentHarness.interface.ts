@@ -26,7 +26,16 @@ export enum HarnessTab {
   Instructions = 'instructions',
   Guardrails = 'guardrails',
   Memory = 'memory',
+  KnowledgeGraph = 'knowledgeGraph',
   Surfaces = 'surfaces',
+}
+
+/** A sub-agent knowledge_graph can delegate to, from `GET /v1/agentHarness/subAgents`. */
+export interface SubAgentDefinition {
+  name: string;
+  displayName: string;
+  description: string;
+  whenToUse?: string;
 }
 
 /** The four source cards of the Context tab. A rule belongs to one by its entity type. */

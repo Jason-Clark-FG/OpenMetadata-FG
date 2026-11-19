@@ -34,6 +34,7 @@ import GuardrailsTab from '../../../components/ContextCenter/AgentHarness/Guardr
 import HarnessSettingsBar from '../../../components/ContextCenter/AgentHarness/HarnessSettingsBar/HarnessSettingsBar';
 import InheritanceStrip from '../../../components/ContextCenter/AgentHarness/InheritanceStrip/InheritanceStrip';
 import InstructionsTab from '../../../components/ContextCenter/AgentHarness/InstructionsTab/InstructionsTab';
+import KnowledgeGraphTab from '../../../components/ContextCenter/AgentHarness/KnowledgeGraphTab/KnowledgeGraphTab';
 import MemoryTab from '../../../components/ContextCenter/AgentHarness/MemoryTab/MemoryTab';
 import SurfacesTab from '../../../components/ContextCenter/AgentHarness/SurfacesTab/SurfacesTab';
 import ContextCenterHeader from '../../../components/ContextCenter/ContextCenterHeader/ContextCenterHeader.component';
@@ -59,11 +60,13 @@ import { useFqn } from '../../../hooks/useFqn';
 import {
   HarnessTab,
   HarnessTarget,
+  SubAgentDefinition,
 } from '../../../interface/discovery/agentHarness.interface';
 import {
   createPersonaAgentHarness,
   getAgentHarnessGuardrails,
   getAgentHarnessSkills,
+  getAgentHarnessSubAgents,
   getDefaultAgentHarness,
 } from '../../../rest/AgentHarnessAPI';
 import contextCenterClassBase from '../../../utils/ContextCenterClassBase';
@@ -96,6 +99,7 @@ const AgentHarnessEditorPage = () => {
   const [defaultState, setDefaultState] = useState<AgentHarnessState>();
   const [skills, setSkills] = useState<SkillDefinition[]>([]);
   const [guardrails, setGuardrails] = useState<GuardrailDefinition[]>([]);
+  const [subAgents, setSubAgents] = useState<SubAgentDefinition[]>([]);
   const canEdit = Boolean(isAdminUser);
 
   const target = useMemo<HarnessTarget>(
@@ -124,6 +128,9 @@ const AgentHarnessEditorPage = () => {
       .catch((error) => showErrorToast(error as AxiosError));
     getAgentHarnessGuardrails()
       .then(setGuardrails)
+      .catch((error) => showErrorToast(error as AxiosError));
+    getAgentHarnessSubAgents()
+      .then(setSubAgents)
       .catch((error) => showErrorToast(error as AxiosError));
   }, [canEdit]);
 
@@ -256,6 +263,20 @@ const AgentHarnessEditorPage = () => {
             }
             kind={state.published.kind}
             spec={spec}
+            onChange={draft.update}
+          />
+        );
+      case HarnessTab.KnowledgeGraph:
+        return (
+          <KnowledgeGraphTab
+            canEdit={canEdit}
+            inheritedKnowledgeGraph={
+              defaultState?.resolved.knowledgeGraph ??
+              state.resolved.knowledgeGraph
+            }
+            kind={state.published.kind}
+            spec={spec}
+            subAgents={subAgents}
             onChange={draft.update}
           />
         );

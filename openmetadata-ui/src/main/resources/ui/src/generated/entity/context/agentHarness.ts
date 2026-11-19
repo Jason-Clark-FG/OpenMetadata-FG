@@ -87,6 +87,11 @@ export interface AgentHarness {
      */
     kind: HarnessKind;
     /**
+     * How agents use the knowledge_graph tool. Absent on a persona harness that uses the
+     * default's.
+     */
+    knowledgeGraph?: KnowledgeGraphSettings;
+    /**
      * Agent memory settings. Absent on a persona harness that uses the default's.
      */
     memory?: MemorySettings;
@@ -516,6 +521,47 @@ export enum GuardrailLevel {
 export enum HarnessKind {
     Default = "Default",
     Persona = "Persona",
+}
+
+/**
+ * How agents use the knowledge_graph tool. Absent on a persona harness that uses the
+ * default's.
+ *
+ * How agents use the knowledge_graph tool.
+ */
+export interface KnowledgeGraphSettings {
+    /**
+     * Whether agents answer data questions through knowledge_graph (find, expand, cite last)
+     * rather than the catalog tools.
+     */
+    entry?: boolean;
+    /**
+     * Whether what a turn learnt, sent with cite, is saved as the caller's memories.
+     */
+    learn?: boolean;
+    /**
+     * Whether the tool's query operation runs SPARQL for agents.
+     */
+    rawQueries?: boolean;
+    /**
+     * Sub-agents the tool may hand a task to. A persona harness lists only those it adds.
+     */
+    subAgents?: SubAgentSetting[];
+}
+
+/**
+ * Whether one registered sub-agent is offered to the knowledge_graph tool.
+ */
+export interface SubAgentSetting {
+    /**
+     * Whether the sub-agent is offered. On a persona harness, true adds it for the persona; one
+     * the default offers stays offered.
+     */
+    enabled: boolean;
+    /**
+     * Name of a sub-agent listed by `GET /v1/agentHarness/subAgents`.
+     */
+    name: string;
 }
 
 /**

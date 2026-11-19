@@ -28,7 +28,10 @@ import { CompiledAgentContext } from '../generated/api/context/compiledAgentCont
 import { GuardrailDefinition } from '../generated/api/context/guardrailDefinition';
 import { PreviewAgentHarness } from '../generated/api/context/previewAgentHarness';
 import { SkillDefinition } from '../generated/api/context/skillDefinition';
-import { PickableSource } from '../interface/discovery/agentHarness.interface';
+import {
+  PickableSource,
+  SubAgentDefinition,
+} from '../interface/discovery/agentHarness.interface';
 import { getEncodedFqn } from '../utils/StringUtils';
 import axiosClient from './axiosClient';
 import { searchQuery } from './searchAPI';
@@ -160,6 +163,14 @@ export const previewAgentHarnessRule = async (
 export const getAgentHarnessSkills = async () => {
   const response = await axiosClient.get<SkillDefinition[]>(
     `${BASE_URL}/skills`
+  );
+
+  return response.data;
+};
+
+export const getAgentHarnessSubAgents = async () => {
+  const response = await axiosClient.get<SubAgentDefinition[]>(
+    `${BASE_URL}/subAgents`
   );
 
   return response.data;

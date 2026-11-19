@@ -153,6 +153,7 @@ export const HARNESS_TABS: HarnessTab[] = [
   HarnessTab.Instructions,
   HarnessTab.Guardrails,
   HarnessTab.Memory,
+  HarnessTab.KnowledgeGraph,
   HarnessTab.Surfaces,
 ];
 
@@ -162,6 +163,7 @@ export const HARNESS_TAB_LABEL_KEYS: Record<HarnessTab, string> = {
   [HarnessTab.Instructions]: 'label.instructions-and-skills',
   [HarnessTab.Guardrails]: 'label.guardrail-plural',
   [HarnessTab.Memory]: 'label.memory',
+  [HarnessTab.KnowledgeGraph]: 'label.knowledge-graph',
   [HarnessTab.Surfaces]: 'label.surface-plural',
 };
 

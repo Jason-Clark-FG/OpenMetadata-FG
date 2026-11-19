@@ -51,6 +51,10 @@ export interface AgentHarnessState {
  */
 export interface AgentHarnessSpec {
     /**
+     * How `finish_answer` writes its citation block. Only on the default harness.
+     */
+    answerHarness?: AnswerHarness;
+    /**
      * Instructions every agent receives. Only on the default harness.
      */
     companyInstructions?: string;
@@ -70,6 +74,11 @@ export interface AgentHarnessSpec {
      */
     guardrails?: GuardrailSetting[];
     /**
+     * How agents use the knowledge_graph tool. Absent on a persona harness that uses the
+     * default's.
+     */
+    knowledgeGraph?: KnowledgeGraphSettings;
+    /**
      * Agent memory settings. Absent on a persona harness that uses the default's.
      */
     memory?: MemorySettings;
@@ -87,6 +96,96 @@ export interface AgentHarnessSpec {
      * default's decisions stricter.
      */
     toolAccess?: ToolAccess;
+}
+
+/**
+ * How `finish_answer` writes its citation block. Only on the default harness.
+ *
+ * How `finish_answer` writes the "How I got this" block. Only the default harness's
+ * settings apply, because two fiscal calendars would give two answers to one question.
+ * Unset groups take built-in defaults.
+ *
+ * How `finish_answer` writes its citation block. Read from the default harness only.
+ */
+export interface AnswerHarness {
+    /**
+     * What the block shows.
+     */
+    answer?: Answer;
+    /**
+     * The organization's calendar for time phrases such as last quarter.
+     */
+    calendar?: Calendar;
+    /**
+     * Which trust signals the block reports.
+     */
+    trust?: Trust;
+}
+
+/**
+ * What the block shows.
+ */
+export interface Answer {
+    /**
+     * Whether the block includes the SQL. A query that was not run always shows it.
+     */
+    showSql?: boolean;
+}
+
+/**
+ * The organization's calendar for time phrases such as last quarter.
+ */
+export interface Calendar {
+    /**
+     * Month and day the fiscal year starts, as MM-DD.
+     */
+    fiscalYearStart?: string;
+    /**
+     * IANA time zone that decides where a day starts and ends.
+     */
+    timeZone?: string;
+    /**
+     * First day of the week.
+     */
+    weekStart?: WeekStart;
+}
+
+/**
+ * First day of the week.
+ */
+export enum WeekStart {
+    Monday = "Monday",
+    Saturday = "Saturday",
+    Sunday = "Sunday",
+}
+
+/**
+ * Which trust signals the block reports.
+ */
+export interface Trust {
+    /**
+     * Whether failing data quality tests on a cited table appear in the block.
+     */
+    failingTests?: FailingTests;
+    /**
+     * Whether open incidents on a cited table appear in the block.
+     */
+    openIncidents?: FailingTests;
+    /**
+     * Age after which a table's freshness is flagged, as a number of hours (h) or days (d), for
+     * example 24h.
+     */
+    staleAfter?: string;
+}
+
+/**
+ * Whether failing data quality tests on a cited table appear in the block.
+ *
+ * Whether open incidents on a cited table appear in the block.
+ */
+export enum FailingTests {
+    Ignore = "ignore",
+    Warn = "warn",
 }
 
 /**
@@ -321,6 +420,49 @@ export enum GuardrailLevel {
 }
 
 /**
+ * How agents use the knowledge_graph tool. Absent on a persona harness that uses the
+ * default's.
+ *
+ * How agents use the knowledge_graph tool.
+ *
+ * knowledge_graph settings in effect, sub-agents merged as skills are.
+ */
+export interface KnowledgeGraphSettings {
+    /**
+     * Whether agents answer data questions through knowledge_graph (find, expand, cite last)
+     * rather than the catalog tools.
+     */
+    entry?: boolean;
+    /**
+     * Whether what a turn learnt, sent with cite, is saved as the caller's memories.
+     */
+    learn?: boolean;
+    /**
+     * Whether the tool's query operation runs SPARQL for agents.
+     */
+    rawQueries?: boolean;
+    /**
+     * Sub-agents the tool may hand a task to. A persona harness lists only those it adds.
+     */
+    subAgents?: SubAgentSetting[];
+}
+
+/**
+ * Whether one registered sub-agent is offered to the knowledge_graph tool.
+ */
+export interface SubAgentSetting {
+    /**
+     * Whether the sub-agent is offered. On a persona harness, true adds it for the persona; one
+     * the default offers stays offered.
+     */
+    enabled: boolean;
+    /**
+     * Name of a sub-agent listed by `GET /v1/agentHarness/subAgents`.
+     */
+    name: string;
+}
+
+/**
  * Agent memory settings. Absent on a persona harness that uses the default's.
  *
  * How memories that agents capture are stored. A persona harness that sets these replaces
@@ -468,6 +610,10 @@ export enum ToolAccessLevel {
  */
 export interface AgentHarness {
     /**
+     * How `finish_answer` writes its citation block. Read from the default harness only.
+     */
+    answerHarness?: AnswerHarness;
+    /**
      * Change that led to this version.
      */
     changeDescription?: ChangeDescription;
@@ -532,6 +678,11 @@ export interface AgentHarness {
      * Whether this is the company default or a persona harness.
      */
     kind: HarnessKind;
+    /**
+     * How agents use the knowledge_graph tool. Absent on a persona harness that uses the
+     * default's.
+     */
+    knowledgeGraph?: KnowledgeGraphSettings;
     /**
      * Agent memory settings. Absent on a persona harness that uses the default's.
      */
@@ -746,6 +897,10 @@ export interface ResolvedAgentHarness {
      * Whether this is the company default or a persona harness.
      */
     kind: HarnessKind;
+    /**
+     * knowledge_graph settings in effect, sub-agents merged as skills are.
+     */
+    knowledgeGraph?: KnowledgeGraphSettings;
     /**
      * Agent memory settings in effect.
      */
