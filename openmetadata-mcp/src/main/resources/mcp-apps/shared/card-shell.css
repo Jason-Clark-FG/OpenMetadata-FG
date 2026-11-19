@@ -79,7 +79,7 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-logo { flex: none; width: 16px; height: 16px; border-radius: 4px; background: var(--card-brand); display: flex; align-items: center; justify-content: center; color: var(--card-bg); font-size: 10px; font-weight: 700; }
 .om-brand-name { font-weight: 600; color: var(--card-fg2); }
 .om-spacer { flex: 1 1 0; }
-.om-pill { font-weight: 500; padding: 2px 8px; border-radius: 9999px; background: var(--card-bg2); color: var(--card-fg2); }
+.om-pill { display: flex; align-items: center; gap: 5px; font-weight: 500; padding: 2px 8px; border-radius: 9999px; background: var(--card-bg2); color: var(--card-fg2); }
 .om-pill.ok { background: var(--card-ok-bg); color: var(--card-ok); }
 .om-pill.warn { background: var(--card-warn-bg); color: var(--card-warn); }
 .om-pill.err { background: var(--card-err-bg); color: var(--card-err); }
@@ -202,3 +202,14 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 @media (prefers-reduced-motion: reduce) { .om-chevron { transition: none; } }
 .om-section:has(> .om-columns) { gap: 2px; }
 .om-section:has(> .om-columns) > .om-section-title { padding-bottom: 4px; }
+
+.om-intro.answer { padding: 16px 16px 4px; gap: 4px; }
+.om-rows.tight { gap: 6px; }
+.om-source { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--card-fg); min-width: 0; }
+.om-source:hover { text-decoration: none; }
+.om-source .om-name.mono { font-family: var(--card-mono); }
+.om-note-line { font-size: 12px; color: var(--card-fg3); }
+.om-fold-actions { display: flex; gap: 12px; font-size: 12px; margin-top: 8px; }
+.om-fold-actions > * { font-weight: 600; }
+.om-code code { font: inherit; }
+.om-copy { padding: 0; border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 600; color: var(--card-brand); cursor: pointer; }

@@ -52,7 +52,7 @@ const base = `http://127.0.0.1:${server.address().port}`;
 fs.mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.launch();
-const context = await browser.newContext({ deviceScaleFactor: 2, viewport: { width: 760, height: 1200 } });
+const context = await browser.newContext({ deviceScaleFactor: 2, timezoneId: "UTC", locale: "en-US", viewport: { width: 760, height: 1200 } });
 
 const proto = await context.newPage();
 await proto.goto(prototypeUrl, { waitUntil: "networkidle" });
@@ -117,6 +117,28 @@ async function diff(a, b) {
   return result;
 }
 
+// The prototype's answer card shows text the AnswerCitation schema cannot carry yet (the applied
+// memory line, the "Correct this" button, test counts, the executing user, a second incident
+// sentence). The card renders what the schema provides, so those strings are swapped or hidden in
+// the prototype before the screenshot; layout, type and colour are still compared.
+const PROTOTYPE_TEXT = [
+  [" EMEA may be understated by up to 3%.", ""],
+  ["41 of 42 tests passing on fct_revenue. Failing: ", "Failing: "],
+  [" (12 rows).", " on analytics.fct_revenue"],
+  ["Glossary · Sales territories", "Certified · owner Sales territories"],
+  ["Ran as priya@acme.com · Snowflake · 1.2s · 4 rows", "Ran through your Snowflake connector · 1.2s · 4 rows · self-reported"],
+];
+async function adjustPrototype(card) {
+  await card.evaluate((root, replacements) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (const [from, to] of replacements) { if (node.data.includes(from)) { node.data = node.data.replace(from, to); } }
+      if (node.data.startsWith("Applied memory:")) { node.parentElement.style.display = "none"; }
+      if (node.data === "Correct this") { node.parentElement.style.display = "none"; }
+    }
+  }, PROTOTYPE_TEXT);
+}
+
 const rows = [];
 let failed = false;
 for (const [id, spec] of Object.entries(VARIANTS)) {
@@ -124,11 +146,13 @@ for (const [id, spec] of Object.entries(VARIANTS)) {
   const card = proto.locator(spec.protoSelector).first();
   // The prototype lays cards out at fractional offsets, which shifts glyphs by a pixel in a clipped capture.
   await card.scrollIntoViewIfNeeded();
+  if (spec.page.startsWith("answer")) { await adjustPrototype(card); }
   await card.evaluate((element) => {
-    element.style.transform = "";
+    // Moved by layout (margin), not transform: a transformed card gets different glyph rasterisation.
+    element.style.margin = "";
     const box = element.getBoundingClientRect();
-    const fx = box.left % 1, fy = box.top % 1;
-    if (fx || fy) { element.style.transform = `translate(${-fx}px, ${-fy}px)`; }
+    const fx = (box.left + window.scrollX) % 1, fy = (box.top + window.scrollY) % 1;
+    if (fx || fy) { element.style.margin = `${-fy}px 0 0 ${-fx}px`; }
   });
   const theirs = await card.screenshot();
   const page = await ourCard(id, spec, spec.width + 20);

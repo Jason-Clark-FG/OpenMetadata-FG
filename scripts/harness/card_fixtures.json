@@ -11,7 +11,7 @@
         { "label": "LATAM", "value": "$3.2M", "change": "−2%", "changeDirection": "down", "share": 0.148 }
       ]
     },
-    "harnessName": "Business Analyst", "harnessVersion": 0.6, "answeredAt": 1799999999000,
+    "harnessName": "Business Analyst", "harnessVersion": 0.6, "answeredAt": 1800022440000,
     "concepts": [
       { "phrase": "revenue", "entityType": "metric", "fqn": "Revenue", "displayName": "Revenue", "status": "Approved", "certified": true, "owners": ["Finance Data"], "url": "https://acme.getcollate.io/metric/revenue" },
       { "phrase": "region", "entityType": "glossaryTerm", "fqn": "Sales.Region", "displayName": "Region", "status": "Approved", "certified": true, "owners": ["Sales territories"], "url": "https://acme.getcollate.io/glossary/Sales.Region" }

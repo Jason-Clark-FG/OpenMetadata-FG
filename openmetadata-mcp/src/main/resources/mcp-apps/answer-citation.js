@@ -25,6 +25,12 @@
     return [(window_.label ? window_.label + ", " : "") + dates + " (" + calendar.filter(Boolean).join(", ") + ")"];
   }
 
+  function sourceRow(kind, cells, url) {
+    return OM.link(url, "om-source", h("span", "om-kind", kind), cells[0], cells[1]);
+  }
+
+  function isMetric(concept) { return concept.entityType === "metric"; }
+
   function conceptRow(concept) {
     var kind = concept.entityType === "metric" ? "Metric" : "Term";
     if (concept.unresolved === "notVisible") {
@@ -35,17 +41,15 @@
       return h("div", "om-row", h("span", "om-kind", kind), h("span", "om-name plain om-mono", concept.fqn),
         h("span", "om-meta", "Not found in OpenMetadata"));
     }
-    return h("div", "om-row", h("span", "om-kind", kind),
-      OM.link(concept.url, "om-name", concept.displayName || concept.fqn),
+    return sourceRow(kind, [h("span", "om-name", concept.displayName || concept.fqn),
       h("span", "om-meta", join([concept.certified ? "Certified" : (concept.status || "").toLowerCase(),
-        owners(concept.owners), typeof concept.version === "number" ? "v" + concept.version : null])));
+        owners(concept.owners), typeof concept.version === "number" ? "v" + concept.version : null]))], concept.url);
   }
 
   function freshnessText(table, now) {
     var freshness = table.freshness;
     if (!freshness || typeof freshness.at !== "number") { return "freshness unknown"; }
-    return (freshness.source === "test" ? "tested " : "profiled ") + OM.ago(freshness.at, now) +
-      (freshness.stale ? " (stale)" : "");
+    return (freshness.stale ? "stale " : "fresh ") + OM.ago(freshness.at, now);
   }
 
   function tableRow(table, now) {
@@ -56,10 +60,9 @@
       return h("div", "om-row", h("span", "om-kind", "Table"), h("span", "om-name plain om-mono", table.fqn),
         h("span", "om-meta", "Not found in OpenMetadata"));
     }
-    return h("div", "om-row", h("span", "om-kind", "Table"),
-      OM.link(table.url, "om-name om-mono", table.fqn),
-      h("span", "om-meta", join([table.tier ? tier(table.tier) : null, table.certified ? "certified" : "not certified",
-        freshnessText(table, now)])));
+    return sourceRow("Table", [h("span", "om-name mono", table.fqn),
+      h("span", "om-meta", join([table.tier ? tier(table.tier) : null, table.certified ? null : "not certified",
+        freshnessText(table, now)]))], table.url);
   }
 
   function noticeRows(citation) {
@@ -68,10 +71,7 @@
       if (table.unresolved) { return; }
       (table.openIncidents || []).forEach(function (incident) {
         rows.push({ label: "Incident", tone: "warn", body: [
-          h("span", "om-mono", table.fqn), " has an open incident",
-          [incident.status, incident.severity].filter(Boolean).length
-            ? " (" + [incident.status, incident.severity].filter(Boolean).join(", ") + ")" : "",
-          incident.testCase ? [": ", OM.link(incident.url, null, incident.testCase)] : "",
+          incident.testCase ? incident.testCase.replace(/\.+$/, "") + "." : "Open incident on " + table.fqn + ".",
           " ", OM.link(incident.url, null, incident.id)] });
       });
       if (table.deprecated) {
@@ -80,7 +80,7 @@
       }
       if (table.freshness && table.freshness.stale) {
         rows.push({ label: "Stale", tone: "warn", body: [h("span", "om-mono", table.fqn), " is out of date: ",
-          freshnessText(table, Date.now()).replace(" (stale)", ""), "."] });
+          freshnessText(table, Date.now()).replace("stale ", ""), "."] });
       }
     });
     (citation.warnings || []).forEach(function (warning) { rows.push({ label: "Note", tone: "warn", body: warning }); });
@@ -94,7 +94,7 @@
     var failing = [];
     tables.forEach(function (table) {
       (table.failingTests || []).forEach(function (test) {
-        failing.push([failing.length ? ", " : "", OM.link(test.url, null, test.name), " on ", h("span", "om-mono", table.fqn)]);
+        failing.push([failing.length ? ", " : "", OM.link(test.url, null, test.name), " on ", table.fqn]);
       });
     });
     return { label: "Quality", body: failing.length ? ["Failing: ", failing] : "No failing tests on the tables used." };
@@ -114,8 +114,10 @@
     if (execution.executor === "none") {
       return "Not run: " + (execution.reason || "the query was not run in this chat").replace(/\.+$/, "") + ".";
     }
-    var rows = typeof execution.rowCount === "number" ? " · " + execution.rowCount + (execution.rowCount === 1 ? " row" : " rows") : "";
-    return "Ran through your " + (execution.connector || "warehouse") + " connector" + rows + ". Self-reported: OpenMetadata did not run it.";
+    return join(["Ran through your " + (execution.connector || "warehouse") + " connector",
+      typeof execution.durationMs === "number" ? (execution.durationMs / 1000).toFixed(1) + "s" : null,
+      typeof execution.rowCount === "number" ? execution.rowCount + (execution.rowCount === 1 ? " row" : " rows") : null,
+      execution.selfReported ? "self-reported" : null]);
   }
 
   function firstUrl(citation) {
@@ -131,7 +133,10 @@
     var ownerNames = tables.length ? tables[0].owners : [];
     var notices = noticeRows(citation);
     var quality = qualityRow(citation);
-    var sources = (citation.concepts || []).map(conceptRow).concat((citation.tables || []).map(function (table) { return tableRow(table, now); }));
+    var concepts = citation.concepts || [];
+    var sources = concepts.filter(isMetric).map(conceptRow)
+      .concat((citation.tables || []).map(function (table) { return tableRow(table, now); }))
+      .concat(concepts.filter(function (concept) { return !isMetric(concept); }).map(conceptRow));
     var notRun = citation.execution && citation.execution.executor === "none";
     var showSql = citation.sql && (notRun || citation.showSql !== false);
     var open = citation.traceUrl || firstUrl(citation);
@@ -148,10 +153,10 @@
         OM.notices(notices.concat([quality]).filter(Boolean).map(function (row) {
           return row.tone ? row : { label: row.label, body: row.body };
         })),
-        OM.section("Sources", sources.length ? h("div", "om-rows", sources) : null)
+        OM.section("Sources", sources.length ? h("div", "om-rows tight", sources) : null)
       ],
-      fold: { title: showSql ? "SQL" : "Execution", meta: executionMeta(citation),
-        body: showSql ? h("pre", "om-code", h("code", null, citation.sql.trim())) : null },
+      fold: { title: showSql ? "SQL" : "Execution", meta: executionMeta(citation), toggle: showSql,
+        body: showSql ? [h("pre", "om-code", h("code", null, citation.sql.trim())), sqlActions(citation, open)] : null },
       footer: {
         left: footerLeft(citation, ownerNames),
         links: open ? [OM.link(open, null, "Open in OpenMetadata ↗")] : []
@@ -159,11 +164,35 @@
     });
   }
 
+  function sqlActions(citation, url) {
+    var copy = h("button", "om-copy", "Copy SQL");
+    copy.type = "button";
+    copy.addEventListener("click", function () {
+      try {
+        navigator.clipboard.writeText(citation.sql.trim()).then(function () { copy.textContent = "Copied"; }, function () {});
+      } catch (error) { /* clipboard is blocked in some host iframes */ }
+    });
+    return h("div", "om-fold-actions", copy, url ? OM.link(url, null, "Open in OpenMetadata") : null);
+  }
+
+  /** The headline with the first cited concept's name linked, as in the design. */
+  function headlineWith(citation) {
+    var text = citation.headline;
+    var concepts = (citation.concepts || []).filter(function (concept) { return !concept.unresolved && concept.displayName && concept.url; });
+    for (var i = 0; i < concepts.length; i++) {
+      var at = text.indexOf(concepts[i].displayName);
+      if (at >= 0) {
+        return [text.slice(0, at), OM.link(concepts[i].url, null, concepts[i].displayName), text.slice(at + concepts[i].displayName.length)];
+      }
+    }
+    return text;
+  }
+
   function resultIntro(citation, result) {
-    return h("div", "om-intro",
-      h("div", "om-label", result.label || citation.question || "", " ", OM.tag("self-reported")),
+    return h("div", "om-intro answer",
+      h("div", "om-label", result.label || citation.question || ""),
       OM.valueRow(result.value, result.change, result.changeDirection),
-      citation.headline ? h("div", "om-text", citation.headline) : null,
+      citation.headline ? h("div", "om-text", headlineWith(citation)) : null,
       result.note ? h("div", "om-text", result.note) : null,
       citation.timeWindow ? h("div", "om-text", windowLine(citation.timeWindow)) : null);
   }

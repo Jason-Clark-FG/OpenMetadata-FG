@@ -144,13 +144,15 @@ var OM = (function () {
         h("span", "om-fold-meta", spec.meta)));
       return root;
     }
+    var toggle = spec.toggle ? h("span", "om-fold-toggle", "Show") : null;
     var head = h("button", "om-fold-head", h("span", "om-chevron", "›"), h("span", "om-fold-title", spec.title),
-      h("span", "om-fold-meta", spec.meta), h("span", "om-spacer"));
+      h("span", "om-fold-meta", spec.meta), h("span", "om-spacer"), toggle);
     head.type = "button";
     head.setAttribute("aria-expanded", "false");
     head.addEventListener("click", function () {
       var open = root.classList.toggle("open");
       head.setAttribute("aria-expanded", String(open));
+      if (toggle) { toggle.textContent = open ? "Hide" : "Show"; }
       reportSize();
     });
     root.appendChild(head);
