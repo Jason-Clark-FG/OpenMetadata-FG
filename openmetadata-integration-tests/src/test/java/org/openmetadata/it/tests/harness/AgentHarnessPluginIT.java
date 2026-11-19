@@ -86,16 +86,27 @@ class AgentHarnessPluginIT extends McpTestBase {
   }
 
   @Test
-  void nonAdminUsersAndBotsAreRefused() throws Exception {
+  void aNonAdminUserDownloadsTheSamePluginButCannotReadSurfaces() throws Exception {
     final User member = AgentHarnessApi.createUser(uniqueName("plugin_member"));
-    final User bot =
-        read(send("GET", "users/name/ingestion-bot", null, ADMIN_TOKEN), 200, User.class);
+    final String token = AgentHarnessApi.tokenFor(member);
 
-    for (final String token :
-        List.of(AgentHarnessApi.tokenFor(member), AgentHarnessApi.tokenFor(bot))) {
-      assertThat(download(token).statusCode()).isEqualTo(403);
-      assertThat(send("GET", HARNESS + "/surfaces", null, token).statusCode()).isEqualTo(403);
-    }
+    final HttpResponse<byte[]> response = download(token);
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(unzip(response.body()).keySet())
+        .containsExactly(
+            ".claude-plugin/plugin.json",
+            ".codex-plugin/plugin.json",
+            ".mcp.json",
+            "hooks/hooks.json",
+            "skills/openmetadata/SKILL.md");
+    assertThat(response.body()).isEqualTo(download(ADMIN_TOKEN).body());
+    assertThat(send("GET", HARNESS + "/surfaces", null, token).statusCode()).isEqualTo(403);
+  }
+
+  @Test
+  void anUnauthenticatedCallerIsRefusedThePlugin() throws Exception {
+    assertThat(download("").statusCode()).isIn(401, 403);
   }
 
   @Test

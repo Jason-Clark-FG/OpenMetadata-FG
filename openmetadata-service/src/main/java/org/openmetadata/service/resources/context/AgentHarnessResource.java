@@ -150,12 +150,12 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
       summary = "Download the OpenMetadata plugin for an AI agent host",
       description =
           "A zip of the skill, MCP connector and hooks, built per request from the server URL and "
-              + "version. It holds no harness content and no secrets.")
+              + "version. It holds no harness content and no secrets, so any signed-in user may "
+              + "download it.")
   public Response getPlugin(
       @Context final UriInfo uriInfo,
       @Context final SecurityContext securityContext,
       @QueryParam("target") @DefaultValue("claude") final String target) {
-    authorizer.authorizeAdmin(securityContext);
     if (!PLUGIN_TARGET_CLAUDE.equals(target)) {
       throw new ClientErrorException("Unsupported plugin target: " + target, 400);
     }
