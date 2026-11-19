@@ -78,7 +78,7 @@ class FirstCallContextTest {
   }
 
   @Test
-  void theFirstResultCarriesTheContextBlockAheadOfTheAnswerAndTheSecondDoesNot() {
+  void theFirstResultCarriesTheContextBlockAfterTheAnswerAndTheSecondDoesNot() {
     FirstCallContext context = contextCompiling("Be precise.");
 
     McpSchema.CallToolResult first =
@@ -87,11 +87,11 @@ class FirstCallContextTest {
         context.apply(null, security, ALICE, "search_metadata", answer());
 
     assertThat(first.content()).hasSize(2);
-    assertThat(text(first, 0))
+    assertThat(text(first, 1))
         .startsWith(
             "## OpenMetadata context for Alice A. (Data Steward harness v0.3)\n\nBe precise.")
-        .endsWith("use the tool result below.");
-    assertThat(text(first, 1)).isEqualTo("{\"hits\":1}");
+        .endsWith("the tool result above and in the rest of the conversation.");
+    assertThat(text(first, 0)).isEqualTo("{\"hits\":1}");
     assertThat(second.content()).hasSize(1);
     assertThat(compiles.get()).isEqualTo(1);
   }

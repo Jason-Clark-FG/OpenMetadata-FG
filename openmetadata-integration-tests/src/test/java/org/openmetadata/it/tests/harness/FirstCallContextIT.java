@@ -62,13 +62,13 @@ class FirstCallContextIT extends McpTestBase {
 
     final JsonNode content = first.path("content");
     assertThat(content).hasSize(2);
-    final String block = content.get(0).path("text").asText();
+    final String block = content.get(1).path("text").asText();
     assertThat(block).startsWith(HEADING + caller.user().getName() + " (");
     assertThat(block)
         .contains(" harness v")
         .contains(caller.prompt())
         .contains("standing instructions");
-    assertThat(OBJECT_MAPPER.readTree(content.get(1).path("text").asText()).has("returnedCount"))
+    assertThat(OBJECT_MAPPER.readTree(content.get(0).path("text").asText()).has("returnedCount"))
         .isTrue();
     assertThat(first.path("structuredContent").has("returnedCount")).isTrue();
   }
@@ -95,10 +95,10 @@ class FirstCallContextIT extends McpTestBase {
     final JsonNode bobFirst = call(bob.token(), SEARCH, DESKTOP);
     final JsonNode aliceOtherClient = call(alice.token(), SEARCH, "Cursor/0.50");
 
-    assertThat(bobFirst.path("content").get(0).path("text").asText())
+    assertThat(bobFirst.path("content").get(1).path("text").asText())
         .contains(bob.prompt())
         .doesNotContain(alice.prompt());
-    assertThat(aliceOtherClient.path("content").get(0).path("text").asText())
+    assertThat(aliceOtherClient.path("content").get(1).path("text").asText())
         .contains(alice.prompt());
   }
 

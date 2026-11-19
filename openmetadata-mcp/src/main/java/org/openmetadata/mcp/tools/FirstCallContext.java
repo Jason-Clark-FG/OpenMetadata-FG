@@ -43,8 +43,8 @@ public final class FirstCallContext {
   static final String HARNESS_HOOK = "harness_hook";
   static final String GET_CONTEXT = "get_context";
   private static final String CLOSING =
-      "These are standing instructions from OpenMetadata for this task. Follow them, and use the"
-          + " tool result below.";
+      "These are standing instructions from OpenMetadata for this task. Follow them when you use"
+          + " the tool result above and in the rest of the conversation.";
 
   /** Compiles the SessionStart context for the caller, sized to the caller's client. */
   @FunctionalInterface
@@ -97,7 +97,7 @@ public final class FirstCallContext {
           compiler.compile(authorizer, securityContext, caller.client());
       ledger.markDelivered(caller);
       if (!nullOrEmpty(compiled.getText()) && !compiled.getText().isBlank()) {
-        answer = prepend(block(securityContext, compiled), result);
+        answer = append(block(securityContext, compiled), result);
       }
     } catch (RuntimeException e) {
       LOG.warn("Could not compile the first-call context; returning the tool result alone", e);
@@ -149,15 +149,15 @@ public final class FirstCallContext {
     return label;
   }
 
-  static McpSchema.CallToolResult prepend(String text, McpSchema.CallToolResult result) {
-    List<McpSchema.Content> content = new ArrayList<>();
+  /** The tool's own answer stays the first block, so clients that read content[0] are unaffected. */
+  static McpSchema.CallToolResult append(String text, McpSchema.CallToolResult result) {
+    List<McpSchema.Content> content = new ArrayList<>(result.content());
     content.add(McpSchema.TextContent.builder(text).build());
-    content.addAll(result.content());
-    McpSchema.CallToolResult.Builder prefixed =
+    McpSchema.CallToolResult.Builder withContext =
         McpSchema.CallToolResult.builder().content(content).isError(result.isError());
     if (result.structuredContent() != null) {
-      prefixed.structuredContent(result.structuredContent());
+      withContext.structuredContent(result.structuredContent());
     }
-    return prefixed.build();
+    return withContext.build();
   }
 }

@@ -9,11 +9,11 @@ import java.util.UUID;
 public class McpTestUtils {
 
   /**
-   * The block that carries the tool's own answer. A caller's first call in a conversation has the
-   * OpenMetadata context block ahead of it, so the answer is always the last block.
+   * The block that carries the tool's own answer. A caller's first call in a conversation also has
+   * the OpenMetadata context block after it, so the answer is always the first block.
    */
   public static JsonNode toolBlock(JsonNode content) {
-    return content.get(content.size() - 1);
+    return content.get(0);
   }
 
   public static Map<String, Object> createJsonRpcRequest(
