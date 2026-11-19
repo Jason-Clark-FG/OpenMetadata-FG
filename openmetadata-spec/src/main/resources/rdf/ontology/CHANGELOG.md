@@ -43,6 +43,16 @@ this repository.
   `om:incidentAssignee`. See
   ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards.
 
+### Added — Agent harness
+
+- `om:AgentHarness` (a subclass of `om:Entity`): the context an AI agent receives, the company
+  default and a harness per persona. Its stored predicates `om:companyInstructions`,
+  `om:context` (which replaces `om:contextDefinition` on `om:Persona`), `om:events`,
+  `om:guardrails`, `om:memory`, `om:perTurnTokenBudget`, `om:persona`, `om:publishedAt`,
+  `om:skills` and `om:toolAccess` are described; `om:kind` is shared with it, and the shared
+  standard predicates record it. `om:replacedBy` is also written on `om:Table`, for the table that
+  replaces it, and no longer declares a string range.
+
 ### Changed — Column-level composite primary keys
 
 - PRIMARY_KEY markers on several columns project as one composite `om:TableConstraint` and no

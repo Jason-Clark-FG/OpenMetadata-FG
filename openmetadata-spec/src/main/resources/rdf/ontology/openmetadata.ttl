@@ -935,6 +935,11 @@ om:Page a owl:Class ;
     rdfs:comment "A knowledge page in the Knowledge Center: an article or quick link, possibly with sub-pages." ;
     rdfs:subClassOf om:Entity .
 
+om:AgentHarness a owl:Class ;
+    rdfs:label "Agent Harness" ;
+    rdfs:comment "The context an AI agent receives from OpenMetadata: which knowledge goes in, at which hook events, with which instructions, skills, guardrails and memory settings. The company default applies to everyone; a persona's harness extends it for that persona's members." ;
+    rdfs:subClassOf om:Entity .
+
 om:Persona a owl:Class ;
     rdfs:label "Persona" ;
     rdfs:comment "A job function assigned to users, such as Data Engineer or Data Consumer, that shapes what they see." ;
@@ -2526,7 +2531,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "description" ;
     rdfs:comment "The description written for the entity in OpenMetadata, usually Markdown. On a tag node it is the description carried by a tag label, and on om:LineageDetails it describes the lineage edge. Read it for business meaning when names are ambiguous." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -2551,7 +2556,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "hasVersion" ;
     rdfs:comment "The entity's OpenMetadata metadata version, a decimal that grows with every change (0.1, 0.2, then 1.0 after a major change). dcat:version carries the same number." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -2576,7 +2581,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "modified" ;
     rdfs:comment "When the entity last changed in OpenMetadata, as xsd:dateTime. On om:LineageDetails it is the lineage edge's last update, in Unix epoch milliseconds (xsd:long)." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -2632,7 +2637,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "label" ;
     rdfs:comment "The entity's name (the name field), the last segment of its fully qualified name. Use om:fullyQualifiedName to identify an entity exactly and skos:prefLabel for the name people see." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Column, om:Container, om:ContextFile,
@@ -2700,7 +2705,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "prefLabel" ;
     rdfs:comment "The entity's display name (displayName), the name shown in the UI. It may be absent or differ from rdfs:label." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -2737,7 +2742,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "version" ;
     rdfs:comment "The entity's OpenMetadata metadata version as a number, the same value as dct:hasVersion." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -2807,7 +2812,7 @@ om:ExtensionProperty a owl:Class ;
     om:projectionStatus om:Stored ;
     rdfs:label "invalidatedAtTime" ;
     rdfs:comment "Present only on a soft-deleted entity: its last update time, which is when it was deleted." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -3326,7 +3331,10 @@ om:color a rdf:Property ;
 
 om:companyInstructions a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "companyInstructions" .
+    rdfs:label "companyInstructions" ;
+    rdfs:comment "Instructions every agent receives, on the company default om:AgentHarness only." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:completedAt a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3405,7 +3413,10 @@ om:contentType a rdf:Property ;
 
 om:context a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "context" .
+    rdfs:label "context" ;
+    rdfs:comment "Knowledge rules, persona prompt, character budget and cache lifetime of an om:AgentHarness. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:contextFile a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -3774,7 +3785,7 @@ om:enabled a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "enabled" ;
     rdfs:comment "Its meaning depends on the entity type. On om:Policy: Is the policy enabled. On om:AiGovernancePolicy: Whether this policy is currently active. On om:AiGovernanceFramework: Whether this framework is enabled in the workspace. Disabled frameworks remain in the library but do not auto-apply." ;
-    schema:domainIncludes om:AiGovernanceFramework, om:AiGovernancePolicy, om:Policy ;
+    schema:domainIncludes om:AgentHarness, om:AiGovernanceFramework, om:AiGovernancePolicy, om:Policy ;
     rdfs:range xsd:boolean .
 
 om:enforcementLevel a rdf:Property ;
@@ -3824,7 +3835,10 @@ om:eventSubscriptions a rdf:Property ;
 
 om:events a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "events" .
+    rdfs:label "events" ;
+    rdfs:comment "Delivery settings per hook event of an om:AgentHarness; a persona harness lists only the events it adds or whose budget it lowers. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:evidence a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4033,7 +4047,10 @@ om:governanceStatus a rdf:Property ;
 
 om:guardrails a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "guardrails" .
+    rdfs:label "guardrails" ;
+    rdfs:comment "Guardrail levels of an om:AgentHarness; a persona harness lists only those it makes stricter. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:hasAirflowConfig a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -4585,7 +4602,7 @@ om:impersonatedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "impersonatedBy" ;
     rdfs:comment "The bot that made the entity's last change on behalf of a user, when that change was impersonated." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:App, om:AppMarketPlaceDefinition, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextMemory, om:Dashboard,
         om:DashboardDataModel, om:DashboardService, om:DataContract, om:DataProduct,
@@ -4615,7 +4632,7 @@ om:incrementalChangeDescription a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "incrementalChangeDescription" ;
     rdfs:comment "JSON of the change that produced the entity's current version: fields added, updated and deleted. It is one step, not the history; the entity version APIs keep the history." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -4733,7 +4750,7 @@ om:isDeleted a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "isDeleted" ;
     rdfs:comment "True when the entity is soft-deleted (the deleted field)." ;
-    schema:domainIncludes om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
+    schema:domainIncludes om:AgentHarness, om:AIApplication, om:APICollection, om:APIEndpoint, om:APIService,
         om:AiFrameworkControl, om:AiGovernanceFramework, om:AiGovernancePolicy, om:App,
         om:AppMarketPlaceDefinition, om:AuditReport, om:Bot, om:Chart,
         om:Classification, om:Container, om:ContextFile, om:ContextFileContent,
@@ -4834,8 +4851,8 @@ om:joins a rdf:Property ;
 om:kind a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "kind" ;
-    rdfs:comment "Kind of ontology property: OBJECT, DATA or ANNOTATION." ;
-    rdfs:domain om:OntologyProperty ;
+    rdfs:comment "Its meaning depends on the entity type. On om:OntologyProperty: the kind of property, OBJECT, DATA or ANNOTATION. On om:AgentHarness: Default for the company default, Persona for a persona's harness." ;
+    schema:domainIncludes om:AgentHarness, om:OntologyProperty ;
     rdfs:range xsd:string .
 
 om:knowledgeBases a rdf:Property ;
@@ -4981,7 +4998,10 @@ om:measures a rdf:Property ;
 
 om:memory a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "memory" .
+    rdfs:label "memory" ;
+    rdfs:comment "Agent memory settings of an om:AgentHarness; absent on a persona harness that uses the default's. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:memoryCount a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5254,7 +5274,10 @@ om:partOf a rdf:Property ;
 
 om:perTurnTokenBudget a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "perTurnTokenBudget" .
+    rdfs:label "perTurnTokenBudget" ;
+    rdfs:comment "Most tokens an om:AgentHarness delivers across the events of one turn." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:long .
 
 om:performanceMetrics a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5279,7 +5302,10 @@ om:permission a rdf:Property ;
 
 om:persona a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "persona" .
+    rdfs:label "persona" ;
+    rdfs:comment "The persona whose members an om:AgentHarness serves; absent on the company default. The value is the referenced entity's JSON as a string, not a graph edge." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:personaPreferences a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5475,7 +5501,10 @@ om:providerModelId a rdf:Property ;
 
 om:publishedAt a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "publishedAt" .
+    rdfs:label "publishedAt" ;
+    rdfs:comment "Time of an om:AgentHarness's latest publish, in Unix epoch milliseconds; absent on a persona harness never published." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:long .
 
 om:qualityExpectations a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5610,9 +5639,8 @@ om:remediationActions a rdf:Property ;
 om:replacedBy a rdf:Property ;
     om:projectionStatus om:Stored ;
     rdfs:label "replacedBy" ;
-    rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Replacement relationship type when this type is deprecated. On om:OntologyProperty: IRI of the property in the same ontology that replaces this one. On om:OntologyConcept: IRI of the concept in the same ontology that replaces this one. The value is the referenced entity's JSON as a string, not a graph edge." ;
-    schema:domainIncludes om:OntologyConcept, om:OntologyProperty, om:RelationshipType ;
-    rdfs:range xsd:string .
+    rdfs:comment "Its meaning depends on the entity type. On om:RelationshipType: Replacement relationship type when this type is deprecated. On om:OntologyProperty: IRI of the property in the same ontology that replaces this one. On om:OntologyConcept: IRI of the concept in the same ontology that replaces this one. On om:Table: the table that replaces this one, as the reference's JSON or as an edge to it. Elsewhere the value is the referenced entity's JSON as a string, not a graph edge." ;
+    schema:domainIncludes om:OntologyConcept, om:OntologyProperty, om:RelationshipType, om:Table .
 
 om:requestSchema a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -5841,7 +5869,10 @@ om:size a rdf:Property ;
 
 om:skills a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "skills" .
+    rdfs:label "skills" ;
+    rdfs:comment "Skills an om:AgentHarness offers to agents; a persona harness lists only those it adds. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:sla a rdf:Property ;
     om:projectionStatus om:Stored ;
@@ -6222,7 +6253,10 @@ om:toColumnFqn a rdf:Property ;
 
 om:toolAccess a rdf:Property ;
     om:projectionStatus om:Stored ;
-    rdfs:label "toolAccess" .
+    rdfs:label "toolAccess" ;
+    rdfs:comment "Which MCP servers and tools agents under an om:AgentHarness may call; absent means every call is allowed. The value is the field's JSON, serialized as a string." ;
+    rdfs:domain om:AgentHarness ;
+    rdfs:range xsd:string .
 
 om:totalSize a rdf:Property ;
     om:projectionStatus om:Stored ;
