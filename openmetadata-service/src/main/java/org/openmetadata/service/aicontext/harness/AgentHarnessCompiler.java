@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.AppliedHarness;
 import org.openmetadata.schema.api.context.AppliedHarnesses;
@@ -66,6 +67,11 @@ public final class AgentHarnessCompiler {
   // repeat them. Per server: a session served by two servers may receive an item twice.
   private static final Cache<String, Set<String>> SENT_PER_SESSION =
       Caffeine.newBuilder().maximumSize(10_000).expireAfterAccess(Duration.ofHours(12)).build();
+
+  // Sessions whose SessionStart content the agent holds. Claude Code and Codex skip an mcp_tool
+  // SessionStart hook at launch, so the first prompt of an unseen session carries it instead.
+  private static final Cache<String, Boolean> STARTED_SESSIONS =
+      Caffeine.newBuilder().maximumSize(10_000).expireAfterAccess(Duration.ofHours(24)).build();
 
   private final AgentHarnessRepository harnesses;
   private final HarnessContexts contexts;
@@ -198,9 +204,11 @@ public final class AgentHarnessCompiler {
       final CompiledAgentContext compiled, final Turn turn, final DocumentSource documents) {
     final Document document = document(turn, documents);
     final Optional<GuardrailDecision> decision = decision(turn, document);
-    final List<ContextItem> candidates = candidates(turn, document, decision);
-    final Packed packed = CompileSelector.pack(candidates, budget(turn));
+    final boolean opening = opensSession(turn);
+    final List<ContextItem> candidates = candidates(turn, document, decision, opening);
+    final Packed packed = CompileSelector.pack(candidates, budget(turn, opening));
     remember(turn, packed);
+    markStarted(turn);
     compiled
         .withText(packed.text())
         .withTokens(packed.tokens())
@@ -222,12 +230,18 @@ public final class AgentHarnessCompiler {
   }
 
   private List<ContextItem> candidates(
-      final Turn turn, final Document document, final Optional<GuardrailDecision> decision) {
+      final Turn turn,
+      final Document document,
+      final Optional<GuardrailDecision> decision,
+      final boolean opening) {
     final CompileAgentContext request = turn.request();
     return switch (turn.event()) {
       case SESSION_START -> CompileSelector.sessionStart(document);
-      case USER_PROMPT_SUBMIT -> CompileSelector.userPromptSubmit(
-          document, request.getPrompt(), sentKeys(turn));
+      case USER_PROMPT_SUBMIT -> Stream.concat(
+              opening ? CompileSelector.sessionStart(document).stream() : Stream.empty(),
+              CompileSelector.userPromptSubmit(document, request.getPrompt(), sentKeys(turn))
+                  .stream())
+          .toList();
       case PRE_TOOL_USE -> CompileSelector.preToolUse(
           document, ToolCallText.of(request.getToolInput()), guardrailNotes(decision));
       case POST_TOOL_USE -> incidentNotes(turn, document);
@@ -293,16 +307,39 @@ public final class AgentHarnessCompiler {
             asset.ref().entityType(), fqn, asset.openIncidents(), asset.failedTests()));
   }
 
-  private static int budget(final Turn turn) {
-    final AgentHarnessEvent event =
-        HarnessEvents.find(turn.effective().getEvents(), turn.event())
-            .orElseGet(() -> new AgentHarnessEvent().withEnabled(false).withTokenBudget(0));
+  private static int budget(final Turn turn, final boolean opening) {
+    final AgentHarnessEvent event = eventSettings(turn, turn.event());
+    final int opened =
+        opening && Boolean.TRUE.equals(eventSettings(turn, HookEvent.SESSION_START).getEnabled())
+            ? eventSettings(turn, HookEvent.SESSION_START).getTokenBudget()
+            : 0;
     final int configured =
-        Math.min(event.getTokenBudget(), turn.effective().getPerTurnTokenBudget());
+        Math.min(event.getTokenBudget() + opened, turn.effective().getPerTurnTokenBudget());
     final Integer hostCap = turn.request().getMaxTokens();
     return Boolean.TRUE.equals(event.getEnabled())
         ? (hostCap == null ? configured : Math.min(configured, hostCap))
         : 0;
+  }
+
+  private static AgentHarnessEvent eventSettings(final Turn turn, final HookEvent event) {
+    return HarnessEvents.find(turn.effective().getEvents(), event)
+        .orElseGet(() -> new AgentHarnessEvent().withEnabled(false).withTokenBudget(0));
+  }
+
+  /**
+   * True for the first prompt this server sees in a session. A request without a session id never
+   * opens one, so it cannot repeat the SessionStart content on every prompt.
+   */
+  private static boolean opensSession(final Turn turn) {
+    return turn.event() == HookEvent.USER_PROMPT_SUBMIT
+        && Boolean.TRUE.equals(eventSettings(turn, HookEvent.SESSION_START).getEnabled())
+        && sessionKey(turn).filter(key -> STARTED_SESSIONS.getIfPresent(key) == null).isPresent();
+  }
+
+  private static void markStarted(final Turn turn) {
+    if (turn.event() == HookEvent.SESSION_START || turn.event() == HookEvent.USER_PROMPT_SUBMIT) {
+      sessionKey(turn).ifPresent(key -> STARTED_SESSIONS.put(key, Boolean.TRUE));
+    }
   }
 
   private static Set<String> sentKeys(final Turn turn) {

@@ -51,10 +51,15 @@ public final class PluginBuilder {
 
   /**
    * Claude Code skips an {@code mcp_tool} SessionStart hook at launch, because the plugin's server
-   * is not connected yet, so SessionStart is left to the skill and {@code get_context}.
+   * is not connected yet, so the first UserPromptSubmit delivers the session's start content. The
+   * SessionStart hook is limited to the sources that fire after launch. Stop is absent until the
+   * server compiles something for it, so a server that is down does not report a hook problem at
+   * the end of every turn.
    */
   private static final List<String> HOOK_EVENTS =
-      List.of("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop");
+      List.of("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse");
+
+  private static final String SESSION_RESTART_SOURCES = "clear|compact";
 
   private static final String MATCH_ALL_TOOLS = ".*";
   private static final LocalDateTime FIXED_TIME = LocalDateTime.of(1980, 1, 1, 0, 0);
@@ -138,6 +143,8 @@ public final class PluginBuilder {
     final ObjectNode group = JsonUtils.getObjectMapper().createObjectNode();
     if (event.endsWith("ToolUse")) {
       group.put("matcher", MATCH_ALL_TOOLS);
+    } else if ("SessionStart".equals(event)) {
+      group.put("matcher", SESSION_RESTART_SOURCES);
     }
     group.putArray("hooks").add(handler);
     return group;

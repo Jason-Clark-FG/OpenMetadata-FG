@@ -136,6 +136,45 @@ class AgentHarnessCompileIT extends McpTestBase {
   }
 
   @Test
+  void theFirstPromptOfASessionCarriesTheSessionStartContentAndLaterPromptsDoNot()
+      throws Exception {
+    final Caller caller = callerWithHarness("hook_first_prompt", spec -> spec);
+    final Caller sameSessionOtherUser = callerWithHarness("hook_first_other", spec -> spec);
+    final String session = "session-" + UUID.randomUUID();
+
+    final String first = promptContext(caller.token(), session);
+    final String second = promptContext(caller.token(), session);
+    final String otherUser = promptContext(sameSessionOtherUser.token(), session);
+
+    assertThat(first).contains(PROMPT_HEADING).contains(caller.prompt());
+    assertThat(second).doesNotContain(caller.prompt());
+    assertThat(otherUser).contains(sameSessionOtherUser.prompt());
+  }
+
+  @Test
+  void aPromptWithoutASessionIdNeverRepeatsTheSessionStartContent() throws Exception {
+    final Caller caller = callerWithHarness("hook_no_session", spec -> spec);
+
+    assertThat(promptContext(caller.token(), null)).doesNotContain(caller.prompt());
+    assertThat(promptContext(caller.token(), null)).doesNotContain(caller.prompt());
+  }
+
+  @Test
+  void aSessionStartHookMarksTheSessionSoItsNextPromptDoesNotRepeatTheContent() throws Exception {
+    final Caller caller = callerWithHarness("hook_restart", spec -> spec);
+    final String session = "session-" + UUID.randomUUID();
+
+    final JsonNode restart =
+        hook(
+            caller.token(),
+            Map.of("hook_event_name", "SessionStart", "session_id", session, "source", "compact"));
+
+    assertThat(restart.path("hookSpecificOutput").path("additionalContext").asText())
+        .contains(caller.prompt());
+    assertThat(promptContext(caller.token(), session)).doesNotContain(caller.prompt());
+  }
+
+  @Test
   void aPersonaOrHarnessNamedByTheClientIsIgnored() throws Exception {
     final Caller caller = callerWithHarness("hook_own", spec -> spec);
     final Caller other = callerWithHarness("hook_other", spec -> spec);
@@ -380,6 +419,16 @@ class AgentHarnessCompileIT extends McpTestBase {
         send("POST", HARNESS + "/compile", new CompileAgentContext().withEvent(event), token),
         200,
         CompiledAgentContext.class);
+  }
+
+  private String promptContext(final String token, final String sessionId) throws Exception {
+    final Map<String, Object> input = new HashMap<>();
+    input.put("hook_event_name", "UserPromptSubmit");
+    input.put("prompt", "hello");
+    if (sessionId != null) {
+      input.put("session_id", sessionId);
+    }
+    return hook(token, input).path("hookSpecificOutput").path("additionalContext").asText();
   }
 
   private JsonNode hook(final String token, final Map<String, Object> input) throws Exception {

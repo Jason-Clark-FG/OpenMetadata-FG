@@ -77,7 +77,7 @@ class PluginBuilderTest {
 
     assertThat(hooks.fieldNames())
         .toIterable()
-        .containsExactlyInAnyOrder("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop");
+        .containsExactlyInAnyOrder("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse");
     hooks.forEach(
         groups -> {
           final JsonNode handler = groups.path(0).path("hooks").path(0);
@@ -113,7 +113,7 @@ class PluginBuilderTest {
     final JsonNode hooks = manifest.path("hooks").path("hooks");
     assertThat(hooks.fieldNames())
         .toIterable()
-        .containsExactlyInAnyOrder("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop");
+        .containsExactlyInAnyOrder("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse");
     hooks.forEach(
         groups -> {
           final JsonNode handler = groups.path(0).path("hooks").path(0);
@@ -124,11 +124,26 @@ class PluginBuilderTest {
   }
 
   @Test
-  void sessionStartIsLeftToTheSkillBecauseTheServerIsNotConnectedAtLaunch() throws IOException {
+  void sessionStartFiresOnlyForTheSourcesThatRunAfterLaunch() throws IOException {
+    final JsonNode hooks =
+        json(unzip(PluginBuilder.build(URL, "2.1.0")), "hooks/hooks.json").path("hooks");
+    final JsonNode codex =
+        json(unzip(PluginBuilder.build(URL, "2.1.0")), ".codex-plugin/plugin.json")
+            .path("hooks")
+            .path("hooks");
+
+    assertThat(hooks.path("SessionStart").path(0).path("matcher").asText())
+        .isEqualTo("clear|compact");
+    assertThat(codex.path("SessionStart").path(0).path("matcher").asText())
+        .isEqualTo("clear|compact");
+  }
+
+  @Test
+  void stopIsNotHookedWhileTheServerCompilesNothingForIt() throws IOException {
     final JsonNode hooks =
         json(unzip(PluginBuilder.build(URL, "2.1.0")), "hooks/hooks.json").path("hooks");
 
-    assertThat(hooks.has("SessionStart")).isFalse();
+    assertThat(hooks.has("Stop")).isFalse();
   }
 
   @Test
