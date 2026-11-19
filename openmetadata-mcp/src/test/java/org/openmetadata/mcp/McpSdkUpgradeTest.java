@@ -443,8 +443,9 @@ public class McpSdkUpgradeTest {
   @Test
   void testServerAdvertisesOnlyHandledCapabilities() {
     // Every advertised capability must have a handler. Logging would make spec-compliant clients
-    // (e.g. VSCode) call logging/setLevel; resources would let them call resources/list and
-    // resources/subscribe. The stateless server handles none of those, so they must stay absent.
+    // (e.g. VSCode) call logging/setLevel, which the stateless server does not handle. Resources
+    // are advertised for the MCP Apps views (resources/list and resources/read), but not
+    // subscriptions or list_changed notifications.
     McpSchema.ServerCapabilities capabilities = new McpServer().buildServerCapabilities();
 
     assertThat(capabilities.tools()).isNotNull();
@@ -453,7 +454,9 @@ public class McpSdkUpgradeTest {
     assertThat(capabilities.tools().listChanged()).isFalse();
     assertThat(capabilities.prompts().listChanged()).isFalse();
     assertThat(capabilities.logging()).isNull();
-    assertThat(capabilities.resources()).isNull();
+    assertThat(capabilities.resources()).isNotNull();
+    assertThat(capabilities.resources().subscribe()).isFalse();
+    assertThat(capabilities.resources().listChanged()).isFalse();
     assertThat(capabilities.completions()).isNull();
   }
 
