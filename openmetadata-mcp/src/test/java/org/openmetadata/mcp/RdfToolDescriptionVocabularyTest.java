@@ -135,7 +135,8 @@ class RdfToolDescriptionVocabularyTest {
         .contains("'status'", "om:latestResultStatus=Failed", "om:hasOpenIncident", "Deprecated")
         .contains("om:testsEntity", "in one call", "'rows'", "'noRows'")
         .contains("'listed'", "short form", "full cards are a subset", "'matched'", "'rest'")
-        .contains("assignee and severity");
+        .contains("assignee and severity")
+        .contains("'memories'", "notes people saved", "'preferences'", "apply", "name it");
   }
 
   private static String parameterDescription(final McpSchema.Tool tool, final String name) {
