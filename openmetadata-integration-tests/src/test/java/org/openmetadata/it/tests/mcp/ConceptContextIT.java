@@ -77,6 +77,7 @@ import org.openmetadata.schema.type.FieldDataType;
 import org.openmetadata.schema.type.MessageSchema;
 import org.openmetadata.schema.type.MetadataOperation;
 import org.openmetadata.schema.type.SchemaType;
+import org.openmetadata.schema.type.TableConstraint;
 import org.openmetadata.schema.type.TableData;
 import org.openmetadata.schema.type.TableProfile;
 import org.openmetadata.schema.type.TagLabel;
@@ -285,6 +286,132 @@ class ConceptContextIT extends McpTestBase {
                 Map.of("entityType", "metric", "fqn", metric.getFullyQualifiedName())));
     assertThat(McpTestUtils.toolBlock(response.at("/result/content")).path("text").asText())
         .contains(EXPRESSION, orders.getFullyQualifiedName());
+  }
+
+  @Test
+  void mcpReturnsTheConceptCardAsStructuredContentAndKeepsTheText() throws Exception {
+    Map<String, Object> termCall =
+        McpTestUtils.createToolCallRequest(
+            "get_concept_context",
+            Map.of("entityType", "glossaryTerm", "fqn", term.getFullyQualifiedName()));
+
+    JsonNode response = executeMcpRequest(termCall);
+    JsonNode card = response.at("/result/structuredContent");
+
+    assertThat(McpTestUtils.toolBlock(response.at("/result/content")).path("text").asText())
+        .contains("\"format\":\"markdown\"", DEFINITION);
+    assertThat(card.path("kind").asText()).isEqualTo("glossaryTerm");
+    assertThat(card.path("name").asText()).isEqualTo(term.getName());
+    assertThat(card.path("fqn").asText()).isEqualTo(term.getFullyQualifiedName());
+    assertThat(card.path("description").asText()).isEqualTo(DEFINITION);
+    assertThat(card.at("/container/name").asText()).isEqualTo(glossary.getName());
+    assertThat(card.path("url").asText())
+        .startsWith("http")
+        .endsWith("/glossary/" + term.getFullyQualifiedName());
+    assertThat(card.at("/appliedTo/total").asInt()).isEqualTo(1);
+    assertThat(card.at("/appliedTo/items/0/kind").asText()).isEqualTo("Column");
+    assertThat(card.at("/appliedTo/items/0/name").asText())
+        .isEqualTo(orders.getName() + "." + COLUMN);
+    assertThat(card.at("/appliedTo/items/0/url").asText())
+        .startsWith("http")
+        .endsWith("/table/" + orders.getFullyQualifiedName());
+
+    JsonNode denied =
+        executeMcpRequest(termCall, deniedTablesToken).at("/result/structuredContent");
+    assertThat(denied.path("name").asText()).isEqualTo(term.getName());
+    assertThat(denied.at("/appliedTo/total").asInt()).isZero();
+    assertThat(denied.at("/appliedTo/items")).isEmpty();
+    assertThat(denied.toString()).doesNotContain(orders.getFullyQualifiedName());
+  }
+
+  @Test
+  void mcpReturnsTheMetricCardWithItsExpressionAndAppliedTable() throws Exception {
+    JsonNode card =
+        executeMcpRequest(
+                McpTestUtils.createToolCallRequest(
+                    "get_concept_context",
+                    Map.of(
+                        "entityType",
+                        "metric",
+                        "fqn",
+                        metric.getFullyQualifiedName(),
+                        "format",
+                        "json")))
+            .at("/result/structuredContent");
+
+    assertThat(card.path("kind").asText()).isEqualTo("metric");
+    assertThat(card.at("/metric/expression").asText()).isEqualTo(EXPRESSION);
+    assertThat(card.at("/appliedTo/items/0/kind").asText()).isEqualTo("Table");
+    assertThat(card.at("/appliedTo/items/0/name").asText()).isEqualTo(orders.getName());
+  }
+
+  @Test
+  void conceptRelationsNameRelatedTermsTheirTablesAndTheJoinPath() throws Exception {
+    GlossaryTerm revenue = createTerm("RelRevenue");
+    GlossaryTerm customer =
+        post(
+            "glossaryTerms",
+            new CreateGlossaryTerm()
+                .withGlossary(glossary.getFullyQualifiedName())
+                .withName("RelCustomer")
+                .withDescription(DEFINITION)
+                .withRelatedTerms(List.of(revenue.getFullyQualifiedName())),
+            GlossaryTerm.class);
+    Table customers = createBoundTable(orders, customer, "rel_customers_" + suffix, 1, false);
+    Table revenues =
+        post(
+            "tables",
+            new CreateTable()
+                .withName("rel_revenue_" + suffix)
+                .withDatabaseSchema(orders.getDatabaseSchema().getFullyQualifiedName())
+                .withColumns(
+                    List.of(
+                        new Column()
+                            .withName(COLUMN)
+                            .withDataType(ColumnDataType.BIGINT)
+                            .withTags(List.of(glossaryTag(revenue))),
+                        new Column().withName("customer_id").withDataType(ColumnDataType.BIGINT)))
+                .withTableConstraints(
+                    List.of(
+                        new TableConstraint()
+                            .withConstraintType(TableConstraint.ConstraintType.FOREIGN_KEY)
+                            .withColumns(List.of("customer_id"))
+                            .withReferredColumns(
+                                List.of(customers.getFullyQualifiedName() + "." + COLUMN)))),
+            Table.class);
+    await()
+        .atMost(Duration.ofSeconds(30))
+        .untilAsserted(
+            () -> {
+              assertThat(termContext(customer).path("totalAssets").asInt()).isEqualTo(1);
+              assertThat(termContext(revenue).path("totalAssets").asInt()).isEqualTo(1);
+            });
+    Map<String, Object> call =
+        McpTestUtils.createToolCallRequest(
+            "get_concept_relations",
+            Map.of("fqn", customer.getFullyQualifiedName(), "to", revenue.getFullyQualifiedName()));
+
+    JsonNode card = executeMcpRequest(call).at("/result/structuredContent");
+
+    assertThat(card.at("/concept/name").asText()).isEqualTo("RelCustomer");
+    assertThat(card.path("glossary").asText()).isEqualTo(glossary.getName());
+    assertThat(card.path("totalRelations").asInt()).isEqualTo(1);
+    assertThat(card.at("/relations/0/term/name").asText()).isEqualTo("RelRevenue");
+    assertThat(card.at("/relations/0/relation").asText()).isEqualToIgnoringCase("related to");
+    assertThat(card.at("/relations/0/table/name").asText()).isEqualTo(revenues.getName());
+    assertThat(card.at("/relations/0/table/url").asText())
+        .startsWith("http")
+        .endsWith("/table/" + revenues.getFullyQualifiedName());
+    assertThat(card.path("joinPath"))
+        .extracting(step -> step.path("table").asText() + "." + step.path("column").asText())
+        .containsExactly(customers.getName() + "." + COLUMN, revenues.getName() + ".customer_id");
+
+    JsonNode denied = executeMcpRequest(call, deniedTablesToken).at("/result/structuredContent");
+    assertThat(denied.at("/relations/0/term/name").asText()).isEqualTo("RelRevenue");
+    assertThat(denied.at("/relations/0").has("table")).isFalse();
+    assertThat(denied.path("joinPath")).isEmpty();
+    assertThat(denied.toString())
+        .doesNotContain(customers.getFullyQualifiedName(), revenues.getFullyQualifiedName());
   }
 
   @Test

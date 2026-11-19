@@ -36,16 +36,22 @@ import org.openmetadata.service.util.FullyQualifiedName;
 public final class LiveRelationCatalog implements ConceptRelationsBuilder.Catalog {
   static final int MAX_TABLES_CHECKED = 5;
 
-  private final ConceptContextCatalog assets;
+  private final Authorizer authorizer;
+  private final SecurityContext securityContext;
 
   public LiveRelationCatalog(final Authorizer authorizer, final SecurityContext securityContext) {
-    this.assets =
-        new ConceptContextCatalog(authorizer, securityContext, table -> null, table -> null);
+    this.authorizer = authorizer;
+    this.securityContext = securityContext;
+  }
+
+  /** A catalog pages its search by a cursor it keeps, so each term needs its own. */
+  private ConceptContextCatalog assets() {
+    return new ConceptContextCatalog(authorizer, securityContext, table -> null, table -> null);
   }
 
   @Override
   public boolean canView(final String entityType, final String fqn) {
-    return assets.canView(entityType, fqn);
+    return assets().canView(entityType, fqn);
   }
 
   /** The certified table the term is applied to, else the first table by name. */
@@ -55,10 +61,11 @@ public final class LiveRelationCatalog implements ConceptRelationsBuilder.Catalo
     try {
       final EntityInterface<?> term =
           Entity.getEntityByName(Entity.GLOSSARY_TERM, termFqn, "", Include.NON_DELETED);
+      final ConceptContextCatalog catalog = assets();
       final List<EntityReference> tables =
-          assets.candidates(term, 0).references().stream()
+          catalog.candidates(term, 0).references().stream()
               .filter(reference -> Entity.TABLE.equals(reference.getType()))
-              .filter(reference -> canView(Entity.TABLE, reference.getFullyQualifiedName()))
+              .filter(reference -> catalog.canView(Entity.TABLE, reference.getFullyQualifiedName()))
               .sorted(Comparator.comparing(EntityReference::getFullyQualifiedName))
               .limit(MAX_TABLES_CHECKED)
               .toList();
