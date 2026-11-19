@@ -4,10 +4,7 @@
 (function () {
   "use strict";
   var h = OM.h;
-  var KINDS = { table: "Table", glossaryTerm: "Term", metric: "Metric", dashboard: "Dash", pipeline: "Pipe",
-    topic: "Topic", container: "Store", mlmodel: "Model", storedProcedure: "Proc" };
-
-  function kindOf(type) { return KINDS[type] || String(type || "Asset").slice(0, 6); }
+  function kindOf(type) { return OM.typeShort(type) || "Asset"; }
 
   function visibilityOf(data) { return String(data.visibility || "").toLowerCase(); }
 

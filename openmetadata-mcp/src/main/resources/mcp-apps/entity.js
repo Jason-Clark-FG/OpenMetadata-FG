@@ -1,6 +1,6 @@
 /* get_entity_details: renders the entity the tool returned (its structuredContent is the same map
-   as its text). The server adds entityType, which picks the variant: table is the data asset card,
-   metric and glossaryTerm are the concept cards, anything else a plain card, never labelled Table. */
+   as its text). The entity's type picks the variant: table is the data asset card, metric and
+   glossaryTerm are the concept cards, anything else a plain card labelled with its own type. */
 (function () {
   "use strict";
   var h = OM.h;
@@ -18,19 +18,13 @@
     var value = entity.certification;
     return typeof value === "string" && /^Certification\./.test(value) && !/EXPIRED|check get_entity_details/.test(value);
   }
-  function kindLabel(entity) {
-    var type = entity.entityType;
-    if (type === "table") { return "Data asset"; }
-    return type ? type.replace(/([A-Z])/g, " $1").toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Asset";
-  }
+  function kindLabel(entity) { return OM.typeLabel(OM.typeOf(entity)) || "Asset"; }
   function container(entity) {
     var fqn = entity.fullyQualifiedName || "";
     var leaf = entity.name || "";
     var parent = leaf && fqn.slice(-leaf.length - 1) === "." + leaf ? fqn.slice(0, -leaf.length - 1) : "";
-    var type = entity.entityType || "asset";
-    return (type.charAt(0).toUpperCase() + type.slice(1)) + (parent ? " · " + parent : "");
+    return kindLabel(entity) + (parent ? " · " + parent : "");
   }
-
   function statCells(entity, now) {
     var profile = entity.profile;
     var profiled = profile && typeof profile.timestamp === "number";
@@ -106,7 +100,7 @@
   }
 
   function renderOne(entity, now) {
-    var type = entity.entityType;
+    var type = OM.typeOf(entity);
     if (entity.kind === "metric") { return OMConcept.metric(entity, now); }
     if (entity.kind === "glossaryTerm") { return OMConcept.term(entity, now); }
     if (type === "metric") { return OMConcept.metric(OMConcept.fromEntity(entity), now); }

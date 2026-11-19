@@ -32,7 +32,7 @@
   function isMetric(concept) { return concept.entityType === "metric"; }
 
   function conceptRow(concept) {
-    var kind = concept.entityType === "metric" ? "Metric" : "Term";
+    var kind = OM.typeShort(concept.entityType || "glossaryTerm");
     if (concept.unresolved === "notVisible") {
       return h("div", "om-row", h("span", "om-kind", kind), h("span", "om-name plain", "Not visible to you"),
         h("span", "om-meta", "“" + concept.phrase + "”"));

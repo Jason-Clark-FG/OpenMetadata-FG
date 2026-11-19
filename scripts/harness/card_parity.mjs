@@ -126,6 +126,8 @@ const CARD_TEXT = [
   ["get_lineage · depth", "get_entity_lineage · depth"],
   ["Concept · Commercial ontology", "Concept · Commercial glossary"],
   ["Commercial ontology v4", "Commercial glossary"],
+  // Cards name the entity's own type; the prototype's table card calls it a data asset.
+  ["Data asset", "Table"],
 ];
 async function adjustPrototype(card) {
   await card.evaluate((root, replacements) => {

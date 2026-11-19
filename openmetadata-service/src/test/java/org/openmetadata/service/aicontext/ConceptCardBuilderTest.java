@@ -15,6 +15,7 @@ package org.openmetadata.service.aicontext;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.api.context.ConceptCard;
 import org.openmetadata.schema.api.context.ConceptCardKind;
@@ -214,5 +215,21 @@ class ConceptCardBuilderTest {
     assertThat(card.getMetric().getUnit()).isEqualTo("USD");
     assertThat(card.getMetric().getRelatedMetrics()).containsExactly("MRR");
     assertThat(card.getUrl()).isEqualTo("https://acme.test/metric/arr");
+  }
+
+  @Test
+  void eachAssetTypeIsNamedAsPeopleReadIt() {
+    assertThat(
+            Stream.of(
+                    "table",
+                    "mlmodel",
+                    "storedProcedure",
+                    "apiEndpoint",
+                    "databaseSchema",
+                    "pipeline")
+                .map(ConceptCardBuilder::typeLabel)
+                .toList())
+        .containsExactly(
+            "Table", "ML model", "Stored procedure", "API endpoint", "Schema", "Pipeline");
   }
 }

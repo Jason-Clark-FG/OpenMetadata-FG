@@ -162,4 +162,36 @@ check("a memory fact or asset named with markup stays text", () => {
   assert.equal(card.text(".om-body-text")[0], "<img src=x onerror=alert(1)>");
 });
 
+const header = (card) => card.text(".om-header")[0].replace("OpenMetadata·", "").replace(/(Approved|Certified|Tier \d.*)$/, "");
+
+check("an entity without entityType is labelled by what its fields say it is", () => {
+  const table = open("entity-v1.html", { name: "arr_daily", fullyQualifiedName: "svc.sales.finance.arr_daily", columns: [{ name: "id" }] });
+  assert.equal(header(table), "Table");
+  assert.equal(table.text(".om-label")[0], "Table · svc.sales.finance");
+  const metric = open("entity-v1.html", { name: "arr", fullyQualifiedName: "arr", description: "Annual Recurring Revenue.", metricExpression: { language: "SQL", code: "sum(x)" } });
+  assert.equal(header(metric), "Metric");
+});
+
+check("an entity without entityType is labelled by its OpenMetadata link", () => {
+  const card = open("entity-v1.html", { name: "Revenue", fullyQualifiedName: "looker.Revenue", openMetadataUrl: "https://acme.getcollate.io/dashboard/looker.Revenue" });
+  assert.equal(header(card), "Dashboard");
+  assert.equal(card.text(".om-label")[0], "Dashboard · looker");
+});
+
+check("each entity type keeps its own name, never Asset", () => {
+  const names = { mlmodel: "ML model", storedProcedure: "Stored procedure", dashboardDataModel: "Dashboard data model",
+    searchIndex: "Search index", apiEndpoint: "API endpoint", databaseSchema: "Schema", pipeline: "Pipeline", topic: "Topic" };
+  for (const [entityType, label] of Object.entries(names)) {
+    assert.equal(header(open("entity-v1.html", { entityType, name: "x", fullyQualifiedName: "s.x" })), label, entityType);
+  }
+});
+
+check("memory and lineage rows name each linked type in full", () => {
+  const memory = open("memory-v1.html", { ...fixtures.memory, linkedAssets: ["dashboard", "pipeline", "glossaryTerm", "mlmodel"]
+    .map((type) => ({ fqn: "s." + type, type, url: "https://acme.getcollate.io/" + type + "/s." + type })) });
+  assert.deepEqual(memory.text(".om-kind"), ["Dashboard", "Pipeline", "Term", "ML model"]);
+  const lineage = open("lineage-v1.html", { ...fixtures.lineage, downstream: [{ entityType: "mlmodel", name: "churn", fqn: "ml.churn", url: "https://acme.getcollate.io/mlmodel/ml.churn", hop: 1 }] });
+  assert.ok(lineage.text(".om-node-kind").includes("ML model"), lineage.text(".om-node-kind").join("|"));
+});
+
 console.log(`${passed} checks passed`);

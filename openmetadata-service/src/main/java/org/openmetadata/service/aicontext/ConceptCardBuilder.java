@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.openmetadata.schema.EntityInterface;
@@ -240,7 +241,19 @@ public final class ConceptCardBuilder {
                 : null);
   }
 
+  /** Types whose camelCase name does not spell out as people read them. */
+  private static final Map<String, String> IRREGULAR_TYPE_LABELS =
+      Map.of(
+          "mlmodel", "ML model",
+          "apiEndpoint", "API endpoint",
+          "apiCollection", "API collection",
+          "databaseSchema", "Schema");
+
   static String typeLabel(final String entityType) {
+    return IRREGULAR_TYPE_LABELS.getOrDefault(nullToEmpty(entityType), spelledOut(entityType));
+  }
+
+  private static String spelledOut(final String entityType) {
     final String spaced =
         WORD_BREAK.matcher(nullToEmpty(entityType)).replaceAll(" ").toLowerCase(Locale.ROOT);
     return spaced.isEmpty()

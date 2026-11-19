@@ -5,14 +5,9 @@
   var h = OM.h;
   var MAX_PER_SIDE = 5;
   var MAX_COLUMN_MAPPINGS = 12;
-  var KIND_LABELS = { mlmodel: "ML model", storedprocedure: "Stored procedure", searchindex: "Search index",
-    databaseschema: "Schema", apiendpoint: "API endpoint", dashboarddatamodel: "Dashboard data model" };
-
-  function kindLabel(type) {
-    var key = String(type || "").toLowerCase();
-    if (KIND_LABELS[key]) { return KIND_LABELS[key]; }
-    return key ? key.charAt(0).toUpperCase() + key.slice(1) : "Asset";
-  }
+  function kindLabel(type) { return OM.typeLabel(type) || "Asset"; }
+  /* "Table" reads "table" mid-sentence, but "ML model" and "API endpoint" keep their capitals. */
+  function inSentence(label) { return /^[A-Z]{2}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1); }
   function tierLabel(tier) { return tier ? String(tier).replace(/^Tier(\d+)$/, "Tier $1") : null; }
   function plural(count, word) { return count + " " + word + (count === 1 ? "" : "s"); }
 
@@ -48,7 +43,7 @@
     var impact = card.impact || {};
     var parts = [];
     (impact.downstream || []).forEach(function (group) {
-      parts.push(plural(group.count, kindLabel(group.entityType).toLowerCase().replace(/^ml model$/, "ML model")));
+      parts.push(plural(group.count, inSentence(kindLabel(group.entityType))));
     });
     var failing = (impact.failingUpstream || []);
     var freshness = (card.upstream || []).some(function (node) { return node.hasFailingCheck && /freshness/i.test(node.failingLabel || ""); });

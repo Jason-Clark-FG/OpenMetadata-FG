@@ -160,6 +160,64 @@ var OM = (function () {
     return root;
   }
 
+  /* OpenMetadata entity types as people read them. A type missing here is spelled out from its
+     camelCase name, so a new type still reads as a word rather than as "Asset". */
+  var TYPE_LABELS = {
+    table: "Table", metric: "Metric", glossaryTerm: "Glossary term", glossary: "Glossary",
+    dashboard: "Dashboard", chart: "Chart", dashboardDataModel: "Dashboard data model",
+    pipeline: "Pipeline", topic: "Topic", container: "Container", mlmodel: "ML model",
+    storedProcedure: "Stored procedure", searchIndex: "Search index", database: "Database",
+    databaseSchema: "Schema", apiEndpoint: "API endpoint", apiCollection: "API collection",
+    query: "Query", testCase: "Test case", testSuite: "Test suite", dataProduct: "Data product",
+    domain: "Domain", tag: "Tag", classification: "Classification", user: "User", team: "Team",
+    persona: "Persona", directory: "Directory", file: "File", spreadsheet: "Spreadsheet",
+    worksheet: "Worksheet", contextMemory: "Memory", column: "Column"
+  };
+  /* The narrow type chip in source and link rows keeps the design's short names. */
+  var SHORT_LABELS = { glossaryTerm: "Term", dashboardDataModel: "Data model", storedProcedure: "Procedure",
+    searchIndex: "Index", apiEndpoint: "Endpoint", apiCollection: "API" };
+  var LOWER_KEYS = Object.keys(TYPE_LABELS).reduce(function (keys, key) { keys[key.toLowerCase()] = key; return keys; }, {});
+  var URL_TYPES = ["table", "metric", "glossary", "dashboard", "chart", "dashboardDataModel", "pipeline", "topic",
+    "container", "mlmodel", "storedProcedure", "searchIndex", "database", "databaseSchema", "apiEndpoint",
+    "apiCollection", "testCase", "dataProduct", "domain", "tag", "classification"];
+
+  function canonicalType(type) {
+    var key = String(type || "");
+    return TYPE_LABELS[key] ? key : LOWER_KEYS[key.toLowerCase()] || key;
+  }
+
+  function typeLabel(type) {
+    var key = canonicalType(type);
+    if (!key) { return null; }
+    return TYPE_LABELS[key] || key.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  function typeShort(type) { return SHORT_LABELS[canonicalType(type)] || typeLabel(type); }
+
+  function typeFromUrl(url, fqn) {
+    var match = /^[a-z]+:\/\/[^/]+\/([A-Za-z]+)\//.exec(String(url || ""));
+    var segment = match ? canonicalType(match[1]) : "";
+    if (segment === "glossary") { return String(fqn || "").indexOf(".") > 0 ? "glossaryTerm" : "glossary"; }
+    return URL_TYPES.indexOf(segment) >= 0 ? segment : null;
+  }
+
+  function typeFromShape(data) {
+    if (data.columns || data.tableType || data.tableConstraints) { return "table"; }
+    if (data.metricExpression || data.metricType) { return "metric"; }
+    if (data.synonyms && data.glossary) { return "glossaryTerm"; }
+    if (data.charts) { return "dashboard"; }
+    if (data.tasks) { return "pipeline"; }
+    if (data.messageSchema) { return "topic"; }
+    return null;
+  }
+
+  /** The entity type a payload is about: stated, else read from its link, else from its fields. */
+  function typeOf(data) {
+    var stated = data && (data.entityType || (TYPE_LABELS[canonicalType(data.kind)] ? data.kind : null));
+    return stated ? canonicalType(stated)
+      : data ? typeFromUrl(data.openMetadataUrl || data.url, data.fullyQualifiedName || data.fqn) || typeFromShape(data) : null;
+  }
+
   /** spec: {kind, pill: {text, tone}, blocks: [node], fold: {title, meta, body}, footer: {left, links}} */
   var LOGO_SVG = '<svg viewBox="0 0 53 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
     + '<path d="M0.000834935 13L0 50.6583C0.113913 58.0366 11.9352 64 26.5 64C41.0648 64 52.8852 58.0366 52.9991 50.6583L53 13C52.8861 20.3784 41.0648 26.3418 26.5 26.3418C11.9352 26.3418 0.114748 20.3784 0.000834935 13Z" fill="url(#om-logo-fill)"/>'
@@ -191,10 +249,30 @@ var OM = (function () {
     }
   }
 
+  /* Type chips keep the design's fixed width so the names beside them line up. A label too long
+     for it widens every chip in its list together, rather than pushing one row out of line. */
+  function fitKindChips(root) {
+    var lists = [];
+    Array.prototype.forEach.call(root.querySelectorAll(".om-kind"), function (chip) {
+      var list = chip.parentElement && chip.parentElement.parentElement;
+      if (lists.indexOf(list) < 0) { lists.push(list); }
+    });
+    lists.forEach(function (list) {
+      var chips = Array.prototype.filter.call(list.querySelectorAll(".om-kind"), function (chip) {
+        return chip.parentElement.parentElement === list;
+      });
+      var widest = Math.max.apply(null, chips.map(function (chip) { return chip.scrollWidth - chip.clientWidth; }));
+      if (widest > 0) {
+        chips.forEach(function (chip) { chip.style.width = (chip.offsetWidth + widest) + "px"; });
+      }
+    });
+  }
+
   function render(data, now) {
     var root = document.getElementById("root");
     root.textContent = "";
     root.appendChild(renderer(data, typeof now === "number" ? now : Date.now()));
+    fitKindChips(root);
     rendered = true;
     reportSize();
   }
@@ -232,5 +310,6 @@ var OM = (function () {
   }
 
   return { h: h, link: link, ago: ago, agoLong: agoLong, tag: tag, notices: notices, section: section, stats: stats,
-    compact: compact, clock: clock, valueRow: valueRow, bars: bars, card: card, mount: mount };
+    compact: compact, clock: clock, valueRow: valueRow, bars: bars, card: card, mount: mount,
+    typeOf: typeOf, typeLabel: typeLabel, typeShort: typeShort };
 }());

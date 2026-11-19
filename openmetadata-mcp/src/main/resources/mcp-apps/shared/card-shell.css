@@ -107,7 +107,7 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-section-title { font-size: 12px; font-weight: 600; color: var(--card-fg3); }
 .om-rows { display: flex; flex-direction: column; gap: 8px; }
 .om-row { display: flex; align-items: center; gap: 10px; font-size: 13px; min-width: 0; }
-.om-kind { flex: none; width: 52px; padding: 1px 6px; border-radius: 4px; background: var(--card-bg2); color: var(--card-fg3); font-size: 11px; font-weight: 600; text-align: center; }
+.om-kind { flex: none; width: 52px; white-space: nowrap; padding: 1px 6px; border-radius: 4px; background: var(--card-bg2); color: var(--card-fg3); font-size: 11px; font-weight: 600; text-align: center; }
 .om-name { font-weight: 500; color: var(--card-brand); overflow-wrap: anywhere; }
 .om-name.plain { color: var(--card-fg2); }
 .om-meta { min-width: 0; color: var(--card-fg3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
