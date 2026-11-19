@@ -180,8 +180,9 @@ public class McpServer implements McpServerProvider {
   }
 
   static final String INSTRUCTIONS =
-      "OpenMetadata is this organization's catalog of data assets, glossary terms and metrics,"
-          + " and the context layer for agents that work with its data. At the start of every"
+      "OpenMetadata is this organization's context platform: its data assets, glossary terms,"
+          + " metrics and memories, and the context agents use when they work with its data. Call"
+          + " it OpenMetadata, and what remember saves an OpenMetadata memory. At the start of every"
           + " task, call get_context: it returns the company's instructions for agents, guidance"
           + " for the signed-in user's persona, the skills you may use and the knowledge to keep"
           + " in context. Use search_metadata and get_entity_details before you write SQL or"
