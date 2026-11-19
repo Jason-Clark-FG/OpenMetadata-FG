@@ -29,6 +29,7 @@ import { GuardrailDefinition } from '../generated/api/context/guardrailDefinitio
 import { PreviewAgentHarness } from '../generated/api/context/previewAgentHarness';
 import { SkillDefinition } from '../generated/api/context/skillDefinition';
 import {
+  McpConnection,
   PickableSource,
   SubAgentDefinition,
 } from '../interface/discovery/agentHarness.interface';
@@ -171,6 +172,14 @@ export const getAgentHarnessSkills = async () => {
 export const getAgentHarnessSubAgents = async () => {
   const response = await axiosClient.get<SubAgentDefinition[]>(
     `${BASE_URL}/subAgents`
+  );
+
+  return response.data;
+};
+
+export const getAgentHarnessConnections = async () => {
+  const response = await axiosClient.get<McpConnection[]>(
+    `${BASE_URL}/connections`
   );
 
   return response.data;

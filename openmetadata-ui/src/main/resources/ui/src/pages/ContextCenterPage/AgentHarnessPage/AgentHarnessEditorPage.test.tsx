@@ -43,6 +43,7 @@ const mockAuth = { isAdminUser: true };
 
 jest.mock('../../../rest/AgentHarnessAPI', () => ({
   createPersonaAgentHarness: jest.fn(),
+  getAgentHarnessConnections: jest.fn().mockResolvedValue([]),
   getAgentHarnessGuardrails: jest.fn().mockResolvedValue([
     {
       available: true,
@@ -60,6 +61,7 @@ jest.mock('../../../rest/AgentHarnessAPI', () => ({
       name: 'find-context',
     },
   ]),
+  getAgentHarnessSubAgents: jest.fn().mockResolvedValue([]),
   getDefaultAgentHarness: jest.fn(),
   getPersonaAgentHarness: jest.fn(),
   previewAgentHarness: jest.fn().mockReturnValue(new Promise(() => undefined)),

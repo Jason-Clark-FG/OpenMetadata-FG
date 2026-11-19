@@ -60,10 +60,12 @@ import { useFqn } from '../../../hooks/useFqn';
 import {
   HarnessTab,
   HarnessTarget,
+  McpConnection,
   SubAgentDefinition,
 } from '../../../interface/discovery/agentHarness.interface';
 import {
   createPersonaAgentHarness,
+  getAgentHarnessConnections,
   getAgentHarnessGuardrails,
   getAgentHarnessSkills,
   getAgentHarnessSubAgents,
@@ -100,6 +102,7 @@ const AgentHarnessEditorPage = () => {
   const [skills, setSkills] = useState<SkillDefinition[]>([]);
   const [guardrails, setGuardrails] = useState<GuardrailDefinition[]>([]);
   const [subAgents, setSubAgents] = useState<SubAgentDefinition[]>([]);
+  const [connections, setConnections] = useState<McpConnection[]>([]);
   const canEdit = Boolean(isAdminUser);
 
   const target = useMemo<HarnessTarget>(
@@ -131,6 +134,9 @@ const AgentHarnessEditorPage = () => {
       .catch((error) => showErrorToast(error as AxiosError));
     getAgentHarnessSubAgents()
       .then(setSubAgents)
+      .catch((error) => showErrorToast(error as AxiosError));
+    getAgentHarnessConnections()
+      .then(setConnections)
       .catch((error) => showErrorToast(error as AxiosError));
   }, [canEdit]);
 
@@ -245,6 +251,7 @@ const AgentHarnessEditorPage = () => {
         return (
           <GuardrailsTab
             canEdit={canEdit}
+            connections={connections}
             guardrails={guardrails}
             kind={state.published.kind}
             resolved={state.resolved}

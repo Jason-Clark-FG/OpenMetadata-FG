@@ -38,6 +38,19 @@ export interface SubAgentDefinition {
   whenToUse?: string;
 }
 
+export interface McpConnectionTool {
+  name: string;
+  description?: string;
+}
+
+/** An outside MCP server registered here, from `GET /v1/agentHarness/connections`. */
+export interface McpConnection {
+  name: string;
+  displayName: string;
+  description?: string;
+  tools: McpConnectionTool[];
+}
+
 /** The four source cards of the Context tab. A rule belongs to one by its entity type. */
 export enum HarnessSource {
   GlossaryTerms = 'glossaryTerms',

@@ -11,15 +11,19 @@
  *  limitations under the License.
  */
 import {
+  Autocomplete,
   Badge,
   Box,
   Button,
   ButtonUtility,
   Card,
   Input,
+  Select,
+  SelectItemType,
   Typography,
 } from '@openmetadata/ui-core-components';
 import { Plus, Trash01 } from '@openmetadata/ui-core-components/icons';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   TOOL_ACCESS_DEFAULT_LABEL_KEYS,
@@ -34,13 +38,22 @@ import {
   ToolAccessLevel,
   ToolAccessServer,
 } from '../../../../generated/api/context/agentHarnessState';
-import { ToolAccessErrors } from '../../../../interface/discovery/agentHarness.interface';
+import {
+  McpConnection,
+  ToolAccessErrors,
+} from '../../../../interface/discovery/agentHarness.interface';
 import {
   allowedAccessLevels,
   minServerLevel,
   withToolAccess,
 } from '../../../../utils/discovery/context-center/agentHarness.utils';
 import SegmentedControl from '../SegmentedControl/SegmentedControl';
+import {
+  filterConnections,
+  findConnection,
+  toggleTool,
+  uncoveredConnections,
+} from './McpAccessCard.utils';
 
 export interface McpAccessCardProps {
   access?: ToolAccess;
@@ -49,6 +62,8 @@ export interface McpAccessCardProps {
   isPersona: boolean;
   showInherited: boolean;
   errors: ToolAccessErrors;
+  /** Outside MCP servers registered here, offered as rule targets. Empty leaves the card free text only. */
+  connections?: McpConnection[];
   canEdit: boolean;
   onChange: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
 }
@@ -68,6 +83,7 @@ const McpAccessCard = ({
   isPersona,
   showInherited,
   errors,
+  connections = [],
   canEdit,
   onChange,
 }: McpAccessCardProps) => {
@@ -76,6 +92,21 @@ const McpAccessCard = ({
   const unlisted = access?.default ?? floor?.default ?? ToolAccessDefault.Allow;
   const servers = access?.servers ?? [];
   const inheritedServers = isPersona && showInherited ? inherited?.servers : [];
+  const hasConnections = connections.length > 0;
+  const toolItems = useMemo(
+    () =>
+      new Map<string, SelectItemType[]>(
+        connections.map(({ name, tools }) => [
+          name,
+          tools.map((tool) => ({
+            id: tool.name,
+            label: tool.name,
+            supportingText: tool.description,
+          })),
+        ])
+      ),
+    [connections]
+  );
 
   const edit = (change: (current: ToolAccess) => ToolAccess) =>
     onChange((spec) =>
@@ -91,33 +122,36 @@ const McpAccessCard = ({
       )
     );
 
-  const editServer = (index: number, entry: ToolAccessServer) =>
+  const updateServer = (
+    index: number,
+    change: (server: ToolAccessServer) => ToolAccessServer
+  ) =>
     edit((current) => ({
       ...current,
       servers: (current.servers ?? []).map((server, at) =>
-        at === index ? entry : server
+        at === index ? change(server) : server
       ),
     }));
 
-  const renderServer = (entry: ToolAccessServer, index: number) => {
-    const minLevel = floor ? minServerLevel(floor, entry) : undefined;
-    const allowed = minLevel
-      ? allowedAccessLevels(minLevel)
-      : TOOL_ACCESS_LEVEL_ORDER;
-    const error = errors.servers[index];
+  const editServer = (index: number, entry: ToolAccessServer) =>
+    updateServer(index, () => entry);
 
-    return (
-      <Box
-        align="start"
-        className="tw:border-t tw:border-secondary tw:px-4 tw:py-3"
-        data-testid={`mcp-server-${index}`}
-        gap={3}
-        key={index}
-        wrap="wrap">
+  const setTool = (index: number, tool: string, selected: boolean) =>
+    updateServer(index, (server) => ({
+      ...server,
+      tools: toggleTool(server.tools, tool, selected),
+    }));
+
+  const renderMatchField = (entry: ToolAccessServer, index: number) => {
+    const error = errors.servers[index];
+    const hint = error ? t(TOOL_ACCESS_ERROR_KEYS[error]) : undefined;
+
+    if (!hasConnections) {
+      return (
         <Input
           aria-label={t('label.server')}
           className="tw:w-48"
-          hint={error ? t(TOOL_ACCESS_ERROR_KEYS[error]) : undefined}
+          hint={hint}
           inputClassName="tw:font-mono"
           inputDataTestId={`mcp-server-match-${index}`}
           isDisabled={!canEdit}
@@ -127,6 +161,60 @@ const McpAccessCard = ({
           value={entry.match}
           onChange={(match) => editServer(index, { ...entry, match })}
         />
+      );
+    }
+
+    // Free text stays allowed: host server names are not known here.
+    return (
+      <Select.ComboBox
+        allowsCustomValue
+        aria-label={t('label.server')}
+        className="tw:w-48"
+        data-testid={`mcp-server-match-${index}`}
+        fontSize="sm"
+        hint={hint}
+        inputValue={entry.match}
+        isDisabled={!canEdit}
+        isInvalid={Boolean(error)}
+        items={filterConnections(connections, entry.match).map(
+          ({ name, displayName }) => ({ id: name, label: displayName })
+        )}
+        placeholder={t('message.agent-harness-mcp-server-placeholder')}
+        shortcut={false}
+        showSearchIcon={false}
+        size="sm"
+        onInputChange={(match) =>
+          // React Aria echoes the picked item's text back; skip the no-op.
+          match !== entry.match &&
+          updateServer(index, (server) => ({ ...server, match }))
+        }
+        onSelectionChange={(key) =>
+          key !== null &&
+          updateServer(index, (server) => ({ ...server, match: String(key) }))
+        }>
+        {(item) => (
+          <Select.Item
+            data-testid={`mcp-connection-option-${item.id}`}
+            id={item.id}
+            key={item.id}
+            label={item.label}
+            supportingText={item.id}
+            // The input shows the name that goes into `match`, not the display name.
+            textValue={item.id}
+            value={{ id: item.id, label: item.label }}
+          />
+        )}
+      </Select.ComboBox>
+    );
+  };
+
+  const renderToolsField = (
+    entry: ToolAccessServer,
+    index: number,
+    connection?: McpConnection
+  ) => {
+    if (!connection) {
+      return (
         <Input
           aria-label={t('label.tool-plural')}
           className="tw:min-w-48 tw:flex-1"
@@ -144,6 +232,71 @@ const McpAccessCard = ({
             })
           }
         />
+      );
+    }
+
+    return (
+      <div
+        className="tw:min-w-48 tw:flex-1"
+        data-testid={`mcp-server-tool-picker-${index}`}>
+        <Autocomplete
+          allowsCreation
+          aria-label={t('label.tool-plural')}
+          icon={null}
+          isDisabled={!canEdit}
+          items={toolItems.get(connection.name) ?? []}
+          placeholder={t('message.agent-harness-mcp-all-tools')}
+          selectedItems={(entry.tools ?? []).map((tool) => ({
+            id: tool,
+            label: tool,
+          }))}
+          onItemCleared={(key) => setTool(index, String(key), false)}
+          onItemInserted={(key) => setTool(index, String(key), true)}>
+          {(item) => (
+            <Autocomplete.Item
+              data-testid={`mcp-tool-option-${item.id}`}
+              id={item.id}
+              key={item.id}
+              label={item.label}
+              supportingText={item.supportingText}
+            />
+          )}
+        </Autocomplete>
+      </div>
+    );
+  };
+
+  const renderServer = (entry: ToolAccessServer, index: number) => {
+    const minLevel = floor ? minServerLevel(floor, entry) : undefined;
+    const allowed = minLevel
+      ? allowedAccessLevels(minLevel)
+      : TOOL_ACCESS_LEVEL_ORDER;
+    const connection = findConnection(connections, entry.match);
+
+    return (
+      <Box
+        align="start"
+        className="tw:border-t tw:border-secondary tw:px-4 tw:py-3"
+        data-testid={`mcp-server-${index}`}
+        gap={3}
+        key={index}
+        wrap="wrap">
+        {hasConnections ? (
+          <Box align="start" direction="col" gap={1}>
+            {renderMatchField(entry, index)}
+            {connection && (
+              <Badge
+                color="brand"
+                data-testid={`mcp-server-registered-${index}`}
+                size="sm">
+                {t('label.registered-connection')}
+              </Badge>
+            )}
+          </Box>
+        ) : (
+          renderMatchField(entry, index)
+        )}
+        {renderToolsField(entry, index, connection)}
         <SegmentedControl
           aria-label={t('label.level')}
           data-testid={`mcp-server-level-${index}`}
@@ -179,6 +332,42 @@ const McpAccessCard = ({
     );
   };
 
+  const renderCoverage = () =>
+    hasConnections && (
+      <Typography
+        as="p"
+        className="tw:px-4 tw:pt-3 tw:text-tertiary"
+        data-testid="mcp-access-coverage"
+        size="text-sm">
+        {t('message.agent-harness-mcp-access-coverage')}
+      </Typography>
+    );
+
+  // A default rule covers its connection on a persona harness too, shown or not.
+  const renderUncovered = () => {
+    const uncovered = uncoveredConnections(connections, [
+      ...(floor?.servers ?? []),
+      ...servers,
+    ]);
+
+    return (
+      uncovered.length > 0 && (
+        <Typography
+          as="p"
+          className="tw:border-t tw:border-secondary tw:px-4 tw:py-3 tw:text-tertiary"
+          data-testid="mcp-uncovered-connections"
+          size="text-sm">
+          {t('message.agent-harness-mcp-uncovered-connections', {
+            connections: uncovered
+              .map(({ displayName }) => displayName)
+              .join(', '),
+            default: t(TOOL_ACCESS_DEFAULT_LABEL_KEYS[unlisted]),
+          })}
+        </Typography>
+      )
+    );
+  };
+
   return (
     <Card data-testid="mcp-access">
       <Card.Header
@@ -209,6 +398,7 @@ const McpAccessCard = ({
         )}
         title={t('label.mcp-access')}
       />
+      {renderCoverage()}
       <Box align="center" className="tw:px-4 tw:py-3" gap={3} wrap="wrap">
         <Typography className="tw:flex-1" size="text-sm" weight="medium">
           {t('label.unlisted-server-plural')}
@@ -258,6 +448,7 @@ const McpAccessCard = ({
         </Box>
       ))}
       {servers.map(renderServer)}
+      {renderUncovered()}
     </Card>
   );
 };
