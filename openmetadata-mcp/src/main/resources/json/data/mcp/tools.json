@@ -283,7 +283,7 @@
       "title": "Get Entity Details",
       "_meta": {
         "ui": {
-          "resourceUri": "ui://openmetadata/data-asset-v1.html"
+          "resourceUri": "ui://openmetadata/entity-v1.html"
         }
       },
       "annotations": {

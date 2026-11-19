@@ -1,0 +1,71 @@
+{
+  "answer": {
+    "question": "What was Q3 revenue by region?",
+    "headline": "Recognized revenue, net of refunds, as defined by the certified Revenue metric.",
+    "result": {
+      "label": "Q3 2026 revenue by region", "value": "$48.2M", "change": "+12.4% vs Q2", "changeDirection": "up", "selfReported": true,
+      "breakdown": [
+        { "label": "NA", "value": "$21.6M", "change": "+9%", "changeDirection": "up", "share": 1 },
+        { "label": "EMEA", "value": "$14.1M", "change": "+18%", "changeDirection": "up", "share": 0.653 },
+        { "label": "APAC", "value": "$9.3M", "change": "+16%", "changeDirection": "up", "share": 0.431 },
+        { "label": "LATAM", "value": "$3.2M", "change": "−2%", "changeDirection": "down", "share": 0.148 }
+      ]
+    },
+    "harnessName": "Business Analyst", "harnessVersion": 0.6, "answeredAt": 1799999999000,
+    "concepts": [
+      { "phrase": "revenue", "entityType": "metric", "fqn": "Revenue", "displayName": "Revenue", "status": "Approved", "certified": true, "owners": ["Finance Data"], "url": "https://acme.getcollate.io/metric/revenue" },
+      { "phrase": "region", "entityType": "glossaryTerm", "fqn": "Sales.Region", "displayName": "Region", "status": "Approved", "certified": true, "owners": ["Sales territories"], "url": "https://acme.getcollate.io/glossary/Sales.Region" }
+    ],
+    "tables": [{
+      "fqn": "analytics.fct_revenue", "tier": "Tier1", "certified": true, "owners": ["Finance Data"], "url": "https://acme.getcollate.io/table/analytics.fct_revenue",
+      "freshness": { "at": 1799992800000, "source": "test", "stale": false },
+      "failingTests": [{ "name": "region_code not null", "url": "https://acme.getcollate.io/table/analytics.fct_revenue/profiler" }],
+      "openIncidents": [{ "id": "INC-2291", "testCase": "EMEA load is 6h late", "status": "Assigned", "severity": "Severity2", "url": "https://acme.getcollate.io/incident-manager/INC-2291" }]
+    }],
+    "execution": { "executor": "hostConnector", "connector": "Snowflake", "rowCount": 4, "durationMs": 1200, "selfReported": true },
+    "sql": "SELECT region,\n       SUM(net_amount) AS revenue\nFROM   analytics.fct_revenue\nWHERE  fiscal_quarter = '2026-Q3'\nGROUP  BY region\nORDER  BY revenue DESC;",
+    "showSql": true, "trustChecked": { "failingTests": true, "openIncidents": true }, "planChecked": false, "warnings": []
+  },
+  "term": {
+    "kind": "glossaryTerm", "name": "Active customer", "fqn": "Sales.ActiveCustomer",
+    "description": "An account with at least one paid subscription that billed in the last 90 days. Trials, free plans and accounts in dunning are excluded.",
+    "container": { "label": "Glossary", "name": "Sales", "url": "https://acme.getcollate.io/glossary/Sales" },
+    "status": "Approved", "owners": ["Sales Ops"], "updatedAt": 1798963200000,
+    "synonyms": ["Active account", "Paying customer"],
+    "confusedWith": [{ "name": "Finance › Customer", "url": "https://acme.getcollate.io/glossary/Finance.Customer", "note": "counts every billing account, including inactive ones." }],
+    "appliedTo": { "total": 42, "items": [
+      { "kind": "Column", "name": "dim_customer.is_active", "url": "https://acme.getcollate.io/table/analytics.dim_customer", "detail": "Certified source" },
+      { "kind": "Metric", "name": "Active customers", "url": "https://acme.getcollate.io/metric/active-customers", "detail": "18,420 in 2026-Q3" },
+      { "kind": "Table", "name": "fct_subscriptions", "url": "https://acme.getcollate.io/table/analytics.fct_subscriptions", "detail": "Tier 1" }
+    ] },
+    "url": "https://acme.getcollate.io/glossary/Sales.ActiveCustomer"
+  },
+  "metric": {
+    "kind": "metric", "name": "Net revenue retention", "fqn": "net-revenue-retention",
+    "description": "Recurring revenue kept from customers active 12 months ago, including expansion and net of churn and contraction.",
+    "container": { "label": "Metric", "name": "Customer Success" },
+    "status": "Approved", "certified": true, "owners": ["Customer Success"], "footerNote": "refreshed daily",
+    "value": "112%", "change": "+3 pts QoQ", "changeDirection": "up", "period": "2026-Q3 · trailing 12 months",
+    "history": [27, 36, 50, 59, 68, 77, 86, 100],
+    "metric": { "expression": "(start_arr + expansion - contraction - churn) / start_arr", "sql": "select sum(arr) / sum(start_arr) from analytics.fct_arr_movements", "granularity": "QUARTER", "unit": "Percent", "target": "≥ 110%", "relatedMetrics": ["Gross retention", "Churn"], "source": "analytics.fct_arr_movements" },
+    "url": "https://acme.getcollate.io/metric/net-revenue-retention"
+  },
+  "table": {
+    "entityType": "table", "name": "fct_revenue", "fullyQualifiedName": "snowflake.analytics.fct_revenue",
+    "description": "One row per recognized order line, net of refunds, in USD. The certified source for every revenue question.",
+    "certification": "Certification.Gold (valid until 2027-06-30)",
+    "tags": [{ "tagFQN": "Tier.Tier1", "source": "Classification" }],
+    "owners": [{ "name": "finance_data", "displayName": "Finance Data" }],
+    "profile": { "timestamp": 1799992800000, "rowCount": 48600000 },
+    "quality": { "summary": { "success": 41, "total": 42 } },
+    "usageSummary": { "monthlyStats": { "count": 1200 } },
+    "dataModel": { "modelType": "DBT", "topQuery": { "sql": "select region_code, sum(net_amount) from analytics.fct_revenue group by 1", "runs": 312, "days": 30 } },
+    "openMetadataUrl": "https://acme.getcollate.io/table/snowflake.analytics.fct_revenue",
+    "columns": [
+      { "name": "order_id", "dataType": "STRING", "description": "Joins fct_orders", "constraint": "PRIMARY_KEY" },
+      { "name": "net_amount", "dataType": "NUMBER", "description": "USD, net of refunds", "tags": [{ "tagFQN": "Glossary.Revenue", "source": "Glossary", "labelType": "Manual" }] },
+      { "name": "region_code", "dataType": "STRING", "description": "12 nulls in last run", "dqFailing": true },
+      { "name": "customer_email", "dataType": "STRING", "description": "Masked for your role", "tags": [{ "tagFQN": "PII.Sensitive", "source": "Classification", "labelType": "Manual" }] }
+    ]
+  }
+}

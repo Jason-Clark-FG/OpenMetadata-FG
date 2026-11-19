@@ -238,6 +238,7 @@ class FinishAnswerIT extends McpTestBase {
                 analystToken)
             .path("result");
 
+    assertThat(result.path("structuredContent").path("entityType").asText()).isEqualTo("table");
     String url = result.path("structuredContent").path("openMetadataUrl").asText();
     assertThat(url).startsWith("http").endsWith("/table/" + certified.getFullyQualifiedName());
     assertThat(result.path("content").get(0).path("text").asText()).contains(url);

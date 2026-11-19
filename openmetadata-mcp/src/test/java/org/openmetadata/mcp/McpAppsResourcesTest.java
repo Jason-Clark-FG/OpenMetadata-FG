@@ -28,7 +28,7 @@ import org.openmetadata.schema.api.configuration.MCPConfiguration;
 
 class McpAppsResourcesTest {
   private static final String CITATION_URI = "ui://openmetadata/answer-citation-v1.html";
-  private static final String ASSET_URI = "ui://openmetadata/data-asset-v1.html";
+  private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @Test
@@ -105,7 +105,7 @@ class McpAppsResourcesTest {
         .containsEntry("finish_answer", Map.of("ui", Map.of("resourceUri", CITATION_URI)))
         .containsEntry("get_entity_details", Map.of("ui", Map.of("resourceUri", ASSET_URI)));
     assertThat(McpAppsResources.ANSWER_CITATION_URI).isEqualTo(CITATION_URI);
-    assertThat(McpAppsResources.DATA_ASSET_URI).isEqualTo(ASSET_URI);
+    assertThat(McpAppsResources.ENTITY_URI).isEqualTo(ASSET_URI);
   }
 
   private static McpSchema.TextResourceContents read(final String uri) {

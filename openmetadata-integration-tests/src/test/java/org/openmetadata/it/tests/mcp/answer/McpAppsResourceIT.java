@@ -30,7 +30,7 @@ import org.openmetadata.it.tests.mcp.McpTestUtils;
 @Execution(ExecutionMode.CONCURRENT)
 class McpAppsResourceIT extends McpTestBase {
   private static final String CARD_URI = "ui://openmetadata/answer-citation-v1.html";
-  private static final String ASSET_URI = "ui://openmetadata/data-asset-v1.html";
+  private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @BeforeAll

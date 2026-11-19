@@ -59,9 +59,9 @@ var OM = (function () {
 
   function ago(at, now) {
     var minutes = Math.max(Math.floor((now - at) / 60000), 0);
-    if (minutes < 60) { return minutes + " min ago"; }
+    if (minutes < 60) { return minutes + "m ago"; }
     var hours = Math.floor(minutes / 60);
-    return hours < 48 ? hours + " h ago" : Math.floor(hours / 24) + " d ago";
+    return hours < 48 ? hours + "h ago" : Math.floor(hours / 24) + "d ago";
   }
 
   /** 48600000 becomes 48.6M, 1200 becomes 1.2k; below a thousand the number is kept whole. */
@@ -110,6 +110,13 @@ var OM = (function () {
     }));
   }
 
+  function agoLong(at, now) {
+    var minutes = Math.max(Math.floor((now - at) / 60000), 0);
+    var count = minutes < 60 ? minutes : minutes < 2880 ? Math.floor(minutes / 60) : Math.floor(minutes / 1440);
+    var unit = minutes < 60 ? "minute" : minutes < 2880 ? "hour" : "day";
+    return count + " " + unit + (count === 1 ? "" : "s") + " ago";
+  }
+
   function notices(items) {
     var rows = items.filter(Boolean).map(function (item) {
       return h("div", "om-notice" + (item.tone === "warn" || item.tone === "brand" ? " " + item.tone : ""),
@@ -120,12 +127,12 @@ var OM = (function () {
   function section(title, body) {
     return body && (body.length === undefined || body.length) ? h("div", "om-section", h("div", "om-section-title", title), body) : null;
   }
-  function stats(items) {
+  function stats(items, wide) {
     var cells = items.filter(Boolean).map(function (item) {
       return h("div", "om-stat", h("div", "om-stat-label", item.label),
         h("div", "om-stat-value" + (item.tone ? " " + item.tone : ""), item.value));
     });
-    return cells.length ? h("div", "om-stats", cells) : null;
+    return cells.length ? h("div", "om-stats" + (wide ? " cells" : ""), cells) : null;
   }
   function tag(text, tone) { return h("span", "om-tag" + (tone ? " " + tone : ""), text); }
 
@@ -137,15 +144,13 @@ var OM = (function () {
         h("span", "om-fold-meta", spec.meta)));
       return root;
     }
-    var toggle = h("span", "om-fold-toggle", "Show");
     var head = h("button", "om-fold-head", h("span", "om-chevron", "›"), h("span", "om-fold-title", spec.title),
-      h("span", "om-fold-meta", spec.meta), h("span", "om-spacer"), toggle);
+      h("span", "om-fold-meta", spec.meta), h("span", "om-spacer"));
     head.type = "button";
     head.setAttribute("aria-expanded", "false");
     head.addEventListener("click", function () {
       var open = root.classList.toggle("open");
       head.setAttribute("aria-expanded", String(open));
-      toggle.textContent = open ? "Hide" : "Show";
       reportSize();
     });
     root.appendChild(head);
@@ -211,6 +216,6 @@ var OM = (function () {
     }
   }
 
-  return { h: h, link: link, ago: ago, tag: tag, notices: notices, section: section, stats: stats,
+  return { h: h, link: link, ago: ago, agoLong: agoLong, tag: tag, notices: notices, section: section, stats: stats,
     compact: compact, clock: clock, valueRow: valueRow, bars: bars, card: card, mount: mount };
 }());

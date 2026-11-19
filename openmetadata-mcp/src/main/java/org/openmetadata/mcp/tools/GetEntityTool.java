@@ -102,6 +102,7 @@ public class GetEntityTool implements McpTool {
   private static final String TEST_SUITE_KEY = "testSuite";
   private static final String CERTIFICATION_KEY = "certification";
   static final String OPEN_METADATA_URL_KEY = "openMetadataUrl";
+  static final String ENTITY_TYPE_KEY = "entityType";
 
   /** Two hops. The second one is what tells a caller whether a lone neighbour starts a chain. */
   private static final int REACH_DEPTH = 2;
@@ -288,6 +289,7 @@ public class GetEntityTool implements McpTool {
     Map<String, Object> cleaned = cleanEntityResponse(entityData);
     resolveCertification(cleaned);
     Map<String, Object> windowed = applyColumnWindow(cleaned, columnOffset, columnLimit);
+    windowed.put(ENTITY_TYPE_KEY, entityType);
     addOpenMetadataUrl(windowed, entityType, entity);
     if (entity instanceof Metric metric) {
       MetricVariants.addExpressions(

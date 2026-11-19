@@ -98,7 +98,8 @@ class HarnessDocumentsTest {
                                         .withEntityType("table"))))));
 
     assertEquals(
-        List.of("prompt", "searchScope"), document.fixed().stream().map(ContextItem::key).toList());
+        List.of("prompt", "searchScope", "answerCards"),
+        document.fixed().stream().map(ContextItem::key).toList());
     final String note = document.fixed().get(1).text();
     assertTrue(
         note.startsWith("## Search scope\n\nYour administrator configured default search rules"));
@@ -121,7 +122,11 @@ class HarnessDocumentsTest {
                                 .withFilteredInSearch(false))),
                 new PersonaContext()));
 
-    assertTrue(document.fixed().isEmpty());
+    assertEquals(
+        List.of(HarnessDocuments.ANSWER_RULE),
+        document.fixed().stream().map(ContextItem::text).toList());
+    assertTrue(HarnessDocuments.ANSWER_RULE.startsWith("When you answer a question about data"));
+    assertTrue(HarnessDocuments.ANSWER_RULE.contains("finish_answer"));
   }
 
   private static Sources sources(

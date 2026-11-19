@@ -43,6 +43,15 @@ import org.openmetadata.service.aicontext.harness.ContextItem.Origin;
 
 /** Turns a caller's materialized persona context into the items the compiler selects from. */
 final class HarnessDocuments {
+  /**
+   * Hosts show the finish_answer card only when the model calls the tool, and a model that is not
+   * told to call it answers in prose. The line is the same for every caller, so it is not
+   * configurable, and it is short to stay under every host's hook cap.
+   */
+  static final String ANSWER_RULE =
+      "When you answer a question about data, finish by calling finish_answer with the terms,"
+          + " tables, time window, SQL and any numbers you used, and show its result.";
+
   private static final int MAX_DESCRIPTION_CHARS = 600;
   private static final int MAX_COLUMNS = 30;
   private static final Map<String, String> KNOWLEDGE_KINDS =
@@ -87,6 +96,8 @@ final class HarnessDocuments {
       items.add(
           ContextItem.fixed(Origin.PERSONA, ContextItem.SEARCH_SCOPE, "searchScope", searchScope));
     }
+    items.add(
+        ContextItem.fixed(Origin.DEFAULT, ContextItem.INSTRUCTIONS, "answerCards", ANSWER_RULE));
     items.addAll(skillItems(sources));
     return items;
   }

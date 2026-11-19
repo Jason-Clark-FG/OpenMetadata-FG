@@ -67,7 +67,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: transparent; }
+body { margin: 0; background: transparent; -webkit-font-smoothing: antialiased; }
 a { color: var(--card-brand); text-decoration: none; text-underline-offset: 2px; }
 a:hover { text-decoration: underline; }
 a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-brand); outline-offset: -2px; }
@@ -100,7 +100,7 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 
 .om-section { padding: 12px 16px; border-top: 1px solid var(--card-line); display: flex; flex-direction: column; gap: 8px; }
 .om-section-title { font-size: 12px; font-weight: 600; color: var(--card-fg3); }
-.om-rows { display: flex; flex-direction: column; gap: 6px; }
+.om-rows { display: flex; flex-direction: column; gap: 8px; }
 .om-row { display: flex; align-items: center; gap: 10px; font-size: 13px; min-width: 0; }
 .om-kind { flex: none; width: 52px; padding: 1px 6px; border-radius: 4px; background: var(--card-bg2); color: var(--card-fg3); font-size: 11px; font-weight: 600; text-align: center; }
 .om-name { font-weight: 500; color: var(--card-brand); overflow-wrap: anywhere; }
@@ -122,7 +122,7 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-stat-value.err { color: var(--card-err); }
 
 .om-value-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.om-value { font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.om-value { font-size: 30px; line-height: 1.5; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .om-change { font-size: 13px; font-weight: 600; color: var(--card-fg3); }
 .om-change.up { color: var(--card-ok); }
 .om-change.down { color: var(--card-err); }
@@ -136,16 +136,22 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-bar-change.up { color: var(--card-ok); }
 .om-bar-change.down { color: var(--card-err); }
 
+.om-intro.lg { padding: 16px; gap: 8px; }
 .om-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--card-fg3); }
 .om-chip { padding: 1px 8px; border-radius: 9999px; border: 1px solid var(--card-line); color: var(--card-fg2); }
 .om-body-text { font-size: 14px; color: var(--card-fg); text-wrap: pretty; overflow-wrap: anywhere; }
-.om-title-lg { font-size: 20px; line-height: 1.35; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.om-title-lg { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .om-link-row { display: flex; align-items: center; gap: 10px; font-size: 13px; min-width: 0; }
 .om-link-row .om-name { font-family: var(--card-mono); }
 .om-notice-label.wide { width: 72px; }
 .om-notice.brand { background: var(--card-brand-bg); }
 .om-notice.brand .om-notice-label { color: var(--card-brand); }
 .om-formula { background: var(--card-code); border: 1px solid var(--card-line); border-radius: 8px; padding: 10px 12px; font-family: var(--card-mono); font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre; }
+.om-metric-head { padding: 16px; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.om-metric-title { flex: 1 1 0; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+.om-spark { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
+.om-spark-bar { width: 14px; border-radius: 3px 3px 0 0; background: var(--card-bar-bg); }
+.om-spark-bar.last { background: var(--card-bar); }
 .om-metric-body { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 6px; }
 .om-stats.cells { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 

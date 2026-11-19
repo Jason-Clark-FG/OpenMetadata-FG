@@ -38,7 +38,7 @@ public final class McpAppsResources {
   /** Versioned in the URI because hosts cache a template by its URI. */
   public static final String ANSWER_CITATION_URI = "ui://openmetadata/answer-citation-v1.html";
 
-  public static final String DATA_ASSET_URI = "ui://openmetadata/data-asset-v1.html";
+  public static final String ENTITY_URI = "ui://openmetadata/entity-v1.html";
 
   private static final String VIEWS_DIR = "mcp-apps/";
   private static final Pattern STYLESHEET =
@@ -60,11 +60,12 @@ public final class McpAppsResources {
             "Citation card for a finish_answer result",
             "answer-citation-v1.html"),
         view(
-            DATA_ASSET_URI,
-            "data-asset",
-            "Data asset",
-            "Card for an entity returned by get_entity_details",
-            "data-asset-v1.html"));
+            ENTITY_URI,
+            "entity",
+            "Entity",
+            "Card for an entity returned by get_entity_details: a data asset, metric or glossary term,"
+                + " chosen by the entity type in the result",
+            "entity-v1.html"));
   }
 
   /** Fails at startup when a view or a file it links is missing, not on a host's first read. */
