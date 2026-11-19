@@ -544,7 +544,7 @@ public class McpServer implements McpServerProvider {
    */
   private static McpSchema.CallToolRequest withConversation(
       McpSchema.Tool tool, DeliveryLedger.Caller caller, McpSchema.CallToolRequest req) {
-    if (!"remember".equals(tool.name())) {
+    if (!"remember".equals(tool.name()) && !"harness_hook".equals(tool.name())) {
       return req;
     }
     Map<String, Object> arguments = new HashMap<>();

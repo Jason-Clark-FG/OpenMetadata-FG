@@ -1,9 +1,10 @@
 # Agent-captured memories merge only restatements, and link what the conversation read
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-18 (initial)
+- **Revisions:** v1 2026-11-18 (initial); v2 2026-11-18 (the UserPromptSubmit hook captures explicit cues)
 - **Deciders:** Sriharsha Chintalapani
-- **Guard:** `AgentMemoryPlanTest`, `AgentMemoryDuplicatesTest`, `SessionAssetsTest`, `RememberToolIT`
+- **Guard:** `AgentMemoryPlanTest`, `AgentMemoryDuplicatesTest`, `SessionAssetsTest`, `RememberToolIT`,
+  `PromptMemoryCuesTest`, `PromptAssetLookupTest`, `AutomaticMemoryCaptureIT`
 - **Related:** docs/plans/2026-11-18-agent-harness-implementation-plan.md (section 2.4),
   ADR:2026-11-05-oss-memories-are-approved-without-reconciliation,
   ADR:2026-10-09-data-consumers-create-context-memories,
@@ -38,6 +39,36 @@ what "deduplicate" compares, and which assets a memory links to.
   conversation is the same key `DeliveryLedger` uses: user, client, persona and session id. Names
   the caller cannot view are dropped, and the result lists the ones the agent named.
 - A fact is at most 2,000 characters.
+
+## Amendment v2: the hook captures explicit cues
+A user had to tell the agent to store a fact, because only a model's `remember` call wrote one.
+Claude Code and Codex send the user's prompt to `harness_hook` at UserPromptSubmit, so the server
+can save a stated fact with no model choice. Claude Desktop sends no hook and still depends on
+the model calling `remember`.
+- `PromptMemoryCues` reads the prompt with fixed patterns, with no model: `remember that`,
+  `note that`, `remember:`, `note:`, `from now on`, `going forward`, `for future reference`,
+  `always use X for Y`, `never use X for Y`, `use X instead of Y`, and `X is deprecated, use Y`, at
+  the start of a sentence or after `please`. A sentence with a `?`, text in a fenced code block, a
+  prompt over 4,000 characters, a fact under 12 or over 2,000 characters, and a fact that matches a
+  credential, key, email address or card-number pattern are never captured. The first fact of a
+  prompt is kept. The codebase has no secret or PII detector to reuse, so the patterns are
+  local to this class and err toward not capturing.
+- The hook saves through `RememberTool` (`captureFromPrompt`), so the harness settings, review,
+  visibility, persona share, dedup and session-asset linking apply unchanged. The conversation is
+  the transport's `DeliveryLedger.Caller` key, which the model's reads were recorded under; the
+  hook body's `session_id` is not used.
+- The source type stays `AgentCapture`, with the description "Recorded automatically from the
+  user's prompt". `ConversationExtraction` is the chat-turn extractor's ground-truth type and is
+  read by that path; using it would let a regex match pass as extracted ground truth. A new enum
+  value would add schema for a label the description carries.
+- Tables and metrics named in the fact (a backticked word, or a word with an underscore or dot)
+  are resolved as the caller through search: a fully qualified name, or a name that matches
+  exactly one asset. An ambiguous name is not linked.
+- A fact saved is reported in the hook's context for that turn, ahead of the compiled items and
+  inside the host's cap, as a note that tells the agent to say so. A bounded record of recent facts
+  per user (10,000 entries, 10 minutes) returns the same note for a retried hook without a
+  second memory, including for a fact with no anchor, which the dedup never merges.
+- The hook's failure to save never fails the hook.
 
 ## Consequences
 Restating a fact never creates a second memory, and nothing decides whether two differing facts
