@@ -26,6 +26,7 @@ import {
 import { GuardrailDefinition } from '../../../../generated/api/context/guardrailDefinition';
 import {
   GuardrailRow,
+  McpConnection,
   ToolAccessErrors,
 } from '../../../../interface/discovery/agentHarness.interface';
 import {
@@ -41,6 +42,8 @@ export interface GuardrailsTabProps {
   spec: AgentHarnessSpec;
   resolved: ResolvedAgentHarness;
   guardrails: GuardrailDefinition[];
+  /** Outside MCP servers registered here; empty when none or the request failed. */
+  connections?: McpConnection[];
   toolAccessErrors: ToolAccessErrors;
   showInherited: boolean;
   canEdit: boolean;
@@ -52,6 +55,7 @@ const GuardrailsTab = ({
   spec,
   resolved,
   guardrails,
+  connections = [],
   toolAccessErrors,
   showInherited,
   canEdit,
@@ -123,6 +127,7 @@ const GuardrailsTab = ({
       <McpAccessCard
         access={spec.toolAccess}
         canEdit={canEdit}
+        connections={connections}
         errors={toolAccessErrors}
         inherited={resolved.inheritedToolAccess}
         isPersona={isPersona}
