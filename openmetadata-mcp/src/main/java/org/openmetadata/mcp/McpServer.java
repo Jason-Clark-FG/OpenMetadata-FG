@@ -113,13 +113,17 @@ public class McpServer implements McpServerProvider {
    *
    * <p>Clients trust what we advertise and call it. If we claim a capability we have no handler for,
    * the call comes back as MethodNotFound. So: no logging, because there is no logging/setLevel
-   * handler (VSCode used to call it), and no resources, because no resources are registered here.
-   * The resources flag would also advertise resources/subscribe, which protocol 2026-07-28 has
-   * replaced with subscriptions/listen. listChanged is false: a stateless server cannot send
-   * notifications/tools/list_changed, so a client sees a changed list when it lists again.
+   * handler (VSCode used to call it). Resources are advertised because the MCP Apps views in
+   * {@link McpAppsResources} are registered, with subscribe off: protocol 2026-07-28 replaced
+   * resources/subscribe with subscriptions/listen. listChanged is false: a stateless server cannot
+   * send notifications/tools/list_changed, so a client sees a changed list when it lists again.
    */
   protected McpSchema.ServerCapabilities buildServerCapabilities() {
-    return McpSchema.ServerCapabilities.builder().tools(false).prompts(false).build();
+    return McpSchema.ServerCapabilities.builder()
+        .tools(false)
+        .prompts(false)
+        .resources(false, false)
+        .build();
   }
 
   /**
@@ -324,6 +328,7 @@ public class McpServer implements McpServerProvider {
               SecurityConfigurationManager::getCurrentMcpConfig);
       addToolsToServer(server, tools);
       addPromptsToServer(server, prompts);
+      McpAppsResources.specifications().forEach(server::addResource);
 
       // SSE transport for MCP
       ServletHolder servletHolderSSE = new ServletHolder(statelessOauthTransport);

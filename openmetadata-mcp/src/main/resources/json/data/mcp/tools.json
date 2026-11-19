@@ -369,6 +369,11 @@
     {
       "name": "finish_answer",
       "title": "Finish Answer",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/answer-citation-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

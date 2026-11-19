@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answer citation card preview</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 0; padding: 16px; background: #f0f1f3; color: #1a1d21; }
+  body.dark { background: #121316; color: #eceef1; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  button { padding: 4px 10px; }
+  .frame { max-width: 640px; border: 1px solid #c5c9d0; border-radius: 8px; background: #fff; overflow: hidden; }
+  body.dark .frame { background: #1b1d21; border-color: #3a3f48; }
+  iframe { display: block; width: 100%; border: 0; height: 200px; }
+  pre { max-width: 640px; white-space: pre-wrap; background: rgba(127,127,127,.12); padding: 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<p>Plays the MCP Apps host (spec 2026-01-26) for
+<code>openmetadata-mcp/src/main/resources/mcp-apps/answer-citation-v1.html</code>: answers
+<code>ui/initialize</code>, then sends the fixture as <code>ui/notifications/tool-result</code>.
+Open this file from a checkout (the card loads by relative path).</p>
+<div class="bar">
+  <button id="light">Light</button><button id="dark">Dark</button>
+  <button id="empty">Small, host-run</button><button id="full">Full fixture</button>
+</div>
+<div class="frame"><iframe id="card" sandbox="allow-scripts" title="Answer citation"
+  src="../../openmetadata-mcp/src/main/resources/mcp-apps/answer-citation-v1.html"></iframe></div>
+<h3>Host log</h3>
+<pre id="log"></pre>
+<script>
+var now = Date.now();
+var FULL = {
+  question: "What was customer churn last quarter?",
+  headline: "Customer churn rate, Q3 FY2026: 4.8%",
+  concepts: [
+    { phrase: "churn rate", entityType: "metric", fqn: "Customer Churn Rate", displayName: "Customer Churn Rate", status: "Approved", certified: true, version: 3, owners: ["Finance Analytics"], url: "https://om.example.com/metric/Customer%20Churn%20Rate" },
+    { phrase: "active customer", entityType: "glossaryTerm", unresolved: "notVisible" },
+    { phrase: "trial account", entityType: "glossaryTerm", fqn: "Sales.TrialAccount", unresolved: "notFound" }
+  ],
+  timeWindow: { phrase: "last quarter", label: "fiscal Q3 FY2026", start: "2026-08-01", end: "2026-10-31", timeZone: "UTC", fiscalYearStart: "02-01", resolvedBy: "server" },
+  tables: [
+    { fqn: "snowflake_prod.finance.public.fct_subscriptions", tier: "Tier1", certified: true, owners: ["Finance Analytics"], url: "https://om.example.com/table/x",
+      freshness: { at: now - 2 * 3600 * 1000, source: "test", stale: false },
+      failingTests: [{ name: "customer_id_not_null", url: "https://om.example.com/test/1" }],
+      openIncidents: [{ id: "4821", testCase: "late_events", status: "Assigned", severity: "Severity2", url: "https://om.example.com/incident/4821" }] },
+    { fqn: "snowflake_prod.finance.public.subs_old", tier: "Tier3", deprecated: true, replacedBy: "snowflake_prod.finance.public.fct_subscriptions", owners: [],
+      freshness: { at: now - 80 * 3600 * 1000, source: "profile", stale: true } },
+    { fqn: "<img src=x onerror=alert(1)>.script", unresolved: "notFound" }
+  ],
+  execution: { executor: "none", reason: "Chat has no warehouse connector" },
+  sql: "SELECT COUNT(*) FILTER (WHERE churned) / COUNT(*)\nFROM fct_subscriptions\nWHERE period BETWEEN '2026-08-01' AND '2026-10-31';",
+  showSql: true,
+  trustChecked: { failingTests: true, openIncidents: true },
+  warnings: ["Dates came from the agent, not the calendar."]
+};
+var SMALL = { question: "q", headline: "Row count: 42", concepts: [], tables: [{ fqn: "db.s.t", tier: "Tier2", certified: true, owners: ["ana"], url: "https://om.example.com/t", freshness: { at: now - 600000, source: "profile" } }],
+  execution: { executor: "hostConnector", connector: "Snowflake", rowCount: 1, selfReported: true }, sql: "select 1", showSql: false };
+var current = FULL, theme = "light";
+var frame = document.getElementById("card"), log = document.getElementById("log");
+function context() { return { theme: theme, displayMode: "inline", containerDimensions: { width: 640 } }; }
+function post(m) { frame.contentWindow.postMessage(Object.assign({ jsonrpc: "2.0" }, m), "*"); }
+function push() { post({ method: "ui/notifications/tool-result", params: { content: [{ type: "text", text: "markdown fallback" }], structuredContent: current } }); }
+function note(t) { log.textContent += t + "\n"; }
+window.addEventListener("message", function (e) {
+  if (e.source !== frame.contentWindow) { return; }
+  var m = e.data;
+  if (m.method === "ui/initialize") {
+    note("<- ui/initialize " + JSON.stringify(m.params));
+    post({ id: m.id, result: { protocolVersion: "2026-01-26", hostCapabilities: {}, hostInfo: { name: "preview", version: "0" }, hostContext: context() } });
+  } else if (m.method === "ui/notifications/initialized") { note("<- initialized"); push(); }
+  else if (m.method === "ui/open-link") { note("<- ui/open-link " + m.params.url); post({ id: m.id, result: {} }); }
+  else if (m.method === "ui/notifications/size-changed") { frame.style.height = m.params.height + "px"; }
+});
+function setTheme(t) { theme = t; document.body.className = t === "dark" ? "dark" : ""; post({ method: "ui/notifications/host-context-changed", params: { theme: t } }); }
+document.getElementById("light").onclick = function () { setTheme("light"); };
+document.getElementById("dark").onclick = function () { setTheme("dark"); };
+document.getElementById("full").onclick = function () { current = FULL; push(); };
+document.getElementById("empty").onclick = function () { current = SMALL; push(); };
+</script>
+</body>
+</html>

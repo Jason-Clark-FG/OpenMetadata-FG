@@ -93,6 +93,10 @@ public class McpUtils {
     if (annotations != null) {
       builder.annotations(annotations);
     }
+    Map<String, Object> meta = JsonUtils.getMap(toolDef.get("_meta"));
+    if (meta != null && !meta.isEmpty()) {
+      builder.meta(meta);
+    }
     return builder.build();
   }
 

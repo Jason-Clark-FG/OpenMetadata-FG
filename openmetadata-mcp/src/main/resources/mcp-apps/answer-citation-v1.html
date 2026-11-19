@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>How I got this</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg-soft: var(--color-background-secondary, #f6f7f9);
+  --fg: var(--color-text-primary, #1a1d21);
+  --fg-soft: var(--color-text-secondary, #5b6470);
+  --line: var(--color-border-primary, #dde1e7);
+  --link: var(--color-text-info, #1760c4);
+  --ok-bg: var(--color-background-success, #e3f5e8);
+  --ok-fg: var(--color-text-success, #14612b);
+  --warn-bg: var(--color-background-warning, #fff3d6);
+  --warn-fg: var(--color-text-warning, #7a4b00);
+  --bad-bg: var(--color-background-danger, #fde6e6);
+  --bad-fg: var(--color-text-danger, #8f1d1d);
+  --radius: var(--border-radius-md, 8px);
+  --sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  --mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-soft: var(--color-background-secondary, #25282e);
+    --fg: var(--color-text-primary, #eceef1);
+    --fg-soft: var(--color-text-secondary, #a4acb8);
+    --line: var(--color-border-primary, #3a3f48);
+    --link: var(--color-text-info, #7db3ff);
+    --ok-bg: var(--color-background-success, #17361f);
+    --ok-fg: var(--color-text-success, #8fdba6);
+    --warn-bg: var(--color-background-warning, #3b2c0c);
+    --warn-fg: var(--color-text-warning, #f2c36b);
+    --bad-bg: var(--color-background-danger, #411818);
+    --bad-fg: var(--color-text-danger, #f4a0a0);
+  }
+}
+:root[data-theme="dark"] {
+  --bg-soft: var(--color-background-secondary, #25282e);
+  --fg: var(--color-text-primary, #eceef1);
+  --fg-soft: var(--color-text-secondary, #a4acb8);
+  --line: var(--color-border-primary, #3a3f48);
+  --link: var(--color-text-info, #7db3ff);
+  --ok-bg: var(--color-background-success, #17361f);
+  --ok-fg: var(--color-text-success, #8fdba6);
+  --warn-bg: var(--color-background-warning, #3b2c0c);
+  --warn-fg: var(--color-text-warning, #f2c36b);
+  --bad-bg: var(--color-background-danger, #411818);
+  --bad-fg: var(--color-text-danger, #f4a0a0);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: transparent; color: var(--fg); font: 14px/1.5 var(--sans); }
+.card { padding: 14px 16px; }
+h1 { margin: 0 0 10px; font-size: 18px; line-height: 1.3; font-weight: 600; overflow-wrap: anywhere; }
+h2 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-soft); }
+ol { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+li { counter-increment: step; display: flex; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+li:first-child { border-top: 0; }
+li::before { content: counter(step); flex: none; width: 1.4em; color: var(--fg-soft); text-align: right; font-variant-numeric: tabular-nums; }
+.body { min-width: 0; }
+.warn .body { color: var(--warn-fg); }
+.mark { font-weight: 600; }
+.badge { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--line); font-size: 12px; line-height: 18px; }
+.badge.ok { background: var(--ok-bg); color: var(--ok-fg); border-color: transparent; }
+.badge.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: transparent; }
+.badge.bad { background: var(--bad-bg); color: var(--bad-fg); border-color: transparent; }
+.sub { color: var(--fg-soft); }
+a { color: var(--link); text-underline-offset: 2px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 3px; }
+code { font-family: var(--mono); font-size: 13px; }
+details { margin-top: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); }
+summary { cursor: pointer; padding: 6px 10px; font-weight: 600; }
+pre { margin: 0; padding: 8px 10px 10px; overflow-x: auto; border-top: 1px solid var(--line); font: 13px/1.45 var(--mono); }
+</style>
+</head>
+<body>
+<main class="card" aria-labelledby="headline">
+  <h1 id="headline">Loading…</h1>
+  <h2 id="steps-label">How I got this</h2>
+  <ol id="steps" aria-labelledby="steps-label"></ol>
+  <details id="sql" hidden>
+    <summary>View SQL</summary>
+    <pre><code id="sql-text"></code></pre>
+  </details>
+</main>
+<script>
+(function () {
+  "use strict";
+  var PROTOCOL = "2026-01-26";
+  var pending = {};
+  var nextId = 1;
+  var root = document.documentElement;
+  var rendered = false;
+
+  function send(message) { window.parent.postMessage(message, "*"); }
+  function request(method, params) {
+    return new Promise(function (resolve, reject) {
+      var id = nextId++;
+      pending[id] = { resolve: resolve, reject: reject };
+      send({ jsonrpc: "2.0", id: id, method: method, params: params });
+    });
+  }
+  function notify(method, params) { send({ jsonrpc: "2.0", method: method, params: params || {} }); }
+
+  function applyHostContext(context) {
+    if (!context) { return; }
+    if (context.theme === "light" || context.theme === "dark") {
+      root.setAttribute("data-theme", context.theme);
+    }
+    var variables = context.styles && context.styles.variables;
+    if (variables) {
+      Object.keys(variables).forEach(function (name) {
+        if (name.indexOf("--") === 0 && typeof variables[name] === "string") {
+          root.style.setProperty(name, variables[name]);
+        }
+      });
+    }
+  }
+
+  function safeUrl(url) {
+    return typeof url === "string" && /^https?:\/\//i.test(url) ? url : null;
+  }
+
+  function el(tag, className, content) {
+    var node = document.createElement(tag);
+    if (className) { node.className = className; }
+    if (content !== undefined && content !== null) { node.textContent = content; }
+    return node;
+  }
+  function code(value) { return el("code", null, value || ""); }
+  function badge(value, kind) { return el("span", "badge" + (kind ? " " + kind : ""), value); }
+  function sub(value) { return el("span", "sub", value); }
+  function link(child, url) {
+    var target = safeUrl(url);
+    if (!target) { return child; }
+    var anchor = el("a");
+    anchor.href = target;
+    anchor.rel = "noopener noreferrer";
+    anchor.appendChild(child);
+    anchor.addEventListener("click", function (event) {
+      event.preventDefault();
+      request("ui/open-link", { url: target }).catch(function () {});
+    });
+    return anchor;
+  }
+  function plain(value) { return el("span", null, value); }
+
+  function addStep(list, children, warn) {
+    var item = el("li", warn ? "warn" : "");
+    var body = el("div", "body");
+    if (warn) {
+      var mark = el("span", "mark", "⚠");
+      mark.setAttribute("role", "img");
+      mark.setAttribute("aria-label", "Warning");
+      body.appendChild(mark);
+      body.appendChild(document.createTextNode(" "));
+    }
+    children.forEach(function (child) {
+      if (child) { body.appendChild(typeof child === "string" ? document.createTextNode(child) : child); }
+    });
+    item.appendChild(body);
+    list.appendChild(item);
+  }
+
+  function ownersBadge(owners) {
+    var names = owners || [];
+    return names.length
+      ? badge((names.length === 1 ? "owner " : "owners ") + names.join(", "))
+      : badge("no owner");
+  }
+  function quoted(phrase) { return phrase ? "“" + phrase + "” → " : ""; }
+
+  function age(at, now) {
+    var minutes = Math.max(Math.floor((now - at) / 60000), 0);
+    if (minutes < 60) { return minutes + " min ago"; }
+    var hours = Math.floor(minutes / 60);
+    return hours < 48 ? hours + " h ago" : Math.floor(hours / 24) + " d ago";
+  }
+
+  function conceptStep(concept) {
+    var kind = concept.entityType === "metric" ? "metric" : concept.entityType ? "glossary term" : "concept";
+    var parts = [quoted(concept.phrase)];
+    if (concept.unresolved === "notVisible") {
+      parts.push("a " + kind + " that is not visible to you", badge("Not visible", "warn"));
+    } else if (concept.unresolved === "notFound") {
+      parts.push(code(concept.fqn), " not found in OpenMetadata", badge("Not found", "bad"));
+    } else {
+      parts.push(kind + " ", link(plain(concept.displayName || concept.fqn || ""), concept.url));
+      if (concept.status) { parts.push(badge(concept.status.toLowerCase())); }
+      if (concept.certified) { parts.push(badge("certified", "ok")); }
+      parts.push(ownersBadge(concept.owners));
+      if (typeof concept.version === "number") { parts.push(badge("v" + concept.version)); }
+    }
+    return parts;
+  }
+
+  function windowStep(window_) {
+    var dates = window_.start && window_.end
+      ? (window_.start === window_.end ? window_.start : window_.start + " to " + window_.end)
+      : "no usable dates";
+    var parts = [quoted(window_.phrase)];
+    if (window_.resolvedBy === "server") {
+      var note = [window_.timeZone];
+      if (window_.fiscalYearStart && window_.fiscalYearStart !== "01-01") {
+        note.push("fiscal year starts " + window_.fiscalYearStart);
+      }
+      parts.push((window_.label ? window_.label + ", " : "") + dates + " ",
+        sub("(" + note.filter(Boolean).join(", ") + ")"));
+    } else {
+      parts.push(dates + " ", badge("dates from the agent, not checked against the calendar", "warn"));
+    }
+    return parts;
+  }
+
+  function tableStep(table, now) {
+    var parts = ["Data → "];
+    if (table.unresolved === "notVisible") {
+      return parts.concat("a table that is not visible to you", badge("Not visible", "warn"));
+    }
+    if (table.unresolved === "notFound") {
+      return parts.concat(code(table.fqn), " not found in OpenMetadata", badge("Not found", "bad"));
+    }
+    parts.push(link(code(table.fqn), table.url));
+    if (table.tier) { parts.push(badge(String(table.tier).replace(/^Tier(\d+)$/, "Tier $1"))); }
+    parts.push(table.certified ? badge("certified", "ok") : badge("not certified"));
+    if (table.deprecated) { parts.push(badge("deprecated", "bad")); }
+    if (table.owners && table.owners.length) { parts.push(ownersBadge(table.owners)); }
+    var freshness = table.freshness;
+    if (!freshness || typeof freshness.at !== "number") {
+      parts.push(" ", sub("freshness unknown"));
+    } else {
+      var label = (freshness.source === "test" ? "freshness tested " : "profiled ") + age(freshness.at, now);
+      parts.push(" ", freshness.stale ? badge("⚠ " + label + ", stale", "warn") : sub(label));
+    }
+    return parts;
+  }
+
+  function concernSteps(table) {
+    var steps = [];
+    if (table.deprecated) {
+      var line = [code(table.fqn), " is deprecated"];
+      if (table.replacedBy) { line.push(", replaced by ", code(table.replacedBy)); }
+      steps.push(line.concat("."));
+    }
+    (table.failingTests || []).forEach(function (test) {
+      steps.push(["Failing test on ", code(table.fqn), ": ", link(plain(test.name), test.url)]);
+    });
+    (table.openIncidents || []).forEach(function (incident) {
+      var detail = [incident.status, incident.severity].filter(Boolean).join(", ");
+      var line = ["Open incident ", code(incident.id), " on ", code(table.fqn)];
+      if (detail) { line.push(" (" + detail + ")"); }
+      if (incident.testCase) { line.push(": ", link(plain(incident.testCase), incident.url)); }
+      steps.push(line);
+    });
+    return steps;
+  }
+
+  function trustText(citation) {
+    var checked = citation.trustChecked || {};
+    var tests = checked.failingTests !== false;
+    var incidents = checked.openIncidents !== false;
+    return tests && incidents ? "no failing tests, no open incidents"
+      : tests ? "no failing tests" : incidents ? "no open incidents" : null;
+  }
+
+  function executionStep(citation) {
+    var execution = citation.execution || {};
+    if (execution.executor === "none") {
+      var reason = (execution.reason || "the query was not run in this chat").replace(/\.+$/, "");
+      return [el("strong", null, "Not run: "), reason + "." + (citation.sql ? " SQL below." : "")];
+    }
+    var rows = typeof execution.rowCount === "number"
+      ? ", " + execution.rowCount + (execution.rowCount === 1 ? " row" : " rows") : "";
+    return ["Ran through your " + (execution.connector || "warehouse") + " connector" + rows + ". ",
+      badge("Self-reported: OpenMetadata did not run it", "warn")];
+  }
+
+  function render(citation, now) {
+    var clock = typeof now === "number" ? now : Date.now();
+    var list = document.getElementById("steps");
+    list.textContent = "";
+    document.getElementById("headline").textContent = citation.headline || citation.question || "";
+    (citation.concepts || []).forEach(function (concept) { addStep(list, conceptStep(concept)); });
+    if (citation.timeWindow) { addStep(list, windowStep(citation.timeWindow)); }
+    var concerns = [];
+    var resolved = 0;
+    (citation.tables || []).forEach(function (table) {
+      addStep(list, tableStep(table, clock));
+      if (!table.unresolved) {
+        resolved++;
+        concerns = concerns.concat(concernSteps(table));
+      }
+    });
+    concerns.forEach(function (step) { addStep(list, step, true); });
+    var clear = trustText(citation);
+    if (resolved > 0 && concerns.length === 0 && clear) { addStep(list, ["Trust → " + clear]); }
+    addStep(list, executionStep(citation));
+    (citation.warnings || []).forEach(function (warning) { addStep(list, [warning], true); });
+
+    var notRun = citation.execution && citation.execution.executor === "none";
+    var showSql = citation.sql && (notRun || citation.showSql !== false);
+    document.getElementById("sql").hidden = !showSql;
+    document.getElementById("sql-text").textContent = showSql ? citation.sql.trim() : "";
+    rendered = true;
+    reportSize();
+  }
+
+  var lastHeight = 0;
+  function reportSize() {
+    var height = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    if (height !== lastHeight) {
+      lastHeight = height;
+      notify("ui/notifications/size-changed", { width: document.documentElement.scrollWidth, height: height });
+    }
+  }
+
+  function onToolResult(params) {
+    var citation = params && params.structuredContent;
+    if (citation && typeof citation === "object") {
+      render(citation);
+    } else if (!rendered) {
+      document.getElementById("headline").textContent = "No citation data";
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (event.source !== window.parent) { return; }
+    var message = event.data;
+    if (!message || message.jsonrpc !== "2.0") { return; }
+    if (message.method === "ui/notifications/tool-result") {
+      onToolResult(message.params);
+    } else if (message.method === "ui/notifications/host-context-changed") {
+      applyHostContext(message.params);
+    } else if (message.id !== undefined && pending[message.id]) {
+      var call = pending[message.id];
+      delete pending[message.id];
+      if (message.error) { call.reject(message.error); } else { call.resolve(message.result); }
+    }
+  });
+
+  if (typeof ResizeObserver === "function") { new ResizeObserver(reportSize).observe(document.body); }
+  document.getElementById("sql").addEventListener("toggle", reportSize);
+
+  window.__renderCitation = render;
+
+  if (window.parent !== window) {
+    request("ui/initialize", {
+      protocolVersion: PROTOCOL,
+      appCapabilities: {},
+      clientInfo: { name: "openmetadata-answer-citation", version: "1.0.0" }
+    }).then(function (result) {
+      applyHostContext(result && result.hostContext);
+      notify("ui/notifications/initialized");
+    }).catch(function () {
+      notify("ui/notifications/initialized");
+    });
+  }
+}());
+</script>
+</body>
+</html>
