@@ -120,6 +120,13 @@ const PROTOTYPE_TEXT = [
   ["Glossary · Sales territories", "Certified · owner Sales territories"],
   ["Ran as priya@acme.com · Snowflake · 1.2s · 4 rows", "Ran through your Snowflake connector · 1.2s · 4 rows · self-reported"],
 ];
+// The lineage and ontology cards name the real tool and the glossary where the prototype hard-codes
+// a sample tool name and an ontology version the structured content cannot carry.
+const CARD_TEXT = [
+  ["get_lineage · depth", "get_entity_lineage · depth"],
+  ["Concept · Commercial ontology", "Concept · Commercial glossary"],
+  ["Commercial ontology v4", "Commercial glossary"],
+];
 async function adjustPrototype(card) {
   await card.evaluate((root, replacements) => {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -130,6 +137,14 @@ async function adjustPrototype(card) {
     }
   }, PROTOTYPE_TEXT);
 }
+async function adjustCardText(card) {
+  await card.evaluate((root, replacements) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (const [from, to] of replacements) { if (node.data.includes(from)) { node.data = node.data.replace(from, to); } }
+    }
+  }, CARD_TEXT);
+}
 
 const rows = [];
 let failed = false;
@@ -138,7 +153,7 @@ for (const [id, spec] of Object.entries(VARIANTS)) {
   const card = proto.locator(spec.protoSelector).first();
   // The prototype lays cards out at fractional offsets, which shifts glyphs by a pixel in a clipped capture.
   await card.scrollIntoViewIfNeeded();
-  if (spec.page.startsWith("answer")) { await adjustPrototype(card); }
+  if (spec.page.startsWith("answer")) { await adjustPrototype(card); } else { await adjustCardText(card); }
   await card.evaluate((element) => {
     // Moved by layout (margin), not transform: a transformed card gets different glyph rasterisation.
     element.style.margin = "";

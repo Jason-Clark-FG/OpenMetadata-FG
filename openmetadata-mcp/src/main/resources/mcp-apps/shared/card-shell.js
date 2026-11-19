@@ -120,7 +120,7 @@ var OM = (function () {
   function notices(items) {
     var rows = items.filter(Boolean).map(function (item) {
       return h("div", "om-notice" + (item.tone === "warn" || item.tone === "brand" ? " " + item.tone : ""),
-        h("div", "om-notice-label" + (item.wide ? " wide" : ""), item.label), h("div", "om-notice-body", item.body));
+        h("div", "om-notice-label" + (item.wide ? " wide" : ""), item.label), h("div", "om-notice-body" + (item.mono ? " om-joinpath" : ""), item.body));
     });
     return rows.length ? h("div", "om-notices", rows) : null;
   }

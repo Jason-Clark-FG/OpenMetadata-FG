@@ -22,7 +22,7 @@
     var steps = data.joinPath;
     if (steps && steps.length) {
       return { label: "Join path", tone: "brand",
-        body: h("div", "om-joinpath", steps.map(function (step) { return step.table + "." + step.column; }).join(" → ")) };
+        mono: true, body: steps.map(function (step) { return step.table + "." + step.column; }).join(" → ") };
     }
     if (data.target) {
       return { label: "Join path", body: "No declared foreign key joins " + data.concept.name + " to " + data.target.name + "." };
@@ -41,7 +41,7 @@
       kind: "Ontology",
       pill: { text: total + (total === 1 ? " relation" : " relations"), tone: "brand" },
       blocks: [
-        h("div", "om-intro",
+        h("div", "om-intro concept",
           h("div", "om-label", ["Concept", data.glossary ? " · " + data.glossary + " glossary" : ""].join("")),
           h("div", "om-title-lg", concept.name || ""),
           h("div", "om-text", "How " + (concept.name || "this concept") + " relates to other business concepts, and which " + (certified ? "certified " : "") + "tables represent each one.")),
