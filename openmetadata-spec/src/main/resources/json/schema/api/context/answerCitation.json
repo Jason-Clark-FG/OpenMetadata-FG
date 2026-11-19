@@ -1,0 +1,190 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/answerCitation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnswerCitation",
+  "description": "What an answer rests on, written by the server from catalog reads made as the caller. It is the `structuredContent` of `finish_answer`; the Markdown block is rendered from it.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.AnswerCitation",
+  "definitions": {
+    "conceptType": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerConceptType",
+      "description": "Kind of concept an answer binds a phrase to.",
+      "type": "string",
+      "enum": ["glossaryTerm", "metric"],
+      "javaEnums": [
+        { "name": "GLOSSARY_TERM" },
+        { "name": "METRIC" }
+      ]
+    },
+    "unresolved": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerUnresolved",
+      "description": "Why a name was not resolved. notFound: nothing has that name. notVisible: the caller may not view it, and no fact about it is returned.",
+      "type": "string",
+      "enum": ["notFound", "notVisible"],
+      "javaEnums": [
+        { "name": "NOT_FOUND" },
+        { "name": "NOT_VISIBLE" }
+      ]
+    },
+    "executor": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerExecutor",
+      "description": "Who ran the SQL. sqlStudio is set only by Collate.",
+      "type": "string",
+      "enum": ["none", "hostConnector", "sqlStudio"],
+      "javaEnums": [
+        { "name": "NONE" },
+        { "name": "HOST_CONNECTOR" },
+        { "name": "SQL_STUDIO" }
+      ]
+    },
+    "resolvedBy": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerWindowResolver",
+      "description": "Who decided the dates of the time window.",
+      "type": "string",
+      "enum": ["server", "agent"],
+      "javaEnums": [
+        { "name": "SERVER" },
+        { "name": "AGENT" }
+      ]
+    },
+    "freshnessSource": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerFreshnessSource",
+      "description": "Where a table's freshness time comes from: its latest freshness test, else its latest profile, else unknown.",
+      "type": "string",
+      "enum": ["test", "profile", "unknown"],
+      "javaEnums": [
+        { "name": "TEST" },
+        { "name": "PROFILE" },
+        { "name": "UNKNOWN" }
+      ]
+    },
+    "concept": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerConcept",
+      "description": "A glossary term or metric the answer used, as the caller sees it.",
+      "type": "object",
+      "properties": {
+        "phrase": { "description": "The words of the question it was bound to.", "type": "string" },
+        "entityType": { "$ref": "#/definitions/conceptType" },
+        "fqn": { "description": "Fully qualified name. Absent when the caller cannot view it.", "type": "string" },
+        "displayName": { "type": "string" },
+        "status": { "description": "Entity status, for example Approved or Draft.", "type": "string" },
+        "certified": { "type": "boolean", "default": false },
+        "version": { "description": "Entity version cited.", "type": "number" },
+        "owners": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "url": { "description": "Link to the concept in OpenMetadata.", "type": "string" },
+        "unresolved": { "$ref": "#/definitions/unresolved" }
+      },
+      "required": ["phrase"],
+      "additionalProperties": false
+    },
+    "timeWindow": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerTimeWindow",
+      "description": "The window the answer covers.",
+      "type": "object",
+      "properties": {
+        "phrase": { "type": "string" },
+        "label": { "description": "Name of the resolved period, for example October 2026 or fiscal Q3 FY2026.", "type": "string" },
+        "start": { "description": "First day, yyyy-MM-dd.", "type": "string" },
+        "end": { "description": "Last day, yyyy-MM-dd.", "type": "string" },
+        "timeZone": { "type": "string" },
+        "fiscalYearStart": { "description": "MM-DD.", "type": "string" },
+        "resolvedBy": { "$ref": "#/definitions/resolvedBy" }
+      },
+      "required": ["resolvedBy"],
+      "additionalProperties": false
+    },
+    "failingTest": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerFailingTest",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "openIncident": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerOpenIncident",
+      "type": "object",
+      "properties": {
+        "id": { "description": "Incident state id.", "type": "string" },
+        "testCase": { "description": "Test case the incident was opened for.", "type": "string" },
+        "status": { "type": "string" },
+        "severity": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "freshness": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerFreshness",
+      "type": "object",
+      "properties": {
+        "at": { "description": "When the freshness was last checked.", "$ref": "../../type/basic.json#/definitions/timestamp" },
+        "source": { "$ref": "#/definitions/freshnessSource" },
+        "stale": { "description": "True when it is older than the harness's staleAfter.", "type": "boolean", "default": false }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "table": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerTable",
+      "description": "A table the answer read, with the trust signals OpenMetadata already holds for it.",
+      "type": "object",
+      "properties": {
+        "fqn": { "description": "Fully qualified name. Absent when the caller cannot view it.", "type": "string" },
+        "tier": { "description": "Tier tag, for example Tier1.", "type": "string" },
+        "certified": { "type": "boolean", "default": false },
+        "deprecated": { "type": "boolean", "default": false },
+        "replacedBy": { "description": "Fully qualified name of the table that replaces a deprecated one, when the catalog records it.", "type": "string" },
+        "owners": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "freshness": { "$ref": "#/definitions/freshness" },
+        "failingTests": { "type": "array", "items": { "$ref": "#/definitions/failingTest" }, "default": [] },
+        "openIncidents": { "type": "array", "items": { "$ref": "#/definitions/openIncident" }, "default": [] },
+        "url": { "type": "string" },
+        "unresolved": { "$ref": "#/definitions/unresolved" }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerExecution",
+      "type": "object",
+      "properties": {
+        "executor": { "$ref": "#/definitions/executor" },
+        "connector": { "type": "string" },
+        "reason": { "type": "string" },
+        "rowCount": { "type": "integer" },
+        "durationMs": { "type": "integer" },
+        "selfReported": { "description": "True when the caller's agent ran the SQL and OpenMetadata did not observe it.", "type": "boolean", "default": false }
+      },
+      "required": ["executor"],
+      "additionalProperties": false
+    },
+    "trustChecked": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerTrustChecked",
+      "description": "Which trust signals the harness reports, so that an empty list means none were found rather than none were looked for.",
+      "type": "object",
+      "properties": {
+        "failingTests": { "type": "boolean", "default": true },
+        "openIncidents": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "question": { "type": "string" },
+    "headline": { "description": "The agent's one-line answer, quoted as the agent's.", "type": "string" },
+    "concepts": { "type": "array", "items": { "$ref": "#/definitions/concept" }, "default": [] },
+    "timeWindow": { "$ref": "#/definitions/timeWindow" },
+    "tables": { "type": "array", "items": { "$ref": "#/definitions/table" }, "default": [] },
+    "execution": { "$ref": "#/definitions/execution" },
+    "sql": { "type": "string" },
+    "showSql": { "description": "Whether the harness shows SQL in the block. The block shows it regardless when the SQL was not run.", "type": "boolean", "default": true },
+    "trustChecked": { "$ref": "#/definitions/trustChecked" },
+    "planChecked": { "description": "True when the cited items were checked against a plan from start_answer.", "type": "boolean", "default": false },
+    "traceUrl": { "type": "string" },
+    "warnings": { "description": "Written by the server only.", "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "required": ["question", "headline", "execution"],
+  "additionalProperties": false
+}

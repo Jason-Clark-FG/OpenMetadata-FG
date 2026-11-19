@@ -95,6 +95,11 @@ public class DefaultToolContext {
         case "harness_hook":
           result = new HarnessHookTool().execute(authorizer, securityContext, params);
           break;
+        case "finish_answer":
+          return new CallToolOutcome(
+              new FinishAnswerTool().call(authorizer, securityContext, params),
+              elapsedMs(startNanos),
+              null);
         case "get_user_context":
           result = new GetUserContextTool().execute(authorizer, securityContext, params);
           break;

@@ -367,6 +367,119 @@
       }
     },
     {
+      "name": "finish_answer",
+      "title": "Finish Answer",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "description": "Call last, before you give the user an answer that rests on data, whether or not you could run the query. Pass only names: the glossary terms and metrics you used (by fully qualified name), the tables you read, the time phrase the user said (for example last month) with the dates you used, the SQL, and your one-line answer. OpenMetadata looks each name up as the signed-in user and returns the 'How I got this' block with the definitions, time window, tables, certification, owners, freshness, failing tests, open incidents and deprecations it found, with links. Names the user cannot see are reported as not visible and unknown names as not found. Show the returned block to the user as written; do not rewrite it or add facts to it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "The user's question."
+          },
+          "answer": {
+            "type": "string",
+            "description": "One line stating the answer, for example the headline number, or that the query was not run. Shown as your words. At most 500 characters."
+          },
+          "concepts": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "Glossary terms and metrics the answer used.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phrase": {
+                  "type": "string",
+                  "description": "The words of the question this concept stands for, for example ARR."
+                },
+                "entityType": {
+                  "type": "string",
+                  "enum": ["glossaryTerm", "metric"],
+                  "description": "Kind of concept. Omit if unsure."
+                },
+                "fqn": {
+                  "type": "string",
+                  "description": "Fully qualified name of the term or metric."
+                }
+              },
+              "required": ["fqn"]
+            }
+          },
+          "timeWindow": {
+            "type": "object",
+            "description": "The time window the answer covers. OpenMetadata resolves the phrase with the organization's fiscal calendar and time zone.",
+            "properties": {
+              "phrase": {
+                "type": "string",
+                "description": "The user's words, for example last month, Q3 FY2026 or last 7 days."
+              },
+              "start": {
+                "type": "string",
+                "description": "First day you used, as yyyy-MM-dd. Used only when the phrase is not one the calendar knows."
+              },
+              "end": {
+                "type": "string",
+                "description": "Last day you used, as yyyy-MM-dd."
+              }
+            }
+          },
+          "tables": {
+            "type": "array",
+            "maxItems": 5,
+            "description": "Tables the answer read.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fqn": {
+                  "type": "string",
+                  "description": "Fully qualified name of the table."
+                },
+                "columns": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Columns the query used."
+                }
+              },
+              "required": ["fqn"]
+            }
+          },
+          "sql": {
+            "type": "string",
+            "description": "The SQL the answer rests on. At most 20,000 characters."
+          },
+          "execution": {
+            "type": "object",
+            "description": "How the SQL was run. OpenMetadata does not run SQL, so say none when you did not run it.",
+            "properties": {
+              "executor": {
+                "type": "string",
+                "enum": ["none", "hostConnector"],
+                "description": "none if the SQL was not run; hostConnector if your own warehouse connector ran it."
+              },
+              "connector": {
+                "type": "string",
+                "description": "Name of the connector that ran the SQL."
+              },
+              "reason": {
+                "type": "string",
+                "description": "Why the SQL was not run, for example no warehouse connector is connected in this chat."
+              },
+              "rowCount": {
+                "type": "integer",
+                "description": "Rows the query returned."
+              }
+            }
+          }
+        },
+        "required": ["question", "answer"]
+      }
+    },
+    {
       "name": "harness_hook",
       "title": "Agent Harness Hook",
       "annotations": {

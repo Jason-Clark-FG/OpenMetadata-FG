@@ -1,0 +1,143 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/finishAnswer.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FinishAnswer",
+  "description": "Input of the `finish_answer` MCP tool. The agent names what it used; the server looks each name up as the caller and writes the citation itself.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.FinishAnswer",
+  "definitions": {
+    "conceptRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerConcept",
+      "description": "A glossary term or metric the answer used.",
+      "type": "object",
+      "properties": {
+        "phrase": {
+          "description": "The words of the question this concept stands for.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "entityType": {
+          "description": "Kind of concept.",
+          "$ref": "answerCitation.json#/definitions/conceptType"
+        },
+        "fqn": {
+          "description": "Fully qualified name of the term or metric.",
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": ["fqn"],
+      "additionalProperties": false
+    },
+    "timeWindowRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerTimeWindow",
+      "description": "The time window the answer covers, as the user said it. The server resolves the phrase with the organization's calendar; `start` and `end` are used only when it cannot.",
+      "type": "object",
+      "properties": {
+        "phrase": {
+          "description": "The user's words, for example last month or Q3 FY2026.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "start": {
+          "description": "First day covered, as yyyy-MM-dd.",
+          "type": "string",
+          "maxLength": 10
+        },
+        "end": {
+          "description": "Last day covered, as yyyy-MM-dd.",
+          "type": "string",
+          "maxLength": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "tableRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerTable",
+      "description": "A table the answer read.",
+      "type": "object",
+      "properties": {
+        "fqn": {
+          "description": "Fully qualified name of the table.",
+          "type": "string",
+          "maxLength": 1000
+        },
+        "columns": {
+          "description": "Columns the query used.",
+          "type": "array",
+          "items": { "type": "string", "maxLength": 256 },
+          "maxItems": 50,
+          "default": []
+        }
+      },
+      "required": ["fqn"],
+      "additionalProperties": false
+    },
+    "executionRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerExecution",
+      "description": "How the SQL was run, as the agent reports it. OpenMetadata does not run SQL, so a run is always self-reported.",
+      "type": "object",
+      "properties": {
+        "executor": {
+          "description": "Who ran the SQL: none when it was not run, hostConnector when the agent's own warehouse connector ran it.",
+          "$ref": "answerCitation.json#/definitions/executor"
+        },
+        "connector": {
+          "description": "Name of the connector that ran the SQL.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "reason": {
+          "description": "Why the SQL was not run.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "rowCount": {
+          "description": "Rows the query returned.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "question": {
+      "description": "The user's question.",
+      "type": "string",
+      "maxLength": 2000
+    },
+    "answer": {
+      "description": "One line stating the answer, for example the headline number. Shown as the agent's words.",
+      "type": "string",
+      "maxLength": 500
+    },
+    "concepts": {
+      "description": "Glossary terms and metrics the answer used. At most 10.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/conceptRef" },
+      "maxItems": 10,
+      "default": []
+    },
+    "timeWindow": {
+      "$ref": "#/definitions/timeWindowRef"
+    },
+    "tables": {
+      "description": "Tables the answer read. At most 5.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/tableRef" },
+      "maxItems": 5,
+      "default": []
+    },
+    "sql": {
+      "description": "The SQL the answer rests on. At most 20,000 characters.",
+      "type": "string",
+      "maxLength": 20000
+    },
+    "execution": {
+      "$ref": "#/definitions/executionRef"
+    }
+  },
+  "required": ["question", "answer"],
+  "additionalProperties": false
+}

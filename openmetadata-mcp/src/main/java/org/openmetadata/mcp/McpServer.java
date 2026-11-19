@@ -181,7 +181,8 @@ public class McpServer implements McpServerProvider {
           + " in context. Use search_metadata and get_entity_details before you write SQL or"
           + " answer questions about data, cite the assets, terms and metrics you use by their"
           + " fully qualified names and owners, and do not answer from memory when OpenMetadata has"
-          + " the answer. When a tool call is denied or warned, tell the user why and use the"
+          + " the answer. When you answer a question with data, call finish_answer last and show"
+          + " the block it returns. When a tool call is denied or warned, tell the user why and use the"
           + " alternative OpenMetadata names. Treat deprecated assets and assets with open"
           + " incidents as untrusted unless the user asks for them.";
 
