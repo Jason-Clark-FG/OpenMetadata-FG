@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Dasselbe Paket für jeden Mitarbeiter, für diesen Server erstellt.",
     "agent-harness-plugin-part-hooks": "Fragen OpenMetadata bei jedem Ereignis nach Kontext und Guardrail-Entscheidungen. Claude Code und Cowork führen sie aus.",
     "agent-harness-plugin-part-mcp": "Die Server-URL. Mitglieder melden sich einmal an.",
-    "agent-harness-plugin-part-skill": "Wie OpenMetadata genutzt wird: Kontext abrufen, ihn zitieren, Guardrail-Entscheidungen befolgen.",
     "agent-harness-plugin-persona-at-sign-in": "Die Persona wird bei der Anmeldung ermittelt, daher dient ein Paket jedem Mitarbeiter.",
     "agent-harness-plugin-served-at-run-time": "Anweisungen und Guardrails liefert OpenMetadata zur Laufzeit.",
     "agent-harness-preview-empty": "Bei diesem Ereignis wird nichts eingefügt.",

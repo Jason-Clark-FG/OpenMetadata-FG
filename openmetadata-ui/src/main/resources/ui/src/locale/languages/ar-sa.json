@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "الحزمة نفسها لكل موظف، مبنية لهذا الخادم.",
     "agent-harness-plugin-part-hooks": "تطلب من OpenMetadata السياق وقرارات الضوابط عند كل حدث. يشغّلها Claude Code وCowork.",
     "agent-harness-plugin-part-mcp": "عنوان URL للخادم. يسجّل الأعضاء الدخول مرة واحدة.",
-    "agent-harness-plugin-part-skill": "كيفية استخدام OpenMetadata: جلب السياق، والاستشهاد به، واتباع قرارات الضوابط.",
     "agent-harness-plugin-persona-at-sign-in": "تُحدَّد الشخصية عند تسجيل الدخول، لذا تخدم حزمة واحدة كل موظف.",
     "agent-harness-plugin-served-at-run-time": "يقدّم OpenMetadata التعليمات والضوابط وقت التشغيل.",
     "agent-harness-preview-empty": "لا يُدرج شيء عند هذا الحدث.",

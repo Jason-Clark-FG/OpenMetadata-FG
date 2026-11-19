@@ -52,7 +52,6 @@ describe('PluginPanel', () => {
         '  .codex-plugin/plugin.json',
         '  .mcp.json',
         '  hooks/hooks.json',
-        '  skills/openmetadata/SKILL.md',
       ].join('\n')
     );
     expect(

@@ -47,7 +47,7 @@ the design doc is amended in the same PR series (§10, step 0).
 | Sources | Rules only (entity type + query filter) | Explicitly picked glossary terms, metrics, articles, plus asset rules | No second mechanism: a picked term, metric, or article becomes a `ContextRule` with an id filter and `alwaysInContext`, marked `picked: true`. The cards count rules by entity type, so migrated rules show on the right card, and the builder gains no new path |
 | Guardrails | tag/status → warn/deny/none | Server-registered guardrail ids with Off / Warn / Block; seeds: Prefer certified tables (Warn), Block deprecated assets (Block), PII columns need masking (Block), Flag open incidents (Warn), Query cost ceiling (Off) | Guardrail registry in the server; four evaluators in track A, cost ceiling in track B (§2.3) |
 | Memory | `requireReview`, `defaultVisibility` (memory visibility enum) | Capture, link to assets, deduplicate; review AutoPublish / StewardReview / AuthorOnly; visibility Private / Persona / Organization | Mapping in §2.4. **AutoPublish is dropped**; review is Steward review or Author only. "Persona" visibility adds `persona` as a memory share principal. Settings are stored in A and take effect with capture in track C |
-| Plugin contents | Skills, `.mcp.json`, hooks; no `bin/` | Adds instructions as `CLAUDE.md · AGENTS.md` and guardrails as `policy.json` | Claude plugins do not load `CLAUDE.md` or `policy.json` (§5.2). The plugin is static: a skill that says how to use OpenMetadata, the MCP server, and hooks that call the compile endpoint. Company and persona instructions, guardrails, and skills are served per caller, so publishing never requires a re-upload |
+| Plugin contents | `.mcp.json`, hooks; no `bin/` | Adds instructions as `CLAUDE.md · AGENTS.md` and guardrails as `policy.json` | Claude plugins do not load `CLAUDE.md` or `policy.json` (§5.2). The plugin is static: the MCP server (whose instructions say how to use OpenMetadata) and hooks that call the compile endpoint. Company and persona instructions, guardrails, and skills are served per caller, so publishing never requires a re-upload |
 | Preview | `GET .../preview?event=` | "The preview reflects unsaved draft state" | `POST .../preview` runs the compiler on the draft, admin only (§3.2) |
 
 ## 2. Data model
@@ -261,7 +261,7 @@ requires a re-upload.
 
 | Target | Artifact |
 |---|---|
-| Claude | `openmetadata-<host>.zip`: `.claude-plugin/plugin.json`, `.mcp.json` (the server's `/mcp` URL), `skills/openmetadata/SKILL.md` (how to use OpenMetadata: call `get_context`, cite, follow guardrail decisions), `hooks/hooks.json` (`mcp_tool` hooks that call the connector's `harness_hook` tool with the host's hook input, so they use the connector's sign-in: no token, script, or binary). No `bin/`. Hooks load in Claude Code and Cowork and are ignored in chat |
+| Claude | `openmetadata-<host>.zip`: `.claude-plugin/plugin.json`, `.mcp.json` (the server's `/mcp` URL), `hooks/hooks.json` (`mcp_tool` hooks that call the connector's `harness_hook` tool with the host's hook input, so they use the connector's sign-in: no token, script, or binary). No `bin/`. Hooks load in Claude Code and Cowork and are ignored in chat |
 | ChatGPT | No file. The panel shows the connector URL and OAuth details to enter, and the Enterprise steps |
 | Codex & Claude Code | Copyable commands: `claude plugin install` from the zip, `codex mcp add openmetadata --url …`, and the managed-settings snippets for MDM. `install.sh` and `om-context` are track D |
 
@@ -399,7 +399,7 @@ What each test proves, by layer. New ITs and classes are recorded in
 | `HarnessDraftValidatorTest` | Rejects guardrail below minimum, event budget above the default's, per-turn below the enabled sum, kind-specific fields on the wrong kind, invalid rules |
 | `GuardrailEvaluatorTest` | Deprecated asset → deny; PII column without masking → deny; open incident → warn; certified asset → allow; Off → no decision; evaluators read the entity, not the cache |
 | `CompileSelectorTest` | Each event selects per §3.2 and stays within its budget; segments sum to tokens; persona items are cut before inherited ones |
-| `PluginBuilderTest` | Zip has manifest, `.mcp.json` with the server URL, the skill, hooks; no `bin/`; no harness content |
+| `PluginBuilderTest` | Zip has the manifests, `.mcp.json` with the server URL, hooks; no skill; no `bin/`; no harness content |
 
 ### 7.2 Integration tests (`openmetadata-integration-tests`)
 

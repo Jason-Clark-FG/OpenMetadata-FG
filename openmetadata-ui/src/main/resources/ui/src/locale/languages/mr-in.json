@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "प्रत्येक कर्मचाऱ्यासाठी एकच पॅकेज, या सर्व्हरसाठी तयार केलेले.",
     "agent-harness-plugin-part-hooks": "प्रत्येक घटनेला OpenMetadata कडून संदर्भ आणि सुरक्षा नियमांचे निर्णय मागतात. Claude Code आणि Cowork ते चालवतात.",
     "agent-harness-plugin-part-mcp": "सर्व्हर URL. सदस्य एकदा साइन इन करतात.",
-    "agent-harness-plugin-part-skill": "OpenMetadata कसे वापरावे: संदर्भ मिळवा, त्याचा उल्लेख करा, सुरक्षा नियमांच्या निर्णयांचे पालन करा.",
     "agent-harness-plugin-persona-at-sign-in": "साइन इन करताना व्यक्तिमत्व ठरते, त्यामुळे एकच पॅकेज प्रत्येक कर्मचाऱ्याला पुरते.",
     "agent-harness-plugin-served-at-run-time": "सूचना आणि सुरक्षा नियम OpenMetadata रन टाइमला पुरवते.",
     "agent-harness-preview-empty": "या घटनेत काहीही समाविष्ट होत नाही.",

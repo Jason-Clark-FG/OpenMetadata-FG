@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Один пакет для каждого сотрудника, собранный для этого сервера.",
     "agent-harness-plugin-part-hooks": "Запрашивают у OpenMetadata контекст и решения ограничителей при каждом событии. Их выполняют Claude Code и Cowork.",
     "agent-harness-plugin-part-mcp": "URL сервера. Участники входят один раз.",
-    "agent-harness-plugin-part-skill": "Как пользоваться OpenMetadata: получать контекст, ссылаться на него и следовать решениям ограничителей.",
     "agent-harness-plugin-persona-at-sign-in": "Персона определяется при входе, поэтому один пакет подходит каждому сотруднику.",
     "agent-harness-plugin-served-at-run-time": "Инструкции и ограничители предоставляет OpenMetadata во время работы.",
     "agent-harness-preview-empty": "При этом событии ничего не добавляется.",

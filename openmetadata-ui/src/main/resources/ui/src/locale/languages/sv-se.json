@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Samma paket för varje anställd, byggt för den här servern.",
     "agent-harness-plugin-part-hooks": "Frågar OpenMetadata om kontext och guardrail-beslut vid varje händelse. Claude Code och Cowork kör dem.",
     "agent-harness-plugin-part-mcp": "Serverns URL. Medlemmar loggar in en gång.",
-    "agent-harness-plugin-part-skill": "Hur OpenMetadata används: hämta kontext, citera den och följ guardrail-beslut.",
     "agent-harness-plugin-persona-at-sign-in": "Personan bestäms vid inloggning, så ett paket räcker för varje anställd.",
     "agent-harness-plugin-served-at-run-time": "Instruktioner och guardrails levereras av OpenMetadata vid körning.",
     "agent-harness-preview-empty": "Inget infogas vid denna händelse.",

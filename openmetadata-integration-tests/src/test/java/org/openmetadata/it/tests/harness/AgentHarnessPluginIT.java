@@ -60,7 +60,7 @@ class AgentHarnessPluginIT extends McpTestBase {
   }
 
   @Test
-  void anAdminDownloadsAZipOfTheSkillConnectorAndHooks() throws Exception {
+  void anAdminDownloadsAZipOfTheConnectorAndHooks() throws Exception {
     final HttpResponse<byte[]> response = download(ADMIN_TOKEN);
 
     assertThat(response.statusCode()).isEqualTo(200);
@@ -73,8 +73,7 @@ class AgentHarnessPluginIT extends McpTestBase {
             ".claude-plugin/plugin.json",
             ".codex-plugin/plugin.json",
             ".mcp.json",
-            "hooks/hooks.json",
-            "skills/openmetadata/SKILL.md");
+            "hooks/hooks.json");
     assertThat(files.get(".mcp.json")).contains("/mcp\"");
     assertThat(files.get("hooks/hooks.json")).contains("plugin:openmetadata:openmetadata");
     final var codex = JsonUtils.readTree(files.get(".codex-plugin/plugin.json"));
@@ -98,8 +97,7 @@ class AgentHarnessPluginIT extends McpTestBase {
             ".claude-plugin/plugin.json",
             ".codex-plugin/plugin.json",
             ".mcp.json",
-            "hooks/hooks.json",
-            "skills/openmetadata/SKILL.md");
+            "hooks/hooks.json");
     assertThat(response.body()).isEqualTo(download(ADMIN_TOKEN).body());
     assertThat(send("GET", HARNESS + "/surfaces", null, token).statusCode()).isEqualTo(403);
   }

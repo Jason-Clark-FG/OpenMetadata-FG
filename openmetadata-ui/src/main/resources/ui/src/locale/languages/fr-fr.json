@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Le même paquet pour chaque employé, construit pour ce serveur.",
     "agent-harness-plugin-part-hooks": "Demandent à OpenMetadata le contexte et les décisions des garde-fous à chaque événement. Claude Code et Cowork les exécutent.",
     "agent-harness-plugin-part-mcp": "L'URL du serveur. Les membres se connectent une fois.",
-    "agent-harness-plugin-part-skill": "Comment utiliser OpenMetadata : récupérer le contexte, le citer, suivre les décisions des garde-fous.",
     "agent-harness-plugin-persona-at-sign-in": "La persona est déterminée à la connexion, donc un seul paquet sert chaque employé.",
     "agent-harness-plugin-served-at-run-time": "Les instructions et les garde-fous sont fournis par OpenMetadata à l'exécution.",
     "agent-harness-preview-empty": "Rien n'est injecté lors de cet événement.",

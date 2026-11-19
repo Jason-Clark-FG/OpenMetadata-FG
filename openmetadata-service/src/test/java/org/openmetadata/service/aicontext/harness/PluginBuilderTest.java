@@ -29,7 +29,7 @@ class PluginBuilderTest {
   private static final String URL = "https://om.example.com/mcp";
 
   @Test
-  void zipHoldsExactlyTheManifestsConnectorSkillAndHooks() throws IOException {
+  void zipHoldsExactlyTheManifestsConnectorAndHooks() throws IOException {
     final Map<String, String> files = unzip(PluginBuilder.build(URL, "2.1.0"));
 
     assertThat(files.keySet())
@@ -37,8 +37,7 @@ class PluginBuilderTest {
             ".claude-plugin/plugin.json",
             ".codex-plugin/plugin.json",
             ".mcp.json",
-            "hooks/hooks.json",
-            "skills/openmetadata/SKILL.md");
+            "hooks/hooks.json");
   }
 
   @Test
@@ -59,15 +58,6 @@ class PluginBuilderTest {
 
     assertThat(server.path("type").asText()).isEqualTo("http");
     assertThat(server.path("url").asText()).isEqualTo(URL);
-  }
-
-  @Test
-  void skillTellsTheModelToCallGetContextAndCite() throws IOException {
-    final String skill =
-        unzip(PluginBuilder.build(URL, "2.1.0")).get("skills/openmetadata/SKILL.md");
-
-    assertThat(skill).startsWith("---\nname: openmetadata\n");
-    assertThat(skill).contains("`get_context`").contains("Cite").contains("guardrail");
   }
 
   @Test
@@ -108,7 +98,7 @@ class PluginBuilderTest {
 
     assertThat(manifest.path("name").asText()).isEqualTo("openmetadata");
     assertThat(manifest.path("version").asText()).isEqualTo("2.1.0");
-    assertThat(manifest.path("skills").asText()).isEqualTo("./skills/");
+    assertThat(manifest.has("skills")).isFalse();
     assertThat(manifest.path("mcpServers").asText()).isEqualTo("./.mcp.json");
     final JsonNode hooks = manifest.path("hooks").path("hooks");
     assertThat(hooks.fieldNames())

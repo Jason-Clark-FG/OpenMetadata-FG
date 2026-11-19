@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "이 서버용으로 빌드된, 모든 직원을 위한 동일한 패키지입니다.",
     "agent-harness-plugin-part-hooks": "각 이벤트에서 OpenMetadata에 컨텍스트와 가드레일 결정을 요청합니다. Claude Code와 Cowork가 실행합니다.",
     "agent-harness-plugin-part-mcp": "서버 URL입니다. 구성원은 한 번 로그인합니다.",
-    "agent-harness-plugin-part-skill": "OpenMetadata 사용법: 컨텍스트를 가져오고, 인용하고, 가드레일 결정을 따릅니다.",
     "agent-harness-plugin-persona-at-sign-in": "페르소나는 로그인할 때 결정되므로 하나의 패키지로 모든 직원을 지원합니다.",
     "agent-harness-plugin-served-at-run-time": "지침과 가드레일은 런타임에 OpenMetadata가 제공합니다.",
     "agent-harness-preview-empty": "이 이벤트에서는 아무것도 삽입되지 않습니다.",

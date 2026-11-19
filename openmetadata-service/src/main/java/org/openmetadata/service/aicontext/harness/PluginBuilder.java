@@ -30,8 +30,9 @@ import org.openmetadata.schema.utils.JsonUtils;
  * The plugin that connects an agent host, Claude Code or Codex, to OpenMetadata. One zip installs
  * in both: each host reads its own manifest and ignores the other's. It carries no harness
  * content, so
- * one package serves every employee and publishing never requires a re-upload: the skill, the MCP
- * connector and the hooks only point the host at the server, which compiles the harness per call.
+ * one package serves every employee and publishing never requires a re-upload: the MCP connector
+ * and the hooks only point the host at the server, which compiles the harness per call and
+ * delivers the usage guidance as the MCP instructions and the hook output.
  * The zip is a pure function of the server URL and version, with sorted entries and fixed
  * timestamps.
  */
@@ -46,7 +47,6 @@ public final class PluginBuilder {
   static final String MANIFEST_PATH = ".claude-plugin/plugin.json";
   static final String CODEX_MANIFEST_PATH = ".codex-plugin/plugin.json";
   static final String MCP_PATH = ".mcp.json";
-  static final String SKILL_PATH = "skills/openmetadata/SKILL.md";
   static final String HOOKS_PATH = "hooks/hooks.json";
 
   /**
@@ -71,7 +71,6 @@ public final class PluginBuilder {
     files.put(MANIFEST_PATH, manifest(version));
     files.put(CODEX_MANIFEST_PATH, codexManifest(version));
     files.put(MCP_PATH, mcpConfig(serverUrl));
-    files.put(SKILL_PATH, skill());
     files.put(HOOKS_PATH, json(hooks(HOOK_SERVER)));
     return zip(files);
   }
@@ -87,7 +86,6 @@ public final class PluginBuilder {
    */
   private static String codexManifest(final String version) {
     final ObjectNode manifest = baseManifest(version);
-    manifest.put("skills", "./skills/");
     manifest.put("mcpServers", "./" + MCP_PATH);
     manifest.set("hooks", hooks(SERVER_KEY));
     return json(manifest);
@@ -153,28 +151,6 @@ public final class PluginBuilder {
   private static void toolInput(final ObjectNode input) {
     input.put("tool_name", "${tool_name}");
     input.put("tool_input", "${tool_input}");
-  }
-
-  private static String skill() {
-    return """
-        ---
-        name: openmetadata
-        description: Use for any question about company data, business terms, metrics, tables, columns or data quality. Looks the answer up in OpenMetadata before answering.
-        ---
-
-        # OpenMetadata
-
-        OpenMetadata is this company's source of truth for what its data means and which data to trust.
-
-        1. For a question about company data, terms, metrics or tables, call the `get_context` tool
-           first, then search with the OpenMetadata tools for what it points to.
-        2. Cite what OpenMetadata returns: the term, metric or table name and its owner. Do not
-           answer from memory when OpenMetadata has the answer.
-        3. Follow guardrail decisions. When a tool call is denied or warned, tell the user why and
-           use the alternative OpenMetadata names.
-        4. Treat deprecated assets and assets with open incidents as untrusted unless the user asks
-           for them.
-        """;
   }
 
   private static String json(final JsonNode node) {

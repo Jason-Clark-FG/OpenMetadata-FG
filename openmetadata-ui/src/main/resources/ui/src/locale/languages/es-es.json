@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "El mismo paquete para cada empleado, creado para este servidor.",
     "agent-harness-plugin-part-hooks": "Piden a OpenMetadata contexto y decisiones de las barreras en cada evento. Claude Code y Cowork los ejecutan.",
     "agent-harness-plugin-part-mcp": "La URL del servidor. Los miembros inician sesión una vez.",
-    "agent-harness-plugin-part-skill": "Cómo usar OpenMetadata: obtener contexto, citarlo y seguir las decisiones de las barreras.",
     "agent-harness-plugin-persona-at-sign-in": "La persona se resuelve al iniciar sesión, así que un solo paquete sirve a todos los empleados.",
     "agent-harness-plugin-served-at-run-time": "OpenMetadata sirve las instrucciones y las barreras en tiempo de ejecución.",
     "agent-harness-preview-empty": "No se inyecta nada en este evento.",

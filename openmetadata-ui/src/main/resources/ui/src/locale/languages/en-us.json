@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "The same package for every employee, built for this server.",
     "agent-harness-plugin-part-hooks": "Ask OpenMetadata for context and guardrail decisions at each event. Claude Code and Cowork run them.",
     "agent-harness-plugin-part-mcp": "The server URL. Members sign in once.",
-    "agent-harness-plugin-part-skill": "How to use OpenMetadata: fetch context, cite it, follow guardrail decisions.",
     "agent-harness-plugin-persona-at-sign-in": "The persona is resolved at sign-in, so one package serves every employee.",
     "agent-harness-plugin-served-at-run-time": "Instructions and guardrails are served by OpenMetadata at run time.",
     "agent-harness-preview-empty": "Nothing is injected at this event.",

@@ -177,7 +177,10 @@ public class McpServer implements McpServerProvider {
           + " for the signed-in user's persona, the skills you may use and the knowledge to keep"
           + " in context. Use search_metadata and get_entity_details before you write SQL or"
           + " answer questions about data, cite the assets, terms and metrics you use by their"
-          + " fully qualified names, and follow any guardrail decision OpenMetadata returns.";
+          + " fully qualified names and owners, and do not answer from memory when OpenMetadata has"
+          + " the answer. When a tool call is denied or warned, tell the user why and use the"
+          + " alternative OpenMetadata names. Treat deprecated assets and assets with open"
+          + " incidents as untrusted unless the user asks for them.";
 
   static McpStatelessSyncServer buildServer(
       McpStatelessServerTransport transport,

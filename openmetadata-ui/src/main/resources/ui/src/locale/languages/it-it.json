@@ -4548,7 +4548,6 @@
     "agent-harness-plugin-panel-subtitle": "Lo stesso pacchetto per ogni dipendente, creato per questo server.",
     "agent-harness-plugin-part-hooks": "Chiedono a OpenMetadata contesto e decisioni dei guardrail a ogni evento. Claude Code e Cowork li eseguono.",
     "agent-harness-plugin-part-mcp": "L'URL del server. I membri accedono una volta.",
-    "agent-harness-plugin-part-skill": "Come usare OpenMetadata: recuperare il contesto, citarlo, seguire le decisioni dei guardrail.",
     "agent-harness-plugin-persona-at-sign-in": "La persona viene determinata all'accesso, quindi un solo pacchetto serve ogni dipendente.",
     "agent-harness-plugin-served-at-run-time": "Istruzioni e guardrail sono forniti da OpenMetadata in fase di esecuzione.",
     "agent-harness-preview-empty": "Non viene inserito nulla in questo evento.",
