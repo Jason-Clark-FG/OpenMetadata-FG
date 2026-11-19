@@ -162,4 +162,32 @@ check("a memory fact or asset named with markup stays text", () => {
   assert.equal(card.text(".om-body-text")[0], "<img src=x onerror=alert(1)>");
 });
 
+check("knowledge_graph find lists what it served with trust at a glance", () => {
+  const card = open("knowledge-graph-v1.html", fixtures.kgfind);
+  assert.equal(card.text(".kg-row").length, 5);
+  assert.ok(card.text(".kg-row")[0].includes("4 failing"));
+  assert.ok(card.text(".kg-row")[0].includes("3 incidents"));
+  assert.ok(card.text(".kg-row")[2].includes("Deprecated"));
+  assert.match(card.text(".om-pill")[0], /attention/);
+  assert.equal(card.document.querySelectorAll("svg .kg-node").length, 0);
+});
+
+check("knowledge_graph cite draws the run with cited, explored and offered nodes", () => {
+  const card = open("knowledge-graph-v1.html", fixtures.kgcite);
+  assert.equal(card.document.querySelectorAll("svg g.kg-node").length, 10);
+  assert.equal(card.document.querySelectorAll("svg g.kg-node.cited").length, 3);
+  assert.equal(card.document.querySelectorAll("svg g.kg-node.offered").length, 3);
+  assert.equal(card.document.querySelectorAll("svg line.kg-edge.cited").length, 2);
+  assert.match(card.text(".om-notice-body")[0], /orders: 4 failing tests, 3 open incidents/);
+  assert.equal(card.text(".kg-memory").length, 2);
+  assert.equal(card.text(".om-pill")[0], "3 cited");
+});
+
+check("a knowledge_graph node named with markup stays text", () => {
+  const hostile = structuredClone(fixtures.kgcite);
+  hostile.nodes[0].name = "<img src=x onerror=alert(1)>";
+  const card = open("knowledge-graph-v1.html", hostile);
+  assert.equal(card.document.querySelectorAll("img").length, 0);
+});
+
 console.log(`${passed} checks passed`);

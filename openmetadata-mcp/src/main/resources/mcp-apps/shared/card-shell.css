@@ -221,3 +221,20 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-fold-actions > * { font-weight: 600; }
 .om-code code { font: inherit; }
 .om-copy { padding: 0; border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 600; color: var(--card-brand); cursor: pointer; }
+/* knowledge_graph: the run's graph, drawn as SVG; cited emphasised, explored plain, offered faint. */
+.kg-graph { padding: 4px 16px 10px; border-top: 1px solid var(--card-line); }
+.kg-graph svg { width: 100%; height: auto; display: block; }
+.kg-edge { stroke: var(--card-fg3); stroke-width: 1; }
+.kg-edge.cited { stroke: var(--card-brand); stroke-width: 2.5; }
+.kg-node circle { fill: var(--card-bg); stroke: var(--card-fg2); stroke-width: 1.5; }
+.kg-node text { fill: var(--card-fg2); font: 12px var(--card-font); }
+.kg-node.cited circle { fill: var(--card-brand); stroke: var(--card-brand); }
+.kg-node.cited text { fill: var(--card-fg); font-weight: 600; }
+.kg-node.offered { opacity: 0.45; }
+.kg-node.offered circle { stroke-dasharray: 2 2; }
+.kg-node.trouble circle { stroke: var(--card-warn); stroke-width: 2.5; }
+.kg-legend { display: flex; gap: 12px; font-size: 11px; color: var(--card-fg3); padding-top: 4px; }
+.kg-key::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; border: 1.5px solid var(--card-fg2); vertical-align: -1px; }
+.kg-key.cited::before { background: var(--card-brand); border-color: var(--card-brand); }
+.kg-key.offered { opacity: 0.55; }
+.kg-row.offered { opacity: 0.7; }

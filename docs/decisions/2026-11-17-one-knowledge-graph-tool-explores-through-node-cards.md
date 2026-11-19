@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's) · v18 2026-11-19 (a status relationship shows the status it points to) · v19 2026-11-19 (memories on cards, notes in find, preferences once per run)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's) · v18 2026-11-19 (a status relationship shows the status it points to) · v19 2026-11-19 (memories on cards, notes in find, preferences once per run) · v19a 2026-11-19 (a card for MCP Apps hosts, proof of concept)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -489,4 +489,10 @@ from 1,032 to 1,694 characters with two memories, plus the 482-character note on
 Known limits: memory nodes found through notes or preferences are not recorded as served nodes, so
 `cite` refuses them unless a card or expansion served them; following lineage to a neighbour's
 memories is out of scope, as in AskCollate.
+
+## Amendment 2026-11-19. A card for MCP Apps hosts (proof of concept)
+
+`knowledge_graph` returns `CardResult(answer, KnowledgeGraphCard)`: the model reads the whole answer
+as text, unchanged, and a host draws `knowledge-graph-v1.html` from the card (what find, expand or
+query served; for cite and trace the run's graph by state). A card that cannot be built is left out.
 

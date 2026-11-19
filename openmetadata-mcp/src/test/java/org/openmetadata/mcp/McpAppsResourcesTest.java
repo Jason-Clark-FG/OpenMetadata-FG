@@ -34,6 +34,7 @@ class McpAppsResourcesTest {
   private static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
   private static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
   private static final String MEMORY_URI = "ui://openmetadata/memory-v1.html";
+  private static final String KNOWLEDGE_GRAPH_URI = "ui://openmetadata/knowledge-graph-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
   private static final String BASE_URL = "https://om.example.com:8585/ctx/";
   private static final String ORIGIN = "https://om.example.com:8585";
@@ -44,7 +45,8 @@ class McpAppsResourcesTest {
 
     assertThat(resources)
         .extracting(McpSchema.Resource::uri)
-        .containsExactlyInAnyOrder(CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI);
+        .containsExactlyInAnyOrder(
+            CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI, KNOWLEDGE_GRAPH_URI);
     assertThat(resources)
         .allSatisfy(
             resource -> {
@@ -54,7 +56,15 @@ class McpAppsResourcesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI, MEMORY_URI})
+  @ValueSource(
+      strings = {
+        CITATION_URI,
+        ASSET_URI,
+        LINEAGE_URI,
+        ONTOLOGY_URI,
+        MEMORY_URI,
+        KNOWLEDGE_GRAPH_URI
+      })
   void aCardIsReadAsOneSelfContainedHtmlFile(final String uri) {
     final McpSchema.TextResourceContents card = read(uri);
 
@@ -96,6 +106,20 @@ class McpAppsResourcesTest {
     }
     assertThat(count).isEqualTo(4);
     assertThat(card).doesNotContainPattern("url\\([^\"]");
+  }
+
+  /** The knowledge graph card's own files write every catalog string as text and fetch nothing. */
+  @Test
+  void theKnowledgeGraphCardsOwnFilesWriteTextAndFetchNothing() throws java.io.IOException {
+    for (final String file : new String[] {"knowledge-graph.js", "knowledge-graph-v1.html"}) {
+      try (java.io.InputStream in =
+          McpAppsResources.class.getClassLoader().getResourceAsStream("mcp-apps/" + file)) {
+        final String text = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(text)
+            .doesNotContain("innerHTML", "outerHTML", "insertAdjacentHTML", "eval(")
+            .doesNotContain("fetch(", "XMLHttpRequest", "WebSocket", "window.open", "data:");
+      }
+    }
   }
 
   @Test

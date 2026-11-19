@@ -47,6 +47,8 @@ public final class McpAppsResources {
 
   public static final String MEMORY_URI = "ui://openmetadata/memory-v1.html";
 
+  public static final String KNOWLEDGE_GRAPH_URI = "ui://openmetadata/knowledge-graph-v1.html";
+
   private static final String VIEWS_DIR = "mcp-apps/";
   private static final Pattern STYLESHEET =
       Pattern.compile("<link rel=\"stylesheet\" href=\"([^\"]+)\">");
@@ -115,6 +117,15 @@ public final class McpAppsResources {
             "Card for the memory saved by remember: the fact, the assets it is linked to, who can"
                 + " read it and whether it needs review",
             "memory-v1.html",
+            fontBase,
+            meta),
+        view(
+            KNOWLEDGE_GRAPH_URI,
+            "knowledge-graph",
+            "Knowledge graph",
+            "Card for knowledge_graph: what a call served, and for cite and trace the run's graph with"
+                + " what it cited, explored and was offered",
+            "knowledge-graph-v1.html",
             fontBase,
             meta));
   }

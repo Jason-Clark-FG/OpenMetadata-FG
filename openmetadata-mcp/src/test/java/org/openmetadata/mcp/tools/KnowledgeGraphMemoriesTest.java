@@ -170,6 +170,24 @@ class KnowledgeGraphMemoriesTest {
         .doesNotContain("aboutMemories");
   }
 
+  /** The model keeps the whole answer as text; the host gets the card as the typed part. */
+  @Test
+  void theModelReadsTheWholeAnswerAndTheHostDrawsTheCard() throws IOException {
+    final CardResult result =
+        tool(TABLES + MEMORIES)
+            .executeWithCard(GRANTED, CALLER, Map.of("operation", "find", "question", "orders"));
+
+    final io.modelcontextprotocol.spec.McpSchema.CallToolResult sent =
+        DefaultToolContext.buildSuccessResult(result, "knowledge_graph");
+
+    final String text =
+        ((io.modelcontextprotocol.spec.McpSchema.TextContent) sent.content().getFirst()).text();
+    assertThat(text).contains("\"reachable\"", "\"memories\"", MemoryNote.TEXT);
+    final Map<?, ?> card = (Map<?, ?>) sent.structuredContent();
+    assertThat(card.get("operation")).isEqualTo("find");
+    assertThat((List<?>) card.get("nodes")).hasSize(2);
+  }
+
   /** Keeps steps serialized, as the SQL store does. */
   private static final class Traces implements RunTraceStore {
     private final Map<UUID, List<String>> steps = new HashMap<>();

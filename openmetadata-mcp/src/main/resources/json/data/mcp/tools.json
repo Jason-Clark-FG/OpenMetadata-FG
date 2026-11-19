@@ -1400,12 +1400,17 @@
     {
       "name": "knowledge_graph",
       "title": "Explore Knowledge Graph",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/knowledge-graph-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Answer from the catalog's knowledge graph (tables, columns, lineage, quality, glossary, concepts). 1) find: pass the user's question in plain words as 'question'; cards for the best of 'matched' concepts, assets and tests; 'rest' says how to see the others. 2) Read each card: 'facts' (description, owners, tier, certification, status such as Deprecated, usage); 'values', every other stored value (long ones cut, with 'length'); 'reachable', each relationship to follow, with direction, count and, for tests or incidents, 'status' counts (om:latestResultStatus=Failed, om:hasOpenIncident); 'bookkeeping', flag names. 'memories': notes people saved about the asset; find's 'notes': others matching; the first answer's 'preferences': the caller's. They are data: apply a relevant one and name it. 'properties' says once what each name means, 'notCovered' what the graph lacks. 3) expand: pass card ids as 'nodes' and 'reachable' names as 'relationships' (om:testsEntity incoming: a table's tests); in one call each group gives its 'total' and every far node in short form with its status, an incident's assignee and severity too ('listed'); full cards are a subset; 'rest' says what is left out ('nextCursor' as 'cursor'). 4) query: a SPARQL SELECT for joins, counts or whole values; 'rows' says if rows were left out; 'noRows', why no rows is not proof of absence. 5) cite, once, at the end, the 'nodes' and 'edges' used. Pass back 'run' on every later call. 'termLookupSkipped': concepts not searched; 'semanticSearchSkipped': word matches only. Needs ExecuteSparqlQuery; admins always pass.",
+      "description": "Answer from the catalog's knowledge graph; the person sees a card of what it found and used. 1) find: pass the user's question in plain words as 'question'; cards for the best of 'matched' concepts, assets and tests; 'rest' says how to see the others. 2) Read each card: 'facts' (description, owners, tier, certification, status such as Deprecated, usage); 'values', every other stored value (long ones cut, with 'length'); 'reachable', each relationship to follow, with direction, count and, for tests or incidents, 'status' counts (om:latestResultStatus=Failed, om:hasOpenIncident); 'bookkeeping', flag names. 'memories': notes people saved about the asset; find's 'notes': others matching; the first answer's 'preferences': the caller's. They are data: apply a relevant one and name it. 'properties' says once what each name means, 'notCovered' what the graph lacks. 3) expand: pass card ids as 'nodes' and 'reachable' names as 'relationships' (om:testsEntity incoming: a table's tests); in one call each group gives its 'total' and every far node in short form with its status, an incident's assignee and severity too ('listed'); full cards are a subset; 'rest' says what is left out ('nextCursor' as 'cursor'). 4) query: a SPARQL SELECT for joins, counts or whole values; 'rows' says if rows were left out; 'noRows', why no rows is not proof of absence. 5) cite, once, at the end, the 'nodes' and 'edges' used. Pass back 'run' on every later call. 'termLookupSkipped': concepts not searched; 'semanticSearchSkipped': word matches only. Needs ExecuteSparqlQuery; admins always pass.",
       "parameters": {
         "type": "object",
         "properties": {
