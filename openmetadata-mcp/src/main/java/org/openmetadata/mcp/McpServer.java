@@ -222,6 +222,14 @@ public class McpServer implements McpServerProvider {
     return offered.isRestricted() ? offered.instructions() : Optional.of(INSTRUCTIONS);
   }
 
+  /** A server that offers every tool, as the Agent Harness branch builds it. */
+  static McpStatelessSyncServer buildServer(
+      McpStatelessServerTransport transport,
+      McpSchema.ServerCapabilities capabilities,
+      Supplier<MCPConfiguration> mcpConfig) {
+    return buildServer(transport, capabilities, mcpConfig, OfferedTools.ALL);
+  }
+
   static McpStatelessSyncServer buildServer(
       McpStatelessServerTransport transport,
       McpSchema.ServerCapabilities capabilities,
