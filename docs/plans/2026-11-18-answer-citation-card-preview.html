@@ -3,80 +3,122 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Answer citation card preview</title>
+<title>Context card preview</title>
 <style>
-  body { font: 14px system-ui, sans-serif; margin: 0; padding: 16px; background: #f0f1f3; color: #1a1d21; }
-  body.dark { background: #121316; color: #eceef1; }
-  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  button { padding: 4px 10px; }
-  .frame { max-width: 640px; border: 1px solid #c5c9d0; border-radius: 8px; background: #fff; overflow: hidden; }
-  body.dark .frame { background: #1b1d21; border-color: #3a3f48; }
-  iframe { display: block; width: 100%; border: 0; height: 200px; }
-  pre { max-width: 640px; white-space: pre-wrap; background: rgba(127,127,127,.12); padding: 8px; border-radius: 6px; }
+  body { font: 14px system-ui, sans-serif; margin: 0; padding: 24px; background: #f0f1f3; color: #1a1d21; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .grid { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .col { width: 680px; display: flex; flex-direction: column; gap: 24px; }
+  .tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #181d27; color: #fff; margin-right: 6px; }
+  .stage { padding: 16px; border-radius: 12px; }
+  .stage.light { background: #faf9f7; }
+  .stage.dark { background: #0c0e12; }
+  iframe { display: block; width: 100%; height: 240px; border: 0; background: transparent; }
+  iframe.proto { height: 3200px; background: #fff; border: 1px solid #c5c9d0; border-radius: 8px; }
+  pre { white-space: pre-wrap; background: rgba(127,127,127,.12); padding: 8px; border-radius: 6px; max-height: 160px; overflow: auto; }
 </style>
 </head>
 <body>
-<p>Plays the MCP Apps host (spec 2026-01-26) for
-<code>openmetadata-mcp/src/main/resources/mcp-apps/answer-citation-v1.html</code>: answers
-<code>ui/initialize</code>, then sends the fixture as <code>ui/notifications/tool-result</code>.
-Open this file from a checkout (the card loads by relative path).</p>
-<div class="bar">
-  <button id="light">Light</button><button id="dark">Dark</button>
-  <button id="empty">Small, host-run</button><button id="full">Full fixture</button>
+<h1>Context card preview</h1>
+<p>Plays the MCP Apps host (spec 2026-01-26) for the card views in
+<code>openmetadata-mcp/src/main/resources/mcp-apps/</code>. Each iframe answers <code>ui/initialize</code>
+with the theme shown, then sends a fixture as <code>ui/notifications/tool-result</code>.
+Open this file from a checkout. The right column embeds the design prototype for comparison and needs
+its server on 127.0.0.1:8794. The expanded-SQL state of 1b needs a click on the SQL row.</p>
+<div class="grid">
+  <div class="col">
+    <div><span class="tag">1a</span>finish_answer, chat app, light</div>
+    <div class="stage light"><iframe sandbox="allow-scripts" title="finish_answer light" data-view="answer-citation-v1.html" data-theme="light" data-fixture="answer"></iframe></div>
+    <div><span class="tag">1b</span>finish_answer, coding agent, dark (click SQL to expand)</div>
+    <div class="stage dark"><iframe sandbox="allow-scripts" title="finish_answer dark" data-view="answer-citation-v1.html" data-theme="dark" data-fixture="answer"></iframe></div>
+    <div><span class="tag">1c</span>finish_answer, not run, some sources unresolved, light</div>
+    <div class="stage light"><iframe sandbox="allow-scripts" title="finish_answer not run" data-view="answer-citation-v1.html" data-theme="light" data-fixture="notrun"></iframe></div>
+    <div><span class="tag">2e</span>get_entity_details table, dark</div>
+    <div class="stage dark"><iframe sandbox="allow-scripts" title="data asset dark" data-view="data-asset-v1.html" data-theme="dark" data-fixture="asset"></iframe></div>
+    <div><span class="tag">2e</span>get_entity_details table, light</div>
+    <div class="stage light"><iframe sandbox="allow-scripts" title="data asset light" data-view="data-asset-v1.html" data-theme="light" data-fixture="asset"></iframe></div>
+    <div>Host log</div>
+    <pre id="log"></pre>
+  </div>
+  <div class="col">
+    <div><span class="tag">design</span>prototype (Agent Context Cards 2)</div>
+    <iframe class="proto" src="http://127.0.0.1:8794/cards.html" title="design prototype"></iframe>
+  </div>
 </div>
-<div class="frame"><iframe id="card" sandbox="allow-scripts" title="Answer citation"
-  src="../../openmetadata-mcp/src/main/resources/mcp-apps/answer-citation-v1.html"></iframe></div>
-<h3>Host log</h3>
-<pre id="log"></pre>
 <script>
 var now = Date.now();
-var FULL = {
-  question: "What was customer churn last quarter?",
-  headline: "Customer churn rate, Q3 FY2026: 4.8%",
-  concepts: [
-    { phrase: "churn rate", entityType: "metric", fqn: "Customer Churn Rate", displayName: "Customer Churn Rate", status: "Approved", certified: true, version: 3, owners: ["Finance Analytics"], url: "https://om.example.com/metric/Customer%20Churn%20Rate" },
-    { phrase: "active customer", entityType: "glossaryTerm", unresolved: "notVisible" },
-    { phrase: "trial account", entityType: "glossaryTerm", fqn: "Sales.TrialAccount", unresolved: "notFound" }
-  ],
-  timeWindow: { phrase: "last quarter", label: "fiscal Q3 FY2026", start: "2026-08-01", end: "2026-10-31", timeZone: "UTC", fiscalYearStart: "02-01", resolvedBy: "server" },
-  tables: [
-    { fqn: "snowflake_prod.finance.public.fct_subscriptions", tier: "Tier1", certified: true, owners: ["Finance Analytics"], url: "https://om.example.com/table/x",
-      freshness: { at: now - 2 * 3600 * 1000, source: "test", stale: false },
-      failingTests: [{ name: "customer_id_not_null", url: "https://om.example.com/test/1" }],
-      openIncidents: [{ id: "4821", testCase: "late_events", status: "Assigned", severity: "Severity2", url: "https://om.example.com/incident/4821" }] },
-    { fqn: "snowflake_prod.finance.public.subs_old", tier: "Tier3", deprecated: true, replacedBy: "snowflake_prod.finance.public.fct_subscriptions", owners: [],
-      freshness: { at: now - 80 * 3600 * 1000, source: "profile", stale: true } },
-    { fqn: "<img src=x onerror=alert(1)>.script", unresolved: "notFound" }
-  ],
-  execution: { executor: "none", reason: "Chat has no warehouse connector" },
-  sql: "SELECT COUNT(*) FILTER (WHERE churned) / COUNT(*)\nFROM fct_subscriptions\nWHERE period BETWEEN '2026-08-01' AND '2026-10-31';",
-  showSql: true,
-  trustChecked: { failingTests: true, openIncidents: true },
-  warnings: ["Dates came from the agent, not the calendar."]
+var H = 3600 * 1000;
+var FIXTURES = {
+  answer: {
+    question: "What was Q3 revenue by region?",
+    headline: "Q3 revenue was $48.2M, up 12.4% on Q2, led by North America. EMEA's figure may be slightly low because of a late data load.",
+    concepts: [
+      { phrase: "revenue", entityType: "metric", fqn: "Revenue", displayName: "Revenue", status: "Approved", certified: true, version: 3, owners: ["Finance Data"], url: "https://om.example.com/metric/revenue" },
+      { phrase: "region", entityType: "glossaryTerm", fqn: "Sales.Region", displayName: "Region", status: "Approved", certified: true, owners: ["Sales Territories"], url: "https://om.example.com/glossary/Sales.Region" }
+    ],
+    timeWindow: { phrase: "Q3", label: "fiscal Q3 2026", start: "2026-07-01", end: "2026-09-30", timeZone: "UTC", fiscalYearStart: "01-01", resolvedBy: "server" },
+    tables: [{ fqn: "analytics.fct_revenue", tier: "Tier1", certified: true, owners: ["Finance Data"], url: "https://om.example.com/table/analytics.fct_revenue",
+      freshness: { at: now - 2 * H, source: "test", stale: false },
+      failingTests: [{ name: "region_code not null", url: "https://om.example.com/table/analytics.fct_revenue/profiler" }],
+      openIncidents: [{ id: "INC-2291", testCase: "EMEA load is 6h late", status: "Assigned", severity: "Severity2", url: "https://om.example.com/incident-manager/INC-2291" }] }],
+    execution: { executor: "hostConnector", connector: "Snowflake", rowCount: 4, durationMs: 1200, selfReported: true },
+    sql: "SELECT region,\n       SUM(net_amount) AS revenue\nFROM   analytics.fct_revenue\nWHERE  fiscal_quarter = '2026-Q3'\nGROUP  BY region\nORDER  BY revenue DESC;",
+    showSql: true, trustChecked: { failingTests: true, openIncidents: true }, planChecked: false, warnings: []
+  },
+  notrun: {
+    question: "How many churned customers last month?",
+    headline: "<img src=x onerror=alert(1)> 412 customers churned in October.",
+    concepts: [
+      { phrase: "churn", entityType: "metric", fqn: "Churn", displayName: "Churn", status: "Draft", certified: false, owners: [], url: "https://om.example.com/metric/Churn" },
+      { phrase: "active customer", entityType: "glossaryTerm", unresolved: "notVisible" }
+    ],
+    timeWindow: { phrase: "last month", label: "October 2026", start: "2026-10-01", end: "2026-10-31", timeZone: "UTC", fiscalYearStart: "01-01", resolvedBy: "agent" },
+    tables: [
+      { fqn: "crm.subs_old", certified: false, deprecated: true, replacedBy: "crm.fct_subscriptions", owners: [], url: "https://om.example.com/table/crm.subs_old", freshness: { at: now - 80 * H, source: "profile", stale: true } },
+      { fqn: "crm.missing_table", unresolved: "notFound" }
+    ],
+    execution: { executor: "none", reason: "This chat has no warehouse connector" },
+    sql: "SELECT COUNT(*) FROM crm.subs_old WHERE churned_at >= '2026-10-01';",
+    showSql: true, trustChecked: { failingTests: true, openIncidents: true }, warnings: ["Dates came from the agent, not the calendar."]
+  },
+  asset: {
+    entityType: "table", name: "fct_revenue", fullyQualifiedName: "snowflake.analytics.fct_revenue",
+    description: "One row per recognized order line, net of refunds, in USD. The certified source for every revenue question.\nSecond line is not shown.",
+    certification: "Certification.Gold (valid until 2027-06-30)",
+    tags: [{ tagFQN: "Tier.Tier1", source: "Classification" }],
+    owners: [{ name: "finance_data", displayName: "Finance Data" }],
+    profile: { timestamp: now - 2 * H, rowCount: 48600000 },
+    quality: { summary: { success: 41, total: 42 } },
+    usageSummary: { monthlyStats: { count: 1200 } },
+    columns: [
+      { name: "order_id", dataType: "STRING", description: "Joins fct_orders", constraint: "PRIMARY_KEY" },
+      { name: "net_amount", dataType: "NUMBER", description: "USD, net of refunds", tags: [{ tagFQN: "Glossary.Revenue", source: "Glossary" }] },
+      { name: "region_code", dataType: "STRING", description: "12 nulls in last run" },
+      { name: "customer_email", dataType: "STRING", description: "Masked for your role", tags: [{ tagFQN: "PII.Sensitive", source: "Classification" }] }
+    ]
+  }
 };
-var SMALL = { question: "q", headline: "Row count: 42", concepts: [], tables: [{ fqn: "db.s.t", tier: "Tier2", certified: true, owners: ["ana"], url: "https://om.example.com/t", freshness: { at: now - 600000, source: "profile" } }],
-  execution: { executor: "hostConnector", connector: "Snowflake", rowCount: 1, selfReported: true }, sql: "select 1", showSql: false };
-var current = FULL, theme = "light";
-var frame = document.getElementById("card"), log = document.getElementById("log");
-function context() { return { theme: theme, displayMode: "inline", containerDimensions: { width: 640 } }; }
-function post(m) { frame.contentWindow.postMessage(Object.assign({ jsonrpc: "2.0" }, m), "*"); }
-function push() { post({ method: "ui/notifications/tool-result", params: { content: [{ type: "text", text: "markdown fallback" }], structuredContent: current } }); }
-function note(t) { log.textContent += t + "\n"; }
-window.addEventListener("message", function (e) {
-  if (e.source !== frame.contentWindow) { return; }
-  var m = e.data;
-  if (m.method === "ui/initialize") {
-    note("<- ui/initialize " + JSON.stringify(m.params));
-    post({ id: m.id, result: { protocolVersion: "2026-01-26", hostCapabilities: {}, hostInfo: { name: "preview", version: "0" }, hostContext: context() } });
-  } else if (m.method === "ui/notifications/initialized") { note("<- initialized"); push(); }
-  else if (m.method === "ui/open-link") { note("<- ui/open-link " + m.params.url); post({ id: m.id, result: {} }); }
-  else if (m.method === "ui/notifications/size-changed") { frame.style.height = m.params.height + "px"; }
+var log = document.getElementById("log");
+function note(text) { log.textContent += text + "\n"; }
+function post(frame, message) { frame.contentWindow.postMessage(Object.assign({ jsonrpc: "2.0" }, message), "*"); }
+document.querySelectorAll("iframe[data-view]").forEach(function (frame) {
+  frame.src = "../../openmetadata-mcp/src/main/resources/mcp-apps/" + frame.dataset.view;
 });
-function setTheme(t) { theme = t; document.body.className = t === "dark" ? "dark" : ""; post({ method: "ui/notifications/host-context-changed", params: { theme: t } }); }
-document.getElementById("light").onclick = function () { setTheme("light"); };
-document.getElementById("dark").onclick = function () { setTheme("dark"); };
-document.getElementById("full").onclick = function () { current = FULL; push(); };
-document.getElementById("empty").onclick = function () { current = SMALL; push(); };
+window.addEventListener("message", function (event) {
+  var frame = Array.prototype.filter.call(document.querySelectorAll("iframe[data-view]"), function (f) { return f.contentWindow === event.source; })[0];
+  if (!frame) { return; }
+  var m = event.data;
+  if (m.method === "ui/initialize") {
+    post(frame, { id: m.id, result: { protocolVersion: "2026-01-26", hostCapabilities: {}, hostInfo: { name: "preview", version: "0" }, hostContext: { theme: frame.dataset.theme, displayMode: "inline" } } });
+  } else if (m.method === "ui/notifications/initialized") {
+    post(frame, { method: "ui/notifications/tool-result", params: { content: [{ type: "text", text: "markdown fallback" }], structuredContent: FIXTURES[frame.dataset.fixture] } });
+  } else if (m.method === "ui/open-link") {
+    note("ui/open-link " + m.params.url);
+    post(frame, { id: m.id, result: {} });
+  } else if (m.method === "ui/notifications/size-changed") {
+    frame.style.height = m.params.height + "px";
+  }
+});
 </script>
 </body>
 </html>

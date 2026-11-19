@@ -281,6 +281,11 @@
     {
       "name": "get_entity_details",
       "title": "Get Entity Details",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/data-asset-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

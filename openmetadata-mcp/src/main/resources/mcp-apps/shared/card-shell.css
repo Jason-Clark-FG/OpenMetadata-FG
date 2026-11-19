@@ -1,0 +1,141 @@
+/* The shared card shell. Tokens and spacing follow the "Agent Context Cards 2" prototype.
+   Inter and Roboto Mono are used when the host has them installed; the view loads no font files
+   because its CSP allows no external origins. */
+:root {
+  color-scheme: light dark;
+  --om-bg: rgb(255, 255, 255);
+  --om-bg2: rgb(250, 250, 250);
+  --om-fg: rgb(24, 29, 39);
+  --om-fg2: rgb(83, 88, 98);
+  --om-fg3: rgb(113, 118, 128);
+  --om-line: rgb(233, 234, 235);
+  --om-brand: rgb(21, 112, 239);
+  --om-brand-bg: rgb(239, 248, 255);
+  --om-ok: rgb(8, 116, 67);
+  --om-ok-bg: rgb(237, 252, 242);
+  --om-warn: rgb(181, 71, 8);
+  --om-warn-bg: rgb(255, 250, 235);
+  --om-err: rgb(180, 35, 24);
+  --om-err-bg: rgb(254, 243, 242);
+  --om-bar-bg: rgb(245, 245, 245);
+  --om-code: rgb(250, 250, 250);
+  --om-font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --om-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --om-bg: rgb(19, 22, 27);
+    --om-bg2: rgb(34, 38, 47);
+    --om-fg: rgb(247, 247, 247);
+    --om-fg2: rgb(206, 207, 210);
+    --om-fg3: rgb(148, 151, 156);
+    --om-line: rgb(55, 58, 65);
+    --om-brand: rgb(83, 177, 253);
+    --om-brand-bg: rgb(16, 42, 86);
+    --om-ok: rgb(60, 203, 127);
+    --om-ok-bg: rgb(5, 46, 28);
+    --om-warn: rgb(253, 176, 34);
+    --om-warn-bg: rgb(78, 29, 9);
+    --om-err: rgb(249, 112, 102);
+    --om-err-bg: rgb(85, 22, 12);
+    --om-bar-bg: rgb(34, 38, 47);
+    --om-code: rgb(12, 14, 18);
+  }
+}
+:root[data-theme="dark"] {
+  --om-bg: rgb(19, 22, 27);
+  --om-bg2: rgb(34, 38, 47);
+  --om-fg: rgb(247, 247, 247);
+  --om-fg2: rgb(206, 207, 210);
+  --om-fg3: rgb(148, 151, 156);
+  --om-line: rgb(55, 58, 65);
+  --om-brand: rgb(83, 177, 253);
+  --om-brand-bg: rgb(16, 42, 86);
+  --om-ok: rgb(60, 203, 127);
+  --om-ok-bg: rgb(5, 46, 28);
+  --om-warn: rgb(253, 176, 34);
+  --om-warn-bg: rgb(78, 29, 9);
+  --om-err: rgb(249, 112, 102);
+  --om-err-bg: rgb(85, 22, 12);
+  --om-bar-bg: rgb(34, 38, 47);
+  --om-code: rgb(12, 14, 18);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: transparent; }
+a { color: var(--om-brand); text-underline-offset: 2px; }
+a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--om-brand); outline-offset: -2px; }
+
+.om-card { width: 100%; max-width: 640px; background: var(--om-bg); color: var(--om-fg); border: 1px solid var(--om-line); border-radius: 12px; font-family: var(--om-font); font-size: 14px; line-height: 1.5; overflow: hidden; }
+.om-mono { font-family: var(--om-mono); }
+
+.om-header { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--om-line); font-size: 12px; color: var(--om-fg3); }
+.om-logo { flex: none; width: 16px; height: 16px; border-radius: 4px; background: var(--om-brand); display: flex; align-items: center; justify-content: center; color: var(--om-bg); font-size: 10px; font-weight: 700; }
+.om-brand-name { font-weight: 600; color: var(--om-fg2); }
+.om-spacer { flex: 1 1 0; }
+.om-pill { font-weight: 500; padding: 2px 8px; border-radius: 9999px; background: var(--om-bg2); color: var(--om-fg2); }
+.om-pill.ok { background: var(--om-ok-bg); color: var(--om-ok); }
+.om-pill.warn { background: var(--om-warn-bg); color: var(--om-warn); }
+.om-pill.err { background: var(--om-err-bg); color: var(--om-err); }
+
+.om-intro { padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+.om-label { font-size: 12px; color: var(--om-fg3); overflow-wrap: anywhere; }
+.om-title { font-size: 18px; line-height: 1.35; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.om-text { font-size: 13px; color: var(--om-fg2); text-wrap: pretty; overflow-wrap: anywhere; }
+
+.om-notices { display: flex; flex-direction: column; border-top: 1px solid var(--om-line); }
+.om-notice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 16px; }
+.om-notice + .om-notice { border-top: 1px solid var(--om-line); }
+.om-notice.warn { background: var(--om-warn-bg); }
+.om-notice-label { flex: none; width: 64px; padding-top: 1px; font-size: 12px; font-weight: 600; color: var(--om-fg3); }
+.om-notice.warn .om-notice-label { color: var(--om-warn); }
+.om-notice-body { flex: 1 1 0; min-width: 0; font-size: 13px; color: var(--om-fg2); text-wrap: pretty; overflow-wrap: anywhere; }
+.om-notice.warn .om-notice-body { color: var(--om-fg); }
+
+.om-section { padding: 12px 16px; border-top: 1px solid var(--om-line); display: flex; flex-direction: column; gap: 8px; }
+.om-section-title { font-size: 12px; font-weight: 600; color: var(--om-fg3); }
+.om-rows { display: flex; flex-direction: column; gap: 6px; }
+.om-row { display: flex; align-items: center; gap: 10px; font-size: 13px; min-width: 0; }
+.om-kind { flex: none; width: 52px; padding: 1px 6px; border-radius: 4px; background: var(--om-bg2); color: var(--om-fg3); font-size: 11px; font-weight: 600; text-align: center; }
+.om-name { font-weight: 500; color: var(--om-brand); overflow-wrap: anywhere; }
+.om-name.plain { color: var(--om-fg2); }
+.om-meta { min-width: 0; color: var(--om-fg3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.om-tag { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--om-bg2); color: var(--om-fg2); font-size: 11px; font-weight: 600; }
+.om-tag.brand { background: var(--om-brand-bg); color: var(--om-brand); }
+.om-tag.ok { background: var(--om-ok-bg); color: var(--om-ok); }
+.om-tag.warn { background: var(--om-warn-bg); color: var(--om-warn); }
+.om-tag.err { background: var(--om-err-bg); color: var(--om-err); }
+
+.om-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border-top: 1px solid var(--om-line); }
+.om-stat { padding: 10px 16px; border-right: 1px solid var(--om-line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.om-stat:last-child { border-right: 0; }
+.om-stat-label { font-size: 11px; color: var(--om-fg3); }
+.om-stat-value { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.om-stat-value.ok { color: var(--om-ok); }
+.om-stat-value.warn { color: var(--om-warn); }
+.om-stat-value.err { color: var(--om-err); }
+
+.om-columns { display: flex; flex-direction: column; gap: 2px; }
+.om-column { display: grid; grid-template-columns: minmax(110px, auto) 70px minmax(0, 1fr); gap: 10px; align-items: center; padding: 4px 0; font-size: 13px; }
+.om-column-name { font-family: var(--om-mono); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.om-column-type { font-family: var(--om-mono); font-size: 11px; color: var(--om-fg3); overflow-wrap: anywhere; }
+.om-column-notes { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--om-fg2); min-width: 0; }
+
+.om-fold { border-top: 1px solid var(--om-line); }
+.om-fold-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.om-fold-head.static { cursor: default; }
+.om-chevron { display: inline-block; flex: none; width: 10px; color: var(--om-fg3); transition: transform 150ms; }
+.om-fold.open .om-chevron { transform: rotate(90deg); }
+.om-fold-title { font-weight: 600; }
+.om-fold-meta { min-width: 0; color: var(--om-fg3); font-size: 12px; overflow-wrap: anywhere; }
+.om-fold-toggle { flex: none; font-size: 12px; color: var(--om-fg3); }
+.om-fold-body { padding: 0 16px 14px; }
+.om-fold:not(.open) .om-fold-body { display: none; }
+.om-code { margin: 0; background: var(--om-code); border: 1px solid var(--om-line); border-radius: 8px; padding: 12px 14px; font-family: var(--om-mono); font-size: 12px; line-height: 1.65; white-space: pre; overflow-x: auto; color: var(--om-fg); }
+
+.om-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--om-line); background: var(--om-bg2); font-size: 12px; color: var(--om-fg3); }
+.om-footer a { font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) { .om-chevron { transition: none; } }

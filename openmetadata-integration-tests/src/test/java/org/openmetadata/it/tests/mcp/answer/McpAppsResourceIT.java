@@ -30,6 +30,7 @@ import org.openmetadata.it.tests.mcp.McpTestUtils;
 @Execution(ExecutionMode.CONCURRENT)
 class McpAppsResourceIT extends McpTestBase {
   private static final String CARD_URI = "ui://openmetadata/answer-citation-v1.html";
+  private static final String ASSET_URI = "ui://openmetadata/data-asset-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @BeforeAll
@@ -52,14 +53,11 @@ class McpAppsResourceIT extends McpTestBase {
             .path("result")
             .path("resources");
 
-    JsonNode card = null;
+    final Map<String, String> mimeTypes = new java.util.HashMap<>();
     for (final JsonNode resource : resources) {
-      if (CARD_URI.equals(resource.path("uri").asText())) {
-        card = resource;
-      }
+      mimeTypes.put(resource.path("uri").asText(), resource.path("mimeType").asText());
     }
-    assertThat(card).as("card listed in %s", resources).isNotNull();
-    assertThat(card.path("mimeType").asText()).isEqualTo(MIME_TYPE);
+    assertThat(mimeTypes).containsEntry(CARD_URI, MIME_TYPE).containsEntry(ASSET_URI, MIME_TYPE);
   }
 
   @Test
@@ -73,25 +71,24 @@ class McpAppsResourceIT extends McpTestBase {
     assertThat(contents.path("uri").asText()).isEqualTo(CARD_URI);
     assertThat(contents.path("mimeType").asText()).isEqualTo(MIME_TYPE);
     assertThat(contents.path("text").asText()).startsWith("<!doctype html>");
-    assertThat(contents.path("_meta").path("ui").path("prefersBorder").asBoolean()).isTrue();
+    assertThat(contents.path("_meta").path("ui").path("prefersBorder").asBoolean(true)).isFalse();
   }
 
   @Test
-  void toolsListCarriesTheCardOnFinishAnswerOnly() throws Exception {
+  void toolsListCarriesTheCardsOnFinishAnswerAndEntityDetailsOnly() throws Exception {
     final JsonNode tools =
         executeMcpRequest(McpTestUtils.createJsonRpcRequest("tools/list", Map.of()))
             .path("result")
             .path("tools");
 
-    int withView = 0;
+    final Map<String, String> withView = new java.util.TreeMap<>();
     for (final JsonNode tool : tools) {
       final String uri = tool.path("_meta").path("ui").path("resourceUri").asText("");
       if (!uri.isEmpty()) {
-        withView++;
-        assertThat(tool.path("name").asText()).isEqualTo("finish_answer");
-        assertThat(uri).isEqualTo(CARD_URI);
+        withView.put(tool.path("name").asText(), uri);
       }
     }
-    assertThat(withView).isEqualTo(1);
+    assertThat(withView)
+        .isEqualTo(Map.of("finish_answer", CARD_URI, "get_entity_details", ASSET_URI));
   }
 }
