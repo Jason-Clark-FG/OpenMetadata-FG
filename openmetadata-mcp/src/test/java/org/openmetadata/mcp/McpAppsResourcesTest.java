@@ -57,7 +57,7 @@ class McpAppsResourcesTest {
         .isEqualTo(Map.of("ui", Map.of("prefersBorder", false, "csp", Map.of())));
     assertThat(card.text())
         .startsWith("<!doctype html>")
-        .contains("--om-bg:", ".om-card")
+        .contains("--card-bg:", ".om-card")
         .contains("ui/initialize", "ui/notifications/initialized")
         .contains("ui/notifications/tool-result", "ui/notifications/host-context-changed")
         .contains("ui/open-link", "ui/notifications/size-changed")

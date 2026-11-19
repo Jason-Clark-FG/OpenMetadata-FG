@@ -135,14 +135,16 @@
     var notRun = citation.execution && citation.execution.executor === "none";
     var showSql = citation.sql && (notRun || citation.showSql !== false);
     var open = citation.traceUrl || firstUrl(citation);
+    var result = citation.result;
     return OM.card({
-      kind: "Answer",
+      kind: citation.harnessName ? citation.harnessName + " harness" : "Answer",
       pill: pill(citation),
       blocks: [
-        h("div", "om-intro",
+        result ? resultIntro(citation, result) : h("div", "om-intro",
           citation.question ? h("div", "om-label", citation.question) : null,
           h("div", "om-title", citation.headline || citation.question || ""),
           citation.timeWindow ? h("div", "om-text", windowLine(citation.timeWindow)) : null),
+        result ? OM.bars(result.breakdown) : null,
         OM.notices(notices.concat([quality]).filter(Boolean).map(function (row) {
           return row.tone ? row : { label: row.label, body: row.body };
         })),
@@ -151,10 +153,27 @@
       fold: { title: showSql ? "SQL" : "Execution", meta: executionMeta(citation),
         body: showSql ? h("pre", "om-code", h("code", null, citation.sql.trim())) : null },
       footer: {
-        left: ownerNames && ownerNames.length ? [h("span", null, "Owner " + ownerNames.join(", "))] : [],
+        left: footerLeft(citation, ownerNames),
         links: open ? [OM.link(open, null, "Open in OpenMetadata ↗")] : []
       }
     });
+  }
+
+  function resultIntro(citation, result) {
+    return h("div", "om-intro",
+      h("div", "om-label", result.label || citation.question || "", " ", OM.tag("self-reported")),
+      OM.valueRow(result.value, result.change, result.changeDirection),
+      citation.headline ? h("div", "om-text", citation.headline) : null,
+      result.note ? h("div", "om-text", result.note) : null,
+      citation.timeWindow ? h("div", "om-text", windowLine(citation.timeWindow)) : null);
+  }
+
+  function footerLeft(citation, ownerNames) {
+    var parts = [];
+    if (typeof citation.answeredAt === "number") { parts.push("Answered " + OM.clock(citation.answeredAt)); }
+    if (typeof citation.harnessVersion === "number") { parts.push("harness v" + citation.harnessVersion.toFixed(1)); }
+    if (parts.length) { return [h("span", null, parts.join(" · "))]; }
+    return ownerNames && ownerNames.length ? [h("span", null, "Owner " + ownerNames.join(", "))] : [];
   }
 
   OM.mount(render);

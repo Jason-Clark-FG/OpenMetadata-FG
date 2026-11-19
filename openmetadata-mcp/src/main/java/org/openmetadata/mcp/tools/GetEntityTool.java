@@ -30,6 +30,7 @@ import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.AIContextBuilder;
 import org.openmetadata.service.aicontext.AIContextMarkdown;
+import org.openmetadata.service.aicontext.answer.EntityLinks;
 import org.openmetadata.service.jdbi3.LineageRepository;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.lineage.LineagePermissionFilter;
@@ -100,6 +101,7 @@ public class GetEntityTool implements McpTool {
   private static final int MAX_PASSAGES = 10;
   private static final String TEST_SUITE_KEY = "testSuite";
   private static final String CERTIFICATION_KEY = "certification";
+  static final String OPEN_METADATA_URL_KEY = "openMetadataUrl";
 
   /** Two hops. The second one is what tells a caller whether a lone neighbour starts a chain. */
   private static final int REACH_DEPTH = 2;
@@ -286,6 +288,7 @@ public class GetEntityTool implements McpTool {
     Map<String, Object> cleaned = cleanEntityResponse(entityData);
     resolveCertification(cleaned);
     Map<String, Object> windowed = applyColumnWindow(cleaned, columnOffset, columnLimit);
+    addOpenMetadataUrl(windowed, entityType, entity);
     if (entity instanceof Metric metric) {
       MetricVariants.addExpressions(
           windowed, metric, MetricVariants.viewableBy(authorizer, securityContext));
@@ -295,6 +298,19 @@ public class GetEntityTool implements McpTool {
         new IncludeContext(authorizer, securityContext, entityType, fqn, entity, options(params)),
         includes);
     return windowed;
+  }
+
+  /** Where the UI shows the entity, for the card's "Open in OpenMetadata" link. */
+  private static void addOpenMetadataUrl(
+      Map<String, Object> result, String entityType, EntityInterface<?> entity) {
+    try {
+      String url = EntityLinks.fromSettings().of(entityType, entity);
+      if (!url.isEmpty()) {
+        result.put(OPEN_METADATA_URL_KEY, url);
+      }
+    } catch (RuntimeException exception) {
+      LOG.debug("No UI link for {}: {}", entityType, exception.getMessage());
+    }
   }
 
   private static Map<String, Object> readContentOnly(

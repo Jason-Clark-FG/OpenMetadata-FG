@@ -21,8 +21,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.api.configuration.OpenMetadataBaseUrlConfiguration;
 import org.openmetadata.schema.api.context.AnswerCitation;
+import org.openmetadata.schema.api.context.AppliedHarness;
+import org.openmetadata.schema.api.context.AppliedHarnesses;
 import org.openmetadata.schema.api.context.FinishAnswer;
 import org.openmetadata.schema.api.context.FinishAnswerTimeWindow;
 import org.openmetadata.schema.entity.context.AgentHarness;
@@ -45,12 +48,15 @@ import org.openmetadata.service.security.auth.CatalogSecurityContext;
  * one up as the caller and writes the "How I got this" block, so a citation cannot be invented.
  * The text content is the Markdown block and the structured content is the typed citation.
  */
+@Slf4j
 public class FinishAnswerTool {
   static final String SHOW_VERBATIM =
       "Show the answer and the \"How I got this\" list above to the user as written. Do not"
           + " reword it or add facts to it.";
   private static final Set<String> INPUT_KEYS =
-      Set.of("question", "answer", "concepts", "timeWindow", "tables", "sql", "execution");
+      Set.of(
+          "question", "answer", "result", "concepts", "timeWindow", "tables", "sql", "execution");
+  private static final String DEFAULT_HARNESS_LABEL = "Company default";
 
   public McpSchema.CallToolResult call(
       final Authorizer authorizer,
@@ -60,12 +66,42 @@ public class FinishAnswerTool {
     final AnswerCitation citation =
         new AnswerCitationBuilder(catalog(authorizer, securityContext), settings(), Instant.now())
             .build(request);
+    labelWithHarness(citation, appliedHarnesses(authorizer, securityContext));
     final String block = AnswerMarkdown.render(citation, Instant.now());
     return McpSchema.CallToolResult.builder()
         .content(List.of(McpSchema.TextContent.builder(block + "\n" + SHOW_VERBATIM).build()))
         .structuredContent(JsonUtils.getMap(citation))
         .isError(false)
         .build();
+  }
+
+  /**
+   * Names the harness the caller's agent runs under: their persona's when it has one, else the
+   * company default. The card shows it in its header and footer.
+   */
+  static void labelWithHarness(final AnswerCitation citation, final AppliedHarnesses applied) {
+    final AppliedHarness harness =
+        applied == null
+            ? null
+            : applied.getPersona() != null ? applied.getPersona() : applied.getDefault();
+    if (harness != null) {
+      citation.setHarnessName(
+          applied.getPersona() == null || nullOrEmpty(harness.getDisplayName())
+              ? DEFAULT_HARNESS_LABEL
+              : harness.getDisplayName());
+      citation.setHarnessVersion(harness.getVersion());
+    }
+  }
+
+  private static AppliedHarnesses appliedHarnesses(
+      final Authorizer authorizer, final CatalogSecurityContext securityContext) {
+    AppliedHarnesses applied = null;
+    try {
+      applied = GetContextTool.compiler(authorizer).appliedTo(securityContext);
+    } catch (RuntimeException exception) {
+      LOG.debug("No harness label for the citation: {}", exception.getMessage());
+    }
+    return applied;
   }
 
   /**
@@ -86,6 +122,7 @@ public class FinishAnswerTool {
     wrapNames(input, "concepts", "fqn");
     wrapNames(input, "tables", "fqn");
     wrapName(input, "timeWindow", "phrase");
+    wrapName(input, "result", "value");
     wrapName(input, "execution", "executor");
     final FinishAnswer request = JsonUtils.convertValueLenient(input, FinishAnswer.class);
     if (request.getTimeWindow() instanceof FinishAnswerTimeWindow window

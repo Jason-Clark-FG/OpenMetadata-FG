@@ -99,6 +99,80 @@
         }
       },
       "additionalProperties": false
+    },
+    "breakdownRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerBreakdown",
+      "description": "One row of the numbers breakdown.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "change": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "changeDirection": {
+          "$ref": "answerCitation.json#/definitions/changeDirection"
+        },
+        "share": {
+          "description": "Bar length as a fraction of the largest row, 0 to 1.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "resultRef": {
+      "javaType": "org.openmetadata.schema.api.context.FinishAnswerResult",
+      "description": "The numbers the answer reports, as the agent computed them. Shown as self-reported.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "What the value measures.",
+          "type": "string",
+          "maxLength": 200
+        },
+        "value": {
+          "description": "Headline value, formatted, for example $48.2M.",
+          "type": "string",
+          "maxLength": 40
+        },
+        "change": {
+          "description": "Formatted change, for example +12.4% vs Q2.",
+          "type": "string",
+          "maxLength": 60
+        },
+        "changeDirection": {
+          "$ref": "answerCitation.json#/definitions/changeDirection"
+        },
+        "breakdown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/breakdownRef"
+          },
+          "maxItems": 12,
+          "default": []
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -111,6 +185,10 @@
       "description": "One line stating the answer, for example the headline number. Shown as the agent's words.",
       "type": "string",
       "maxLength": 500
+    },
+    "result": {
+      "description": "The numbers behind the answer, when you have them: headline value, change against a comparison period, and a breakdown of up to 12 rows. Shown on the card as self-reported.",
+      "$ref": "#/definitions/resultRef"
     },
     "concepts": {
       "description": "Glossary terms and metrics the answer used. At most 10.",

@@ -33,6 +33,8 @@ import org.openmetadata.schema.api.context.AnswerExecution;
 import org.openmetadata.schema.api.context.AnswerExecutor;
 import org.openmetadata.schema.api.context.AnswerFreshness;
 import org.openmetadata.schema.api.context.AnswerFreshnessSource;
+import org.openmetadata.schema.api.context.AnswerResult;
+import org.openmetadata.schema.api.context.AnswerResultBreakdown;
 import org.openmetadata.schema.api.context.AnswerTable;
 import org.openmetadata.schema.api.context.AnswerTimeWindow;
 import org.openmetadata.schema.api.context.AnswerUnresolved;
@@ -65,6 +67,9 @@ public final class AnswerMarkdown {
     steps.add(executionLine(citation));
     listOrEmpty(citation.getWarnings()).forEach(warning -> steps.add(WARN + warning));
     final StringBuilder block = new StringBuilder(citation.getHeadline()).append("\n\n");
+    if (citation.getResult() != null) {
+      block.append(resultBlock(citation.getResult())).append('\n');
+    }
     block.append("**How I got this**\n\n");
     for (int index = 0; index < steps.size(); index++) {
       block.append(index + 1).append(". ").append(steps.get(index)).append('\n');
@@ -73,6 +78,33 @@ public final class AnswerMarkdown {
       block.append('\n').append(sqlBlock(citation.getSql()));
     }
     return block.toString();
+  }
+
+  private static String resultBlock(final AnswerResult result) {
+    final StringBuilder lines = new StringBuilder();
+    lines.append("**").append(escape(result.getValue())).append("**");
+    if (!nullOrEmpty(result.getChange())) {
+      lines.append(' ').append(escape(result.getChange()));
+    }
+    if (!nullOrEmpty(result.getLabel())) {
+      lines.append(" · ").append(escape(result.getLabel()));
+    }
+    lines.append(" _(reported by the agent, not computed by OpenMetadata)_\n");
+    if (!nullOrEmpty(result.getNote())) {
+      lines.append('\n').append(escape(result.getNote())).append('\n');
+    }
+    final List<AnswerResultBreakdown> rows = listOrEmpty(result.getBreakdown());
+    if (!rows.isEmpty()) {
+      lines.append('\n');
+    }
+    for (final AnswerResultBreakdown row : rows) {
+      lines.append("- ").append(escape(row.getLabel())).append(": ").append(escape(row.getValue()));
+      if (!nullOrEmpty(row.getChange())) {
+        lines.append(' ').append(escape(row.getChange()));
+      }
+      lines.append('\n');
+    }
+    return lines.toString();
   }
 
   private static boolean showsSql(final AnswerCitation citation) {

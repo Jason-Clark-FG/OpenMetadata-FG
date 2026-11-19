@@ -188,6 +188,62 @@ class FinishAnswerIT extends McpTestBase {
   }
 
   @Test
+  void theCitationCarriesTheAgentsNumbersMarkedSelfReportedAndTheHarnessAndTime() throws Exception {
+    long before = Instant.now().toEpochMilli();
+    JsonNode result =
+        finishAnswer(
+            analystToken,
+            Map.of(
+                "question",
+                "What was Q3 revenue by region?",
+                "answer",
+                "Q3 revenue was $48.2M.",
+                "result",
+                Map.of(
+                    "label",
+                    "Q3 revenue by region",
+                    "value",
+                    "$48.2M",
+                    "change",
+                    "+12.4% vs Q2",
+                    "breakdown",
+                    List.of(
+                        Map.of("label", "NA", "value", "$21.6M", "change", "+9%", "share", 1),
+                        Map.of("label", "LATAM", "value", "$3.2M", "change", "-2%")))));
+
+    JsonNode citation = result.path("structuredContent");
+    assertThat(citation.path("result").path("value").asText()).isEqualTo("$48.2M");
+    assertThat(citation.path("result").path("selfReported").asBoolean()).isTrue();
+    assertThat(citation.path("result").path("changeDirection").asText()).isEqualTo("up");
+    assertThat(citation.path("result").path("breakdown").get(1).path("changeDirection").asText())
+        .isEqualTo("down");
+    assertThat(citation.path("harnessName").asText()).isEqualTo("Company default");
+    assertThat(citation.path("harnessVersion").isNumber()).isTrue();
+    assertThat(citation.path("answeredAt").asLong())
+        .isBetween(before, Instant.now().toEpochMilli());
+    String text = result.path("content").get(0).path("text").asText();
+    assertThat(text)
+        .contains("**$48.2M** +12.4% vs Q2 · Q3 revenue by region _(reported by the agent")
+        .contains("- NA: $21.6M +9%")
+        .contains("- LATAM: $3.2M -2%");
+  }
+
+  @Test
+  void entityDetailsCarryTheLinkTheDataAssetCardOpens() throws Exception {
+    JsonNode result =
+        executeMcpRequest(
+                McpTestUtils.createToolCallRequest(
+                    "get_entity_details",
+                    Map.of("entityType", "table", "fqn", certified.getFullyQualifiedName())),
+                analystToken)
+            .path("result");
+
+    String url = result.path("structuredContent").path("openMetadataUrl").asText();
+    assertThat(url).startsWith("http").endsWith("/table/" + certified.getFullyQualifiedName());
+    assertThat(result.path("content").get(0).path("text").asText()).contains(url);
+  }
+
+  @Test
   void theToolIsListedAsReadOnly() throws Exception {
     JsonNode tools =
         executeMcpRequest(McpTestUtils.createJsonRpcRequest("tools/list", Map.of()), analystToken)

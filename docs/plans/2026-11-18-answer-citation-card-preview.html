@@ -52,6 +52,13 @@ var FIXTURES = {
   answer: {
     question: "What was Q3 revenue by region?",
     headline: "Q3 revenue was $48.2M, up 12.4% on Q2, led by North America. EMEA's figure may be slightly low because of a late data load.",
+    result: { label: "Q3 2026 revenue by region", value: "$48.2M", change: "+12.4% vs Q2", changeDirection: "up", selfReported: true,
+      breakdown: [
+        { label: "NA", value: "$21.6M", change: "+9%", changeDirection: "up", share: 1 },
+        { label: "EMEA", value: "$14.1M", change: "+18%", changeDirection: "up", share: 0.653 },
+        { label: "APAC", value: "$9.3M", change: "+16%", changeDirection: "up", share: 0.431 },
+        { label: "LATAM", value: "$3.2M", change: "\u22122%", changeDirection: "down", share: 0.148 }] },
+    harnessName: "Business Analyst", harnessVersion: 0.6, answeredAt: Date.now() - 600000,
     concepts: [
       { phrase: "revenue", entityType: "metric", fqn: "Revenue", displayName: "Revenue", status: "Approved", certified: true, version: 3, owners: ["Finance Data"], url: "https://om.example.com/metric/revenue" },
       { phrase: "region", entityType: "glossaryTerm", fqn: "Sales.Region", displayName: "Region", status: "Approved", certified: true, owners: ["Sales Territories"], url: "https://om.example.com/glossary/Sales.Region" }
@@ -87,6 +94,8 @@ var FIXTURES = {
     certification: "Certification.Gold (valid until 2027-06-30)",
     tags: [{ tagFQN: "Tier.Tier1", source: "Classification" }],
     owners: [{ name: "finance_data", displayName: "Finance Data" }],
+    openMetadataUrl: "https://om.example.com/table/snowflake.analytics.fct_revenue",
+    dataModel: { modelType: "DBT", sql: "select * from {{ ref('stg_orders') }}" },
     profile: { timestamp: now - 2 * H, rowCount: 48600000 },
     quality: { summary: { success: 41, total: 42 } },
     usageSummary: { monthlyStats: { count: 1200 } },

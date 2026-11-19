@@ -29,6 +29,11 @@ export interface FinishAnswer {
      */
     question: string;
     /**
+     * The numbers behind the answer, when you have them: headline value, change against a
+     * comparison period, and a breakdown of up to 12 rows. Shown on the card as self-reported.
+     */
+    result?: ResultRef;
+    /**
      * The SQL the answer rests on. At most 20,000 characters.
      */
     sql?: string;
@@ -101,6 +106,53 @@ export enum Executor {
     HostConnector = "hostConnector",
     None = "none",
     SQLStudio = "sqlStudio",
+}
+
+/**
+ * The numbers behind the answer, when you have them: headline value, change against a
+ * comparison period, and a breakdown of up to 12 rows. Shown on the card as self-reported.
+ *
+ * The numbers the answer reports, as the agent computed them. Shown as self-reported.
+ */
+export interface ResultRef {
+    breakdown?: BreakdownRef[];
+    /**
+     * Formatted change, for example +12.4% vs Q2.
+     */
+    change?:          string;
+    changeDirection?: ChangeDirection;
+    /**
+     * What the value measures.
+     */
+    label?: string;
+    note?:  string;
+    /**
+     * Headline value, formatted, for example $48.2M.
+     */
+    value: string;
+}
+
+/**
+ * One row of the numbers breakdown.
+ */
+export interface BreakdownRef {
+    change?:          string;
+    changeDirection?: ChangeDirection;
+    label:            string;
+    /**
+     * Bar length as a fraction of the largest row, 0 to 1.
+     */
+    share?: number;
+    value:  string;
+}
+
+/**
+ * Whether a change is up, down or flat. It sets the colour of the change chip.
+ */
+export enum ChangeDirection {
+    Down = "down",
+    Flat = "flat",
+    Up = "up",
 }
 
 /**

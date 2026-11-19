@@ -15,8 +15,20 @@
  * is the `structuredContent` of `finish_answer`; the Markdown block is rendered from it.
  */
 export interface AnswerCitation {
-    concepts?: Concept[];
-    execution: Execution;
+    /**
+     * When the server wrote the citation.
+     */
+    answeredAt?: number;
+    concepts?:   Concept[];
+    execution:   Execution;
+    /**
+     * Display name of the harness applied to the caller: their persona's, else Company default.
+     */
+    harnessName?: string;
+    /**
+     * Published version of that harness.
+     */
+    harnessVersion?: number;
     /**
      * The agent's one-line answer, quoted as the agent's.
      */
@@ -26,6 +38,7 @@ export interface AnswerCitation {
      */
     planChecked?: boolean;
     question:     string;
+    result?:      Result;
     /**
      * Whether the harness shows SQL in the block. The block shows it regardless when the SQL
      * was not run.
@@ -109,6 +122,65 @@ export enum Executor {
     HostConnector = "hostConnector",
     None = "none",
     SQLStudio = "sqlStudio",
+}
+
+/**
+ * The numbers the agent reports for the answer, bounded and sanitized by the server.
+ * OpenMetadata did not compute them, so selfReported is true until the server runs the
+ * query.
+ */
+export interface Result {
+    breakdown?: ResultBreakdown[];
+    /**
+     * Formatted change against a comparison period, for example +12.4% vs Q2.
+     */
+    change?:          string;
+    changeDirection?: ChangeDirection;
+    /**
+     * What the value measures, for example Q3 2026 revenue by region.
+     */
+    label?: string;
+    /**
+     * One sentence of context.
+     */
+    note?: string;
+    /**
+     * True when the agent supplied the numbers and OpenMetadata did not compute them.
+     */
+    selfReported?: boolean;
+    /**
+     * Headline value, formatted, for example $48.2M.
+     */
+    value: string;
+}
+
+/**
+ * One bar of the result's breakdown.
+ */
+export interface ResultBreakdown {
+    /**
+     * Formatted change, for example +9%.
+     */
+    change?:          string;
+    changeDirection?: ChangeDirection;
+    label:            string;
+    /**
+     * Bar length as a fraction of the largest row.
+     */
+    share?: number;
+    /**
+     * Formatted value, for example $21.6M.
+     */
+    value: string;
+}
+
+/**
+ * Whether a change is up, down or flat. It sets the colour of the change chip.
+ */
+export enum ChangeDirection {
+    Down = "down",
+    Flat = "flat",
+    Up = "up",
 }
 
 /**

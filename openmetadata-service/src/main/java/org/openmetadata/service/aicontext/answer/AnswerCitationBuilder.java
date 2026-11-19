@@ -21,6 +21,8 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import org.openmetadata.schema.api.context.AnswerChangeDirection;
 import org.openmetadata.schema.api.context.AnswerCitation;
 import org.openmetadata.schema.api.context.AnswerConcept;
 import org.openmetadata.schema.api.context.AnswerConceptType;
@@ -28,14 +30,18 @@ import org.openmetadata.schema.api.context.AnswerExecution;
 import org.openmetadata.schema.api.context.AnswerExecutor;
 import org.openmetadata.schema.api.context.AnswerFreshness;
 import org.openmetadata.schema.api.context.AnswerFreshnessSource;
+import org.openmetadata.schema.api.context.AnswerResult;
+import org.openmetadata.schema.api.context.AnswerResultBreakdown;
 import org.openmetadata.schema.api.context.AnswerTable;
 import org.openmetadata.schema.api.context.AnswerTimeWindow;
 import org.openmetadata.schema.api.context.AnswerTrustChecked;
 import org.openmetadata.schema.api.context.AnswerUnresolved;
 import org.openmetadata.schema.api.context.AnswerWindowResolver;
 import org.openmetadata.schema.api.context.FinishAnswer;
+import org.openmetadata.schema.api.context.FinishAnswerBreakdown;
 import org.openmetadata.schema.api.context.FinishAnswerConcept;
 import org.openmetadata.schema.api.context.FinishAnswerExecution;
+import org.openmetadata.schema.api.context.FinishAnswerResult;
 import org.openmetadata.schema.api.context.FinishAnswerTable;
 import org.openmetadata.schema.api.context.FinishAnswerTimeWindow;
 import org.openmetadata.service.aicontext.answer.AnswerCatalog.Lookup;
@@ -48,6 +54,12 @@ public final class AnswerCitationBuilder {
   public static final int MAX_CONCEPTS = 10;
   public static final int MAX_TABLES = 5;
   public static final int MAX_SQL_CHARS = 20_000;
+  public static final int MAX_BREAKDOWN_ROWS = 12;
+  private static final int MAX_LABEL_CHARS = 200;
+  private static final int MAX_VALUE_CHARS = 40;
+  private static final int MAX_CHANGE_CHARS = 60;
+  private static final int MAX_NOTE_CHARS = 300;
+  private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}]+");
 
   private final AnswerCatalog catalog;
   private final AnswerSettings settings;
@@ -78,9 +90,80 @@ public final class AnswerCitationBuilder {
                 new AnswerTrustChecked()
                     .withFailingTests(settings.reportFailingTests())
                     .withOpenIncidents(settings.reportOpenIncidents()))
-            .withPlanChecked(false);
+            .withPlanChecked(false)
+            .withAnsweredAt(now.toEpochMilli());
+    result(request.getResult()).ifPresent(citation::setResult);
     timeWindow(request.getTimeWindow(), warnings).ifPresent(citation::setTimeWindow);
     return citation.withWarnings(warnings);
+  }
+
+  /**
+   * The agent's numbers, bounded and stripped of control characters. They are always marked
+   * self-reported: the server has not run the query that produced them.
+   */
+  private static Optional<AnswerResult> result(final FinishAnswerResult reported) {
+    final String value = text(reported == null ? null : reported.getValue(), MAX_VALUE_CHARS);
+    if (value == null) {
+      return Optional.empty();
+    }
+    final String change = text(reported.getChange(), MAX_CHANGE_CHARS);
+    final List<AnswerResultBreakdown> rows =
+        listOrEmpty(reported.getBreakdown()).stream()
+            .limit(MAX_BREAKDOWN_ROWS)
+            .map(AnswerCitationBuilder::breakdownRow)
+            .flatMap(Optional::stream)
+            .toList();
+    return Optional.of(
+        new AnswerResult()
+            .withLabel(text(reported.getLabel(), MAX_LABEL_CHARS))
+            .withValue(value)
+            .withChange(change)
+            .withChangeDirection(
+                change == null ? null : direction(reported.getChangeDirection(), change))
+            .withBreakdown(rows)
+            .withNote(text(reported.getNote(), MAX_NOTE_CHARS))
+            .withSelfReported(true));
+  }
+
+  private static Optional<AnswerResultBreakdown> breakdownRow(final FinishAnswerBreakdown row) {
+    final String label = text(row.getLabel(), MAX_LABEL_CHARS);
+    final String value = text(row.getValue(), MAX_VALUE_CHARS);
+    if (label == null || value == null) {
+      return Optional.empty();
+    }
+    final String change = text(row.getChange(), MAX_CHANGE_CHARS);
+    return Optional.of(
+        new AnswerResultBreakdown()
+            .withLabel(label)
+            .withValue(value)
+            .withChange(change)
+            .withChangeDirection(
+                change == null ? null : direction(row.getChangeDirection(), change))
+            .withShare(row.getShare() == null ? null : Math.max(0, Math.min(1, row.getShare()))));
+  }
+
+  /** A change the agent did not classify takes its direction from its sign. */
+  private static AnswerChangeDirection direction(
+      final AnswerChangeDirection given, final String change) {
+    final AnswerChangeDirection direction;
+    if (given != null) {
+      direction = given;
+    } else if (change.startsWith("+")) {
+      direction = AnswerChangeDirection.UP;
+    } else if (change.startsWith("-") || change.startsWith("−")) {
+      direction = AnswerChangeDirection.DOWN;
+    } else {
+      direction = AnswerChangeDirection.FLAT;
+    }
+    return direction;
+  }
+
+  private static String text(final String raw, final int max) {
+    String cleaned = raw == null ? "" : CONTROL_CHARS.matcher(raw).replaceAll(" ").strip();
+    if (cleaned.length() > max) {
+      cleaned = cleaned.substring(0, max - 1).stripTrailing() + "…";
+    }
+    return cleaned.isEmpty() ? null : cleaned;
   }
 
   private static void requireWithinCaps(final FinishAnswer request) {

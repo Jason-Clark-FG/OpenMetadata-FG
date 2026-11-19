@@ -26,6 +26,8 @@ import org.openmetadata.schema.api.context.AnswerFailingTest;
 import org.openmetadata.schema.api.context.AnswerFreshness;
 import org.openmetadata.schema.api.context.AnswerFreshnessSource;
 import org.openmetadata.schema.api.context.AnswerOpenIncident;
+import org.openmetadata.schema.api.context.AnswerResult;
+import org.openmetadata.schema.api.context.AnswerResultBreakdown;
 import org.openmetadata.schema.api.context.AnswerTable;
 import org.openmetadata.schema.api.context.AnswerTimeWindow;
 import org.openmetadata.schema.api.context.AnswerTrustChecked;
@@ -105,6 +107,41 @@ class AnswerMarkdownTest {
             "```sql",
             "SELECT 1",
             "```"),
+        AnswerMarkdown.render(citation, NOW));
+  }
+
+  @Test
+  void theAgentsNumbersGetACompactBlockMarkedAsReportedByTheAgent() {
+    final AnswerCitation citation =
+        citation(
+                "Q3 revenue was $48.2M.",
+                new AnswerExecution().withExecutor(AnswerExecutor.NONE).withReason("no connector"))
+            .withResult(
+                new AnswerResult()
+                    .withLabel("Q3 2026 revenue by region")
+                    .withValue("$48.2M")
+                    .withChange("+12.4% vs Q2")
+                    .withBreakdown(
+                        List.of(
+                            new AnswerResultBreakdown()
+                                .withLabel("NA")
+                                .withValue("$21.6M")
+                                .withChange("+9%"),
+                            new AnswerResultBreakdown().withLabel("EMEA").withValue("$14.1M"))));
+
+    assertEquals(
+        block(
+            "Q3 revenue was $48.2M.",
+            "",
+            "**$48.2M** +12.4% vs Q2 · Q3 2026 revenue by region _(reported by the agent, not"
+                + " computed by OpenMetadata)_",
+            "",
+            "- NA: $21.6M +9%",
+            "- EMEA: $14.1M",
+            "",
+            "**How I got this**",
+            "",
+            "1. Not run: no connector."),
         AnswerMarkdown.render(citation, NOW));
   }
 

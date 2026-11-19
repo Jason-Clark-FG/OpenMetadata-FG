@@ -127,6 +127,11 @@ public final class AgentHarnessCompiler {
         this::cachedDocument);
   }
 
+  /** The harnesses that apply to the caller, without compiling any context. */
+  public AppliedHarnesses appliedTo(final SecurityContext securityContext) {
+    return applied(caller(securityContext));
+  }
+
   /** The skills the caller's harness offers, in registry order. */
   public List<SkillDefinition> skills(final SecurityContext securityContext) {
     final Caller caller = caller(securityContext);

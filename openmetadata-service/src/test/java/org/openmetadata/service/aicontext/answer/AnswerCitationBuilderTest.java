@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.openmetadata.schema.api.context.AnswerChangeDirection;
 import org.openmetadata.schema.api.context.AnswerCitation;
 import org.openmetadata.schema.api.context.AnswerConcept;
 import org.openmetadata.schema.api.context.AnswerConceptType;
@@ -33,12 +34,15 @@ import org.openmetadata.schema.api.context.AnswerFailingTest;
 import org.openmetadata.schema.api.context.AnswerFreshness;
 import org.openmetadata.schema.api.context.AnswerFreshnessSource;
 import org.openmetadata.schema.api.context.AnswerOpenIncident;
+import org.openmetadata.schema.api.context.AnswerResult;
 import org.openmetadata.schema.api.context.AnswerTable;
 import org.openmetadata.schema.api.context.AnswerUnresolved;
 import org.openmetadata.schema.api.context.AnswerWindowResolver;
 import org.openmetadata.schema.api.context.FinishAnswer;
+import org.openmetadata.schema.api.context.FinishAnswerBreakdown;
 import org.openmetadata.schema.api.context.FinishAnswerConcept;
 import org.openmetadata.schema.api.context.FinishAnswerExecution;
+import org.openmetadata.schema.api.context.FinishAnswerResult;
 import org.openmetadata.schema.api.context.FinishAnswerTable;
 import org.openmetadata.schema.api.context.FinishAnswerTimeWindow;
 import org.openmetadata.schema.utils.JsonUtils;
@@ -327,6 +331,56 @@ class AnswerCitationBuilderTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> build(new FakeCatalog(), AnswerSettings.defaults(), claim));
+  }
+
+  @Test
+  void theAgentsNumbersAreBoundedCleanedAndAlwaysMarkedSelfReported() {
+    final List<FinishAnswerBreakdown> rows = new ArrayList<>();
+    for (int index = 0; index < 15; index++) {
+      rows.add(new FinishAnswerBreakdown().withLabel("r" + index).withValue(index + "M"));
+    }
+    rows.set(0, new FinishAnswerBreakdown().withLabel("NA").withValue("$21.6M").withChange("+9%"));
+    rows.set(
+        1,
+        new FinishAnswerBreakdown()
+            .withLabel("LATAM")
+            .withValue("$3.2M")
+            .withChange("−2%")
+            .withShare(7.0));
+    rows.set(2, new FinishAnswerBreakdown().withLabel(" ").withValue("$1M"));
+
+    final AnswerCitation citation =
+        build(
+            new FakeCatalog(),
+            AnswerSettings.defaults(),
+            request()
+                .withResult(
+                    new FinishAnswerResult()
+                        .withLabel("Q3\nrevenue")
+                        .withValue("$48.2M")
+                        .withChange("+12.4% vs Q2")
+                        .withBreakdown(rows)));
+
+    final AnswerResult result = citation.getResult();
+    assertTrue(result.getSelfReported());
+    assertEquals("Q3 revenue", result.getLabel());
+    assertEquals(AnswerChangeDirection.UP, result.getChangeDirection());
+    assertEquals(AnswerCitationBuilder.MAX_BREAKDOWN_ROWS - 1, result.getBreakdown().size());
+    assertEquals(AnswerChangeDirection.UP, result.getBreakdown().get(0).getChangeDirection());
+    assertEquals(AnswerChangeDirection.DOWN, result.getBreakdown().get(1).getChangeDirection());
+    assertEquals(1.0, result.getBreakdown().get(1).getShare());
+  }
+
+  @Test
+  void numbersWithoutAValueAreLeftOutAndTheCitationCarriesItsTime() {
+    final AnswerCitation citation =
+        build(
+            new FakeCatalog(),
+            AnswerSettings.defaults(),
+            request().withResult(new FinishAnswerResult().withValue("  ")));
+
+    assertNull(citation.getResult());
+    assertEquals(NOW.toEpochMilli(), citation.getAnsweredAt());
   }
 
   @Test

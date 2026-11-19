@@ -64,10 +64,56 @@ var OM = (function () {
     return hours < 48 ? hours + " h ago" : Math.floor(hours / 24) + " d ago";
   }
 
+  /** 48600000 becomes 48.6M, 1200 becomes 1.2k; below a thousand the number is kept whole. */
+  function compact(value) {
+    if (typeof value !== "number" || !isFinite(value)) { return String(value); }
+    var abs = Math.abs(value);
+    var units = [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "k"]];
+    for (var i = 0; i < units.length; i++) {
+      if (abs >= units[i][0]) {
+        var scaled = value / units[i][0];
+        return (Math.abs(scaled) >= 100 ? Math.round(scaled) : Math.round(scaled * 10) / 10) + units[i][1];
+      }
+    }
+    return String(Math.round(value * 100) / 100);
+  }
+
+  /** The time of day in the host's locale. */
+  function clock(at) {
+    return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function direction(value) { return value === "up" || value === "down" ? value : ""; }
+
+  /** The headline number of a card with its change chip. */
+  function valueRow(value, change, changeDirection) {
+    return h("div", "om-value-row", h("div", "om-value", value),
+      change ? h("div", "om-change " + direction(changeDirection), change) : null);
+  }
+
+  var SUFFIX = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9, t: 1e12, T: 1e12 };
+  function magnitude(text) {
+    var match = /(-?\d[\d,]*\.?\d*)\s*([kKmMbBtT])?/.exec(String(text));
+    return match ? parseFloat(match[1].replace(/,/g, "")) * (SUFFIX[match[2]] || 1) : 0;
+  }
+
+  /** rows: [{label, value, change, changeDirection, share}]. Without a share, bars scale to the values. */
+  function bars(rows) {
+    if (!rows || !rows.length) { return null; }
+    var largest = Math.max.apply(null, rows.map(function (row) { return Math.abs(magnitude(row.value)); }));
+    return h("div", "om-bars", rows.map(function (row) {
+      var share = typeof row.share === "number" ? row.share : (largest > 0 ? Math.abs(magnitude(row.value)) / largest : 0);
+      var fill = h("div", "om-bar-fill");
+      fill.style.width = Math.max(0, Math.min(1, share)) * 100 + "%";
+      return h("div", "om-bar-row", h("div", "om-bar-label", row.label), h("div", "om-bar-track", fill),
+        h("div", "om-bar-value", row.value), h("div", "om-bar-change " + direction(row.changeDirection), row.change));
+    }));
+  }
+
   function notices(items) {
     var rows = items.filter(Boolean).map(function (item) {
-      return h("div", "om-notice" + (item.tone === "warn" ? " warn" : ""),
-        h("div", "om-notice-label", item.label), h("div", "om-notice-body", item.body));
+      return h("div", "om-notice" + (item.tone === "warn" || item.tone === "brand" ? " " + item.tone : ""),
+        h("div", "om-notice-label" + (item.wide ? " wide" : ""), item.label), h("div", "om-notice-body", item.body));
     });
     return rows.length ? h("div", "om-notices", rows) : null;
   }
@@ -166,5 +212,5 @@ var OM = (function () {
   }
 
   return { h: h, link: link, ago: ago, tag: tag, notices: notices, section: section, stats: stats,
-    card: card, mount: mount };
+    compact: compact, clock: clock, valueRow: valueRow, bars: bars, card: card, mount: mount };
 }());

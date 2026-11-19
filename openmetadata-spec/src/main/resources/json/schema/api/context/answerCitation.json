@@ -169,11 +169,108 @@
         "openIncidents": { "type": "boolean", "default": true }
       },
       "additionalProperties": false
+    },
+    "changeDirection": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerChangeDirection",
+      "description": "Whether a change is up, down or flat. It sets the colour of the change chip.",
+      "type": "string",
+      "enum": [
+        "up",
+        "down",
+        "flat"
+      ],
+      "javaEnums": [
+        {
+          "name": "UP"
+        },
+        {
+          "name": "DOWN"
+        },
+        {
+          "name": "FLAT"
+        }
+      ]
+    },
+    "resultBreakdown": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerResultBreakdown",
+      "description": "One bar of the result's breakdown.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "description": "Formatted value, for example $21.6M.",
+          "type": "string"
+        },
+        "change": {
+          "description": "Formatted change, for example +9%.",
+          "type": "string"
+        },
+        "changeDirection": {
+          "$ref": "#/definitions/changeDirection"
+        },
+        "share": {
+          "description": "Bar length as a fraction of the largest row.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "javaType": "org.openmetadata.schema.api.context.AnswerResult",
+      "description": "The numbers the agent reports for the answer, bounded and sanitized by the server. OpenMetadata did not compute them, so selfReported is true until the server runs the query.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "What the value measures, for example Q3 2026 revenue by region.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Headline value, formatted, for example $48.2M.",
+          "type": "string"
+        },
+        "change": {
+          "description": "Formatted change against a comparison period, for example +12.4% vs Q2.",
+          "type": "string"
+        },
+        "changeDirection": {
+          "$ref": "#/definitions/changeDirection"
+        },
+        "breakdown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/resultBreakdown"
+          },
+          "maxItems": 12,
+          "default": []
+        },
+        "note": {
+          "description": "One sentence of context.",
+          "type": "string"
+        },
+        "selfReported": {
+          "description": "True when the agent supplied the numbers and OpenMetadata did not compute them.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
     "question": { "type": "string" },
     "headline": { "description": "The agent's one-line answer, quoted as the agent's.", "type": "string" },
+    "result": { "$ref": "#/definitions/result" },
     "concepts": { "type": "array", "items": { "$ref": "#/definitions/concept" }, "default": [] },
     "timeWindow": { "$ref": "#/definitions/timeWindow" },
     "tables": { "type": "array", "items": { "$ref": "#/definitions/table" }, "default": [] },
@@ -182,6 +279,9 @@
     "showSql": { "description": "Whether the harness shows SQL in the block. The block shows it regardless when the SQL was not run.", "type": "boolean", "default": true },
     "trustChecked": { "$ref": "#/definitions/trustChecked" },
     "planChecked": { "description": "True when the cited items were checked against a plan from start_answer.", "type": "boolean", "default": false },
+    "harnessName": { "description": "Display name of the harness applied to the caller: their persona's, else Company default.", "type": "string" },
+    "harnessVersion": { "description": "Published version of that harness.", "type": "number" },
+    "answeredAt": { "description": "When the server wrote the citation.", "$ref": "../../type/basic.json#/definitions/timestamp" },
     "traceUrl": { "type": "string" },
     "warnings": { "description": "Written by the server only.", "type": "array", "items": { "type": "string" }, "default": [] }
   },

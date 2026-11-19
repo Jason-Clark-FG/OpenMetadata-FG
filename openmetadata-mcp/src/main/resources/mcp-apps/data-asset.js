@@ -36,7 +36,7 @@
       cells.push({ label: "Freshness", value: OM.ago(profile.timestamp, now), tone: now - profile.timestamp > STALE_AFTER_MS ? "warn" : "ok" });
     }
     if (profile && typeof profile.rowCount === "number") {
-      cells.push({ label: "Rows", value: profile.rowCount.toLocaleString("en-US") });
+      cells.push({ label: "Rows", value: OM.compact(profile.rowCount) });
     }
     var summary = entity.quality && entity.quality.summary;
     if (summary && typeof summary.total === "number" && summary.total > 0) {
@@ -45,7 +45,7 @@
     }
     var month = entity.usageSummary && entity.usageSummary.monthlyStats;
     if (month && typeof month.count === "number") {
-      cells.push({ label: "Usage", value: month.count.toLocaleString("en-US") + " queries / 30d" });
+      cells.push({ label: "Usage", value: OM.compact(month.count) + " queries / 30d" });
     }
     return cells;
   }
@@ -73,6 +73,13 @@
     return notable.concat(rest).slice(0, MAX_COLUMNS).map(columnRow);
   }
 
+  function modelNotes(entity, owners) {
+    var model = entity.dataModel;
+    var notes = [owners.length ? "Owner " + owners.join(", ") : null,
+      model ? (/^dbt$/i.test(model.modelType || "") ? "dbt model" : "data model") : null].filter(Boolean);
+    return notes.length ? [h("span", null, notes.join(" · "))] : [];
+  }
+
   function renderOne(entity, now) {
     var owners = (entity.owners || []).map(name).filter(Boolean);
     var tierText = tier(entity);
@@ -93,7 +100,10 @@
         OM.section("Key columns", columns.length ? h("div", "om-columns", columns) : null)
       ],
       fold: sql ? { title: "SQL definition", meta: "dbt model", body: h("pre", "om-code", h("code", null, sql.trim())) } : null,
-      footer: { left: owners.length ? [h("span", null, "Owner " + owners.join(", "))] : [], links: [] }
+      footer: {
+        left: modelNotes(entity, owners),
+        links: entity.openMetadataUrl ? [OM.link(entity.openMetadataUrl, null, "Open in OpenMetadata ↗")] : []
+      }
     });
   }
 

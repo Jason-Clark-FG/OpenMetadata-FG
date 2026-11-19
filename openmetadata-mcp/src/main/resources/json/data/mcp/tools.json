@@ -384,7 +384,7 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Call last, before you give the user an answer that rests on data, whether or not you could run the query. Pass only names: the glossary terms and metrics you used (by fully qualified name), the tables you read, the time phrase the user said (for example last month) with the dates you used, the SQL, and your one-line answer. OpenMetadata looks each name up as the signed-in user and returns the 'How I got this' block with the definitions, time window, tables, certification, owners, freshness, failing tests, open incidents and deprecations it found, with links. Names the user cannot see are reported as not visible and unknown names as not found. Show the returned block to the user as written; do not rewrite it or add facts to it.",
+      "description": "This is how an answer that rests on data is shown to the user: call it last, before you write that answer, whether or not you could run the query. Pass only names: the glossary terms and metrics you used (by fully qualified name), the tables you read, the time phrase the user said (for example last month) with the dates you used, the SQL, and your one-line answer. OpenMetadata looks each name up as the signed-in user and returns the 'How I got this' block with the definitions, time window, tables, certification, owners, freshness, failing tests, open incidents and deprecations it found, with links. Names the user cannot see are reported as not visible and unknown names as not found. When you have numbers, fill 'result' with the headline value, its change against a comparison period, and a breakdown, so the card shows them as a value block with bars; the card marks them as reported by you, not computed by OpenMetadata. Show the returned block to the user as written; do not rewrite it or add facts to it.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -395,6 +395,53 @@
           "answer": {
             "type": "string",
             "description": "One line stating the answer, for example the headline number, or that the query was not run. Shown as your words. At most 500 characters."
+          },
+          "result": {
+            "type": "object",
+            "description": "The numbers behind the answer, when you have them. Shown on the card as a big value, a change chip and breakdown bars, marked as reported by you.",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "What the value measures, for example Q3 2026 revenue by region."
+              },
+              "value": {
+                "type": "string",
+                "description": "Headline value, formatted for reading, for example $48.2M or 112%."
+              },
+              "change": {
+                "type": "string",
+                "description": "Change against a comparison period, for example +12.4% vs Q2."
+              },
+              "changeDirection": {
+                "type": "string",
+                "enum": ["up", "down", "flat"],
+                "description": "Whether the change is up, down or flat. Defaults from the sign of the change."
+              },
+              "breakdown": {
+                "type": "array",
+                "maxItems": 12,
+                "description": "Rows of a breakdown, for example revenue by region.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": { "type": "string", "description": "Row name, for example EMEA." },
+                    "value": { "type": "string", "description": "Formatted value, for example $14.1M." },
+                    "change": { "type": "string", "description": "Formatted change, for example +18%." },
+                    "changeDirection": { "type": "string", "enum": ["up", "down", "flat"] },
+                    "share": {
+                      "type": "number",
+                      "description": "Bar length from 0 to 1, relative to the largest row."
+                    }
+                  },
+                  "required": ["label", "value"]
+                }
+              },
+              "note": {
+                "type": "string",
+                "description": "One sentence of context."
+              }
+            },
+            "required": ["value"]
           },
           "concepts": {
             "type": "array",
