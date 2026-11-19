@@ -17,6 +17,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -44,28 +45,72 @@ public final class McpAppsResources {
   private static final Pattern STYLESHEET =
       Pattern.compile("<link rel=\"stylesheet\" href=\"([^\"]+)\">");
   private static final Pattern SCRIPT = Pattern.compile("<script src=\"([^\"]+)\"></script>");
-  // The card draws its own border. No external origins: the views load nothing, so the host's
-  // default CSP applies in full.
-  private static final Map<String, Object> UI_META =
-      Map.of("ui", Map.of("prefersBorder", false, "csp", Map.of()));
+
+  /** Where {@code McpCardFontsFilter} serves the card fonts, relative to the server's base URL. */
+  public static final String FONT_PATH = "/mcp-assets/fonts";
+
+  private static final String FONT_BASE_PLACEHOLDER = "__FONT_BASE__";
+  private static final Pattern FONT_FACE = Pattern.compile("@font-face\\s*\\{[^}]*\\}");
 
   private McpAppsResources() {}
 
-  public static List<McpStatelessServerFeatures.SyncResourceSpecification> specifications() {
+  /**
+   * @param baseUrl the server's public base URL, with any context path. The card loads its fonts
+   *     from there, and the resource's {@code _meta.ui.csp} lists its origin: a host's default CSP
+   *     allows no fonts, not even {@code data:} ones. Without a usable base URL the card keeps the
+   *     system fonts.
+   */
+  public static List<McpStatelessServerFeatures.SyncResourceSpecification> specifications(
+      final String baseUrl) {
+    final String origin = originOf(baseUrl);
+    final Map<String, Object> meta = meta(origin);
+    final String fontBase =
+        origin == null ? null : baseUrl.trim().replaceAll("/+$", "") + FONT_PATH;
     return List.of(
         view(
             ANSWER_CITATION_URI,
             "answer-citation",
             "How I got this",
             "Citation card for a finish_answer result",
-            "answer-citation-v1.html"),
+            "answer-citation-v1.html",
+            fontBase,
+            meta),
         view(
             ENTITY_URI,
             "entity",
             "Entity",
             "Card for an entity returned by get_entity_details: a data asset, metric or glossary term,"
                 + " chosen by the entity type in the result",
-            "entity-v1.html"));
+            "entity-v1.html",
+            fontBase,
+            meta));
+  }
+
+  /** The card draws its own border; {@code resourceDomains} is the MCP Apps allowance for fonts. */
+  static Map<String, Object> meta(final String origin) {
+    final Map<String, Object> csp =
+        origin == null ? Map.of() : Map.of("resourceDomains", List.of(origin));
+    return Map.of("ui", Map.of("prefersBorder", false, "csp", csp));
+  }
+
+  /** {@code scheme://host[:port]} of an http(s) URL, or null when there is none. */
+  static String originOf(final String baseUrl) {
+    if (baseUrl == null || baseUrl.isBlank()) {
+      return null;
+    }
+    try {
+      final URI uri = URI.create(baseUrl.trim());
+      final boolean web = "http".equals(uri.getScheme()) || "https".equals(uri.getScheme());
+      if (!web || uri.getHost() == null) {
+        return null;
+      }
+      return uri.getScheme()
+          + "://"
+          + uri.getHost()
+          + (uri.getPort() < 0 ? "" : ":" + uri.getPort());
+    } catch (IllegalArgumentException invalid) {
+      return null;
+    }
   }
 
   /** Fails at startup when a view or a file it links is missing, not on a host's first read. */
@@ -74,8 +119,10 @@ public final class McpAppsResources {
       final String name,
       final String title,
       final String description,
-      final String file) {
-    final String html = inline(load(VIEWS_DIR + file));
+      final String file,
+      final String fontBase,
+      final Map<String, Object> meta) {
+    final String html = withFonts(inline(load(VIEWS_DIR + file)), fontBase);
     final McpSchema.Resource resource =
         McpSchema.Resource.builder()
             .uri(uri)
@@ -83,13 +130,20 @@ public final class McpAppsResources {
             .title(title)
             .description(description)
             .mimeType(MIME_TYPE)
-            .meta(UI_META)
+            .meta(meta)
             .build();
     return new McpStatelessServerFeatures.SyncResourceSpecification(
         resource,
         (context, request) ->
             new McpSchema.ReadResourceResult(
-                List.of(new McpSchema.TextResourceContents(uri, MIME_TYPE, html, UI_META))));
+                List.of(new McpSchema.TextResourceContents(uri, MIME_TYPE, html, meta))));
+  }
+
+  /** Without a font base the rules go, so the card requests no URL it cannot reach. */
+  static String withFonts(final String page, final String fontBase) {
+    return fontBase == null
+        ? FONT_FACE.matcher(page).replaceAll("")
+        : page.replace(FONT_BASE_PLACEHOLDER, fontBase);
   }
 
   static String inline(final String page) {

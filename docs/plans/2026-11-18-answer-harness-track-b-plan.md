@@ -155,6 +155,14 @@ Playwright `playwright/e2e/Features/AnswerCitationView.spec.ts` plays the host w
 asserts the rendered lines and warnings, checks that a `<script>` in a description renders as
 text, and checks that a link click posts `ui/open-link`.
 
+**Pixel parity.** The cards are held to the design prototype with
+`PLAYWRIGHT_HOME=<ui dir with node_modules> node scripts/harness/card_parity.mjs --out <dir> [--only 1a,2c]`
+(needs the prototype served at `--prototype`, default `http://127.0.0.1:8794/cards.html`; exits 1 above
+0.5%). Fixtures: `scripts/harness/card_fixtures.json`. Fonts: Inter and Roboto Mono WOFF2 are vendored in
+`mcp-apps/fonts/` and served unauthenticated at `<base URL>/mcp-assets/fonts/` by `McpCardFontsFilter`;
+the card resource lists the base URL's origin in `_meta.ui.csp.resourceDomains` because the 2026-01-26
+default CSP (`default-src 'none'`) blocks every font, including `data:`.
+
 **Local E2E.** Expose the stack over HTTPS through a tunnel. In claude.ai, Claude Desktop, and
 ChatGPT developer mode, ask the ARR question, screenshot the card, and record whether a custom
 connector renders it and whether the model repeats the block. Claude Code and Codex keep B1's

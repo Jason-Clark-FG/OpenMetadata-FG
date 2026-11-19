@@ -7,8 +7,8 @@
 // For each variant it screenshots the prototype's card element and ours, rendered from the same
 // sample content (scripts/harness/card_fixtures.json) at the prototype's card width, theme and
 // deviceScaleFactor 2, and diffs them. Our cards are served from this checkout by a throwaway
-// static server, and the prototype's @font-face rules are copied into our page so both renders use
-// the same Inter and Roboto Mono files. Exits 1 when a card exceeds the threshold, or when a card
+// static server, and the fonts come from the same WOFF2 files the server's /mcp-assets/fonts route
+// serves (the prototype uses the Google Fonts files of the same version). Exits 1 when a card exceeds the threshold, or when a card
 // overflows horizontally at 360 px or 1280 px. Not part of CI: it needs a running prototype.
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -41,11 +41,17 @@ const VARIANTS = {
   "2e": { page: "entity-v1.html", fixture: "table", theme: "dark", width: 640, protoSelector: "#\\32 e .sc-host > div" },
 };
 
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".woff2": "font/woff2" };
 const server = http.createServer((request, response) => {
   const file = path.join(root, decodeURIComponent(new URL(request.url, "http://x").pathname));
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { response.writeHead(404).end(); return; }
-  response.writeHead(200, { "content-type": types[path.extname(file)] ?? "application/octet-stream" }).end(fs.readFileSync(file));
+  // The card's font stylesheet carries the server's font URL as a placeholder; McpAppsResources fills it in
+  // at runtime, here it points at the same font files on this throwaway server.
+  let body = fs.readFileSync(file);
+  if (path.extname(file) === ".css") {
+    body = Buffer.from(body.toString("utf8").replaceAll("__FONT_BASE__", `http://${request.headers.host}/${APPS}/fonts`));
+  }
+  response.writeHead(200, { "content-type": types[path.extname(file)] ?? "application/octet-stream", "access-control-allow-origin": "*" }).end(body);
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
@@ -57,27 +63,11 @@ const context = await browser.newContext({ deviceScaleFactor: 2, timezoneId: "UT
 const proto = await context.newPage();
 await proto.goto(prototypeUrl, { waitUntil: "networkidle" });
 await proto.evaluate(() => document.fonts.ready);
-const fontFaces = await proto.evaluate(() => {
-  const rules = [];
-  for (const sheet of document.styleSheets) {
-    let list;
-    try { list = sheet.cssRules; } catch { continue; }
-    for (const rule of list) {
-      if (rule.type === CSSRule.FONT_FACE_RULE) {
-        const family = rule.style.getPropertyValue("font-family");
-        if (/Inter|Roboto Mono|DM Sans/.test(family)) { rules.push(rule.cssText); }
-      }
-    }
-  }
-  return rules;
-});
-const absolutize = (css) => css.replace(/url\("?([^")]+)"?\)/g, (m, url) => `url("${new URL(url, prototypeUrl).href}")`);
 
 async function ourCard(id, spec, width) {
   const page = await context.newPage();
   await page.setViewportSize({ width, height: 1200 });
   await page.goto(`${base}/${APPS}/${spec.page}`);
-  await page.addStyleTag({ content: fontFaces.map(absolutize).join("\n") });
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(([theme, data, now]) => {
     document.documentElement.setAttribute("data-theme", theme);

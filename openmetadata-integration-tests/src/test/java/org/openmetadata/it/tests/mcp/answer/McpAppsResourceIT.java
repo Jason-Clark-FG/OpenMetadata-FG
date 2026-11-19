@@ -15,11 +15,17 @@ package org.openmetadata.it.tests.mcp.answer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.openmetadata.it.bootstrap.TestSuiteBootstrap;
 import org.openmetadata.it.tests.mcp.McpTestBase;
 import org.openmetadata.it.tests.mcp.McpTestUtils;
 
@@ -72,6 +78,63 @@ class McpAppsResourceIT extends McpTestBase {
     assertThat(contents.path("mimeType").asText()).isEqualTo(MIME_TYPE);
     assertThat(contents.path("text").asText()).startsWith("<!doctype html>");
     assertThat(contents.path("_meta").path("ui").path("prefersBorder").asBoolean(true)).isFalse();
+  }
+
+  @Test
+  void theCardLoadsItsFontsFromAnOriginItsResourceDeclares() throws Exception {
+    final JsonNode contents =
+        executeMcpRequest(
+                McpTestUtils.createJsonRpcRequest("resources/read", Map.of("uri", CARD_URI)))
+            .path("result")
+            .path("contents")
+            .get(0);
+
+    final String html = contents.path("text").asText();
+    final JsonNode domains = contents.path("_meta").path("ui").path("csp").path("resourceDomains");
+    assertThat(html).doesNotContain("__FONT_BASE__");
+    final Matcher fontUrl =
+        Pattern.compile("url\\(\"(https?://[^\"/]+(?::\\d+)?)/[^\"]*inter-latin\\.woff2\"\\)")
+            .matcher(html);
+    if (domains.isEmpty()) {
+      assertThat(html).doesNotContain("@font-face");
+    } else {
+      assertThat(fontUrl.find()).isTrue();
+      assertThat(domains.get(0).asText()).isEqualTo(fontUrl.group(1));
+    }
+  }
+
+  @Test
+  void theFontsAreServedWithoutAuthenticationToAnyOrigin() throws Exception {
+    final HttpResponse<byte[]> font =
+        HTTP_CLIENT.send(
+            HttpRequest.newBuilder()
+                .uri(
+                    URI.create(
+                        TestSuiteBootstrap.getBaseUrl() + "/mcp-assets/fonts/inter-latin.woff2"))
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofByteArray());
+
+    assertThat(font.statusCode()).isEqualTo(200);
+    assertThat(font.headers().firstValue("Content-Type")).contains("font/woff2");
+    assertThat(font.headers().firstValue("Access-Control-Allow-Origin")).contains("*");
+    assertThat(new String(font.body(), 0, 4, java.nio.charset.StandardCharsets.US_ASCII))
+        .isEqualTo("wOF2");
+  }
+
+  @Test
+  void aNameOutsideTheFontListIsNotServedAsAFont() throws Exception {
+    final HttpResponse<String> other =
+        HTTP_CLIENT.send(
+            HttpRequest.newBuilder()
+                .uri(
+                    URI.create(
+                        TestSuiteBootstrap.getBaseUrl() + "/mcp-assets/fonts/unlisted.woff2"))
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+
+    assertThat(other.headers().firstValue("Content-Type").orElse("")).doesNotContain("font/");
   }
 
   @Test

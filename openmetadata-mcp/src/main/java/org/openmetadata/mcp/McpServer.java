@@ -328,7 +328,12 @@ public class McpServer implements McpServerProvider {
               SecurityConfigurationManager::getCurrentMcpConfig);
       addToolsToServer(server, tools);
       addPromptsToServer(server, prompts);
-      McpAppsResources.specifications().forEach(server::addResource);
+      McpAppsResources.specifications(baseUrl).forEach(server::addResource);
+      environment
+          .servlets()
+          .addFilter("mcp-card-fonts", new McpCardFontsFilter())
+          .addMappingForUrlPatterns(
+              EnumSet.of(DispatcherType.REQUEST), false, McpAppsResources.FONT_PATH + "/*");
 
       // SSE transport for MCP
       ServletHolder servletHolderSSE = new ServletHolder(statelessOauthTransport);

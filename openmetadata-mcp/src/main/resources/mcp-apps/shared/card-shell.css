@@ -1,6 +1,6 @@
 /* The shared card shell. Tokens and spacing follow the "Agent Context Cards 2" prototype.
-   Inter and Roboto Mono are used when the host has them installed; the view loads no font files
-   because its CSP allows no external origins. */
+   Inter and Roboto Mono load from this server (card-fonts.css) when the host allows its origin;
+   otherwise the system stacks below apply. */
 :root {
   color-scheme: light dark;
   --card-bg: rgb(255, 255, 255);

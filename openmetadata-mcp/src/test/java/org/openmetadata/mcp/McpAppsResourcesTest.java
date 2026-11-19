@@ -21,6 +21,8 @@ import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpStatelessServerTransport;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -30,6 +32,8 @@ class McpAppsResourcesTest {
   private static final String CITATION_URI = "ui://openmetadata/answer-citation-v1.html";
   private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
+  private static final String BASE_URL = "https://om.example.com:8585/ctx/";
+  private static final String ORIGIN = "https://om.example.com:8585";
 
   @Test
   void bothCardsAreListedWithTheMcpAppsMimeType() {
@@ -54,7 +58,10 @@ class McpAppsResourcesTest {
     assertThat(card.uri()).isEqualTo(uri);
     assertThat(card.mimeType()).isEqualTo(MIME_TYPE);
     assertThat(card.meta())
-        .isEqualTo(Map.of("ui", Map.of("prefersBorder", false, "csp", Map.of())));
+        .isEqualTo(
+            Map.of(
+                "ui",
+                Map.of("prefersBorder", false, "csp", Map.of("resourceDomains", List.of(ORIGIN)))));
     assertThat(card.text())
         .startsWith("<!doctype html>")
         .contains("--card-bg:", ".om-card")
@@ -66,7 +73,7 @@ class McpAppsResourcesTest {
 
   @ParameterizedTest
   @ValueSource(strings = {CITATION_URI, ASSET_URI})
-  void aCardWritesCatalogTextAsTextAndLoadsNothing(final String uri) {
+  void aCardWritesCatalogTextAsTextAndLoadsOnlyItsFonts(final String uri) {
     final String card = read(uri).text();
 
     // Names and descriptions are written by anyone with edit rights, so none may reach the page as
@@ -77,8 +84,36 @@ class McpAppsResourcesTest {
         .doesNotContainPattern("<script[^>]*\\ssrc=")
         .doesNotContainPattern("<link[^>]*\\shref=")
         .doesNotContainPattern("@import")
-        .doesNotContainPattern("url\\(")
-        .doesNotContainPattern("@font-face");
+        .doesNotContain("data:", "__FONT_BASE__");
+    final Matcher urls = Pattern.compile("url\\(\"([^\"]*)\"\\)").matcher(card);
+    int count = 0;
+    while (urls.find()) {
+      count++;
+      assertThat(urls.group(1)).startsWith(ORIGIN + "/ctx/mcp-assets/fonts/").endsWith(".woff2");
+    }
+    assertThat(count).isEqualTo(4);
+    assertThat(card).doesNotContainPattern("url\\([^\"]");
+  }
+
+  @Test
+  void withoutAUsableBaseUrlTheCardKeepsTheSystemFontsAndDeclaresNoOrigin() {
+    for (final String baseUrl : new String[] {null, "", "  ", "not a url", "ftp://host/x"}) {
+      final McpSchema.TextResourceContents card = read(CITATION_URI, baseUrl);
+
+      assertThat(card.meta())
+          .isEqualTo(Map.of("ui", Map.of("prefersBorder", false, "csp", Map.of())));
+      assertThat(card.text()).doesNotContain("@font-face", "__FONT_BASE__", "url(");
+      assertThat(card.text()).contains("--card-font: Inter, system-ui");
+    }
+  }
+
+  @Test
+  void theOriginKeepsTheSchemeHostAndPortOnly() {
+    assertThat(McpAppsResources.originOf("http://localhost:8585"))
+        .isEqualTo("http://localhost:8585");
+    assertThat(McpAppsResources.originOf("https://acme.getcollate.io/om/"))
+        .isEqualTo("https://acme.getcollate.io");
+    assertThat(McpAppsResources.originOf("javascript:alert(1)")).isNull();
   }
 
   @Test
@@ -109,8 +144,12 @@ class McpAppsResourcesTest {
   }
 
   private static McpSchema.TextResourceContents read(final String uri) {
+    return read(uri, BASE_URL);
+  }
+
+  private static McpSchema.TextResourceContents read(final String uri, final String baseUrl) {
     final McpSchema.ReadResourceResult result =
-        McpAppsResources.specifications().stream()
+        McpAppsResources.specifications(baseUrl).stream()
             .filter(specification -> uri.equals(specification.resource().uri()))
             .findFirst()
             .orElseThrow()
@@ -126,7 +165,7 @@ class McpAppsResourcesTest {
             mock(McpStatelessServerTransport.class),
             new McpServer().buildServerCapabilities(),
             MCPConfiguration::new);
-    McpAppsResources.specifications().forEach(server::addResource);
+    McpAppsResources.specifications(BASE_URL).forEach(server::addResource);
     return server;
   }
 }
