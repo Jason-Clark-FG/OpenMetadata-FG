@@ -76,6 +76,15 @@ export const Disabled: StoryObj = {
   ),
 };
 
+export const ReadOnly: StoryObj = {
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Toggle isReadOnly label="Locked off" />
+      <Toggle defaultSelected isReadOnly label="Locked on" />
+    </div>
+  ),
+};
+
 export const Slim: StoryObj = {
   render: () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

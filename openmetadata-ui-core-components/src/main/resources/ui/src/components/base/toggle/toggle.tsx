@@ -12,6 +12,7 @@ interface ToggleBaseProps {
   isFocusVisible?: boolean;
   isSelected?: boolean;
   isDisabled?: boolean;
+  isReadOnly?: boolean;
 }
 
 export const ToggleBase = ({
@@ -19,6 +20,7 @@ export const ToggleBase = ({
   isHovered,
   isDisabled,
   isFocusVisible,
+  isReadOnly,
   isSelected,
   slim,
   size = 'sm',
@@ -60,6 +62,8 @@ export const ToggleBase = ({
         isSelected && 'tw:bg-brand-solid',
         isSelected && isHovered && 'tw:bg-brand-solid_hover',
         isDisabled && 'tw:cursor-not-allowed tw:bg-disabled',
+        // Read-only keeps the selected colour, so a locked value still reads as on or off.
+        isReadOnly && 'tw:cursor-not-allowed',
         isFocusVisible && 'tw:outline-2 tw:outline-offset-2',
 
         slim && `${borderAfter} tw:after:outline-secondary`,
@@ -130,18 +134,20 @@ export const Toggle = ({
           // max-w-full lets a long hint wrap inside its container instead of overflowing it.
           // relative contains react-aria's absolutely positioned hidden input.
           'tw:relative tw:flex tw:w-max tw:max-w-full tw:items-start',
-          renderProps.isDisabled && 'tw:cursor-not-allowed',
+          (renderProps.isDisabled || renderProps.isReadOnly) &&
+            'tw:cursor-not-allowed',
           sizes[size].root,
           typeof className === 'function' ? className(renderProps) : className
         )
       }>
-      {({ isSelected, isDisabled, isFocusVisible, isHovered }) => (
+      {({ isSelected, isDisabled, isFocusVisible, isHovered, isReadOnly }) => (
         <>
           <ToggleBase
             className={slim ? 'tw:mt-0.5' : ''}
             isDisabled={isDisabled}
             isFocusVisible={isFocusVisible}
-            isHovered={isHovered}
+            isHovered={isHovered && !isReadOnly}
+            isReadOnly={isReadOnly}
             isSelected={isSelected}
             size={size}
             slim={slim}
