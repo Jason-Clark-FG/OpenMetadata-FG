@@ -154,6 +154,9 @@ class McpOfferedToolsTest {
     assertThat(instructions)
         .contains("short form", "full cards", "matched", "rest", "assignee and severity");
     assertThat(instructions).contains("notes people saved", "preferences", "name it");
+    assertThat(instructions)
+        .contains("End every turn with cite", "under learned", "numbers and units")
+        .contains("Never data values", "Say what was saved");
     assertThat(instructions.length()).isLessThan(800);
     assertThat(initialize(OfferedTools.ALL).instructions()).isNull();
     assertThat(
