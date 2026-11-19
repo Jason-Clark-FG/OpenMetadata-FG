@@ -38,6 +38,9 @@ public final class KnowledgeGraphCards {
   public static final int MAX_STEPS = 20;
   public static final int MAX_CITED = 20;
   public static final int MAX_EXPLORED = 8;
+  private static final Pattern RAW_ID =
+      Pattern.compile(
+          "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
   private static final Pattern ENTITY_IRI = Pattern.compile("/entity/[^/]+/[^/]+$");
 
   private static final String OFFERED = "offered";
@@ -133,12 +136,17 @@ public final class KnowledgeGraphCards {
             .map(node -> runNode(node, stateOf(node, offering), byId.get(node.id())))
             .sorted(Comparator.comparingInt(KnowledgeGraphCards::rank))
             .toList();
-    final List<KnowledgeGraphCard.Node> cited = inState(reached, CITED);
-    final List<KnowledgeGraphCard.Node> explored = inState(reached, EXPLORED);
+    final List<KnowledgeGraphCard.Node> named =
+        reached.stream()
+            .filter(node -> node.name() != null && !RAW_ID.matcher(node.name()).matches())
+            .toList();
+    final int unnamed = reached.size() - named.size();
+    final List<KnowledgeGraphCard.Node> cited = inState(named, CITED);
+    final List<KnowledgeGraphCard.Node> explored = inState(named, EXPLORED);
     final List<KnowledgeGraphCard.Node> nodes =
         Stream.concat(head(cited, MAX_CITED).stream(), head(explored, MAX_EXPLORED).stream())
             .toList();
-    final int moreNodes = more(cited, MAX_CITED) + more(explored, MAX_EXPLORED);
+    final int moreNodes = more(cited, MAX_CITED) + more(explored, MAX_EXPLORED) + unnamed;
     final Set<String> shown =
         nodes.stream().map(KnowledgeGraphCard.Node::id).collect(Collectors.toSet());
     final List<KnowledgeGraphCard.Edge> edges =
@@ -219,7 +227,7 @@ public final class KnowledgeGraphCards {
     return card == null
         ? new KnowledgeGraphCard.Node(
             node.id(),
-            name(node.label(), node.id()),
+            displayName(node.label(), node.fullyQualifiedName()),
             node.entityType(),
             state,
             null,
@@ -227,14 +235,17 @@ public final class KnowledgeGraphCards {
             null,
             null,
             null)
-        : withState(node(card, state), state);
+        : withState(
+            node(card, state),
+            state,
+            card.label() == null ? displayName(node.label(), node.fullyQualifiedName()) : null);
   }
 
   private static KnowledgeGraphCard.Node withState(
-      final KnowledgeGraphCard.Node node, final String state) {
+      final KnowledgeGraphCard.Node node, final String state, final String name) {
     return new KnowledgeGraphCard.Node(
         node.id(),
-        node.name(),
+        name == null ? node.name() : name,
         node.type(),
         state,
         node.tier(),
@@ -384,6 +395,15 @@ public final class KnowledgeGraphCards {
         card.moreSteps(),
         card.query(),
         card.rest());
+  }
+
+  /** A label, else the last part of the qualified name; null when the run saw neither. */
+  private static String displayName(final String label, final String fullyQualifiedName) {
+    final boolean labelled = label != null && !label.isBlank();
+    final boolean qualified = fullyQualifiedName != null && !fullyQualifiedName.isBlank();
+    final String shortName =
+        qualified ? fullyQualifiedName.substring(fullyQualifiedName.lastIndexOf('.') + 1) : null;
+    return labelled ? label : shortName;
   }
 
   private static String name(final String label, final String id) {

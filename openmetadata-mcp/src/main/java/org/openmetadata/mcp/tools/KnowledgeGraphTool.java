@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.mcp.util.ResponseBudget;
@@ -334,19 +335,42 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       List<SubAgentDefinition> subAgents,
       String aboutSubAgents)
       implements Response {
-    static final String ABOUT =
-        "When one of these sub-agents fits the task (its 'whenToUse' says when; for analytics, the"
-            + " person wants numbers from the warehouse), hand the task to it with delegate instead"
-            + " of writing SQL or SPARQL yourself, and say in the answer that the agent ran it."
-            + " delegate takes 'agent', 'task' and optional card 'nodes'; it runs as the person,"
-            + " with their access. A 'running' result carries a 'handle': call delegate with it"
-            + " later.";
+    static final String HAND_OVER =
+        " When what the person asks falls under one of these jobs, the work is that agent's:"
+            + " hand it over with delegate ('agent', 'task', optional card 'nodes') and do not"
+            + " write or run SQL or SPARQL through another tool for it. The agent runs as the"
+            + " person, with their access; say in the answer that it ran the task. Only if it"
+            + " fails, or is still running after one retry with its 'handle', say so and fall"
+            + " back to answering yourself.";
 
     static Response of(final Response answer, final KnowledgeGraphHarness harness) {
       final boolean agents = !harness.agents().isEmpty();
       return agents || harness.guidance() != null
-          ? new Opening(answer, harness.guidance(), harness.agents(), agents ? ABOUT : null)
+          ? new Opening(
+              answer, harness.guidance(), harness.agents(), agents ? about(harness.agents()) : null)
           : answer;
+    }
+
+    /** Each enabled agent's job, from its own when-to-use, then the rule to hand it over. */
+    static String about(final List<SubAgentDefinition> agents) {
+      final String jobs =
+          agents.stream()
+              .map(
+                  agent ->
+                      "'%s' does %s"
+                          .formatted(
+                              agent.name(),
+                              stripPeriod(
+                                  agent.whenToUse() == null || agent.whenToUse().isBlank()
+                                      ? agent.description()
+                                      : agent.whenToUse())))
+              .collect(Collectors.joining("; "));
+      return "Sub-agents on for this person: " + jobs + "." + HAND_OVER;
+    }
+
+    private static String stripPeriod(final String text) {
+      final String trimmed = text == null ? "" : text.strip();
+      return trimmed.endsWith(".") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
 
     @Override
@@ -445,7 +469,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         trace.nodes().stream()
             .filter(node -> node.citedStep() != null)
             .map(TraceNode::id)
-            .limit(KnowledgeGraphCards.MAX_MEMORIES)
+            .limit(KnowledgeGraphCards.MAX_CITED)
             .toList();
     return KnowledgeGraphCards.ofRun(operation, trace, explorer.cards(cited));
   }

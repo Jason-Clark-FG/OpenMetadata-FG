@@ -68,11 +68,14 @@ final class RunTraceFolder {
             edge -> {
               citedEdges.putIfAbsent(edge, sequence);
               citedOffers.putIfAbsent(RelationshipKey.of(edge), sequence);
+              if (edge.other() != null) {
+                explored.putIfAbsent(edge, sequence);
+              }
             });
   }
 
   private void addNode(final RunStep.Node node, final int sequence) {
-    nodes.putIfAbsent(node.id(), traceNode(node, sequence));
+    nodes.merge(node.id(), traceNode(node, sequence), RunTraceFolder::described);
     node.offers().stream()
         .map(
             offer ->
@@ -132,6 +135,20 @@ final class RunTraceFolder {
     final ExplorationState state =
         cited == null ? ExplorationState.EXPLORED : ExplorationState.CITED;
     return traceEdge(edge, state, sequence, sequence, cited);
+  }
+
+  /** The node as first seen, with the name and type a later step gave when the first had none. */
+  private static TraceNode described(final TraceNode first, final TraceNode later) {
+    return new TraceNode(
+        first.id(),
+        first.label() == null ? later.label() : first.label(),
+        first.entityType() == null ? later.entityType() : first.entityType(),
+        first.fullyQualifiedName() == null
+            ? later.fullyQualifiedName()
+            : first.fullyQualifiedName(),
+        first.state(),
+        first.firstStep(),
+        first.citedStep());
   }
 
   private static TraceNode traceNode(final RunStep.Node node, final int sequence) {
