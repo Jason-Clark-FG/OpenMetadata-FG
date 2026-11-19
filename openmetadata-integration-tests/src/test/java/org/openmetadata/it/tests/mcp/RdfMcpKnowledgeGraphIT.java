@@ -542,7 +542,7 @@ public class RdfMcpKnowledgeGraphIT extends McpTestBase {
   }
 
   private static JsonNode payloadOf(final JsonNode result) throws Exception {
-    final String text = result.path("content").path(0).path("text").asText("");
+    final String text = McpTestUtils.toolBlock(result.path("content")).path("text").asText("");
     return text.isBlank() ? result.path("structuredContent") : OBJECT_MAPPER.readTree(text);
   }
 

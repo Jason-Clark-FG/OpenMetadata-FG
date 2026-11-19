@@ -205,7 +205,7 @@ class McpMetricRelationVisibilityIT extends McpTestBase {
         .as(response.toString())
         .isFalse();
     return OBJECT_MAPPER.readTree(
-        response.path("result").path("content").get(0).path("text").asText());
+        McpTestUtils.toolBlock(response.path("result").path("content")).path("text").asText());
   }
 
   private static List<String> idsOf(JsonNode references) {

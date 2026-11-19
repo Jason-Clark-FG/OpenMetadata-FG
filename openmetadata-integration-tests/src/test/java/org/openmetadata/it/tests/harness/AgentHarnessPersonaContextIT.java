@@ -459,7 +459,8 @@ class AgentHarnessPersonaContextIT extends McpTestBase {
   private static JsonNode toolResult(final JsonNode response) throws Exception {
     final JsonNode result = response.path("result");
     assertThat(result.path("isError").asBoolean(false)).as(result.toString()).isFalse();
-    return OBJECT_MAPPER.readTree(result.path("content").get(0).path("text").asText());
+    return OBJECT_MAPPER.readTree(
+        McpTestUtils.toolBlock(result.path("content")).path("text").asText());
   }
 
   private static Set<String> resultFqns(final JsonNode response) {

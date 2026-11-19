@@ -262,7 +262,8 @@ class AIContextMcpIT extends McpTestBase {
 
     JsonNode child =
         OBJECT_MAPPER
-            .readTree(response.get("result").get("content").get(0).get("text").asText())
+            .readTree(
+                McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText())
             .path("children")
             .get(0);
     assertThat(child.path("fullyQualifiedName").asText())
@@ -308,7 +309,8 @@ class AIContextMcpIT extends McpTestBase {
 
     // A child the caller cannot view is dropped from the response
     // (ADR:2026-10-31-metric-and-metric-group-responses-hide-relations-the-viewer-cannot-see).
-    String text = response.get("result").get("content").get(0).get("text").asText();
+    String text =
+        McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText();
     JsonNode children = OBJECT_MAPPER.readTree(text).path("children");
     assertThat(children.size()).isEqualTo(1);
     assertThat(children.get(0).path("fullyQualifiedName").asText())
@@ -366,7 +368,8 @@ class AIContextMcpIT extends McpTestBase {
                 List.of("context")));
     JsonNode response = executeMcpRequest(toolCall);
 
-    String text = response.get("result").get("content").get(0).get("text").asText();
+    String text =
+        McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText();
     assertThat(text).contains("# Schema");
     assertThat(text).contains("# Foreign Keys");
     assertThat(text).contains(customersTable.getFullyQualifiedName() + ".id");
@@ -397,7 +400,8 @@ class AIContextMcpIT extends McpTestBase {
 
     JsonNode context =
         OBJECT_MAPPER
-            .readTree(response.get("result").get("content").get(0).get("text").asText())
+            .readTree(
+                McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText())
             .path("context");
     JsonNode foreignKeys = context.path("assetContext").path("table").path("foreignKeys");
     assertThat(foreignKeys.isArray()).isTrue();
@@ -426,7 +430,8 @@ class AIContextMcpIT extends McpTestBase {
 
     JsonNode context =
         OBJECT_MAPPER
-            .readTree(response.get("result").get("content").get(0).get("text").asText())
+            .readTree(
+                McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText())
             .path("context");
     JsonNode longArticle = findArticle(context.path("articles"), longArticleFqn);
     assertThat(longArticle).isNotNull();
@@ -448,7 +453,8 @@ class AIContextMcpIT extends McpTestBase {
             Map.of("entityType", "page", "fqn", longArticleFqn, "include", List.of("content")));
     JsonNode response = executeMcpRequest(toolCall);
 
-    String text = response.get("result").get("content").get(0).get("text").asText();
+    String text =
+        McpTestUtils.toolBlock(response.get("result").path("content")).get("text").asText();
     assertThat(text).contains(LONG_ARTICLE_LEAD);
     assertThat(text).contains(LONG_ARTICLE_TAIL);
   }

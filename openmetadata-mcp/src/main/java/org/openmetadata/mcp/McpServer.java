@@ -28,6 +28,8 @@ import org.openmetadata.mcp.server.auth.util.UriUtils;
 import org.openmetadata.mcp.server.transport.JsonRpcErrorBody;
 import org.openmetadata.mcp.server.transport.OAuthHttpStatelessServerTransportProvider;
 import org.openmetadata.mcp.tools.DefaultToolContext;
+import org.openmetadata.mcp.tools.DeliveryLedger;
+import org.openmetadata.mcp.tools.FirstCallContext;
 import org.openmetadata.mcp.tools.HarnessHookTool;
 import org.openmetadata.mcp.usage.McpUsageRecorder;
 import org.openmetadata.schema.api.configuration.MCPConfiguration;
@@ -58,6 +60,7 @@ public class McpServer implements McpServerProvider {
 
   protected volatile JwtFilter jwtFilter;
   protected Authorizer authorizer;
+  private final FirstCallContext firstCallContext = FirstCallContext.create(new DeliveryLedger());
   protected Limits limits;
   protected DefaultToolContext toolContext;
   protected DefaultPromptsContext promptsContext;
@@ -484,7 +487,16 @@ public class McpServer implements McpServerProvider {
                   () ->
                       toolContext.callToolWithMetadata(
                           authorizer, limits, tool.name(), securityContext, req));
-      return outcome.result();
+      return firstCallContext.apply(
+          authorizer,
+          securityContext,
+          new DeliveryLedger.Caller(
+              userName,
+              clientName,
+              (String) context.get(AuthEnrichedMcpContextExtractor.ACTIVE_PERSONA_HEADER),
+              (String) context.get(AuthEnrichedMcpContextExtractor.SESSION_ID)),
+          tool.name(),
+          outcome.result());
     } finally {
       recordUsage(tool.name(), userName, clientName, outcome);
     }

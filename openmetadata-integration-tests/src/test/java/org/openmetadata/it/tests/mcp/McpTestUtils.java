@@ -1,11 +1,20 @@
 package org.openmetadata.it.tests.mcp;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class McpTestUtils {
+
+  /**
+   * The block that carries the tool's own answer. A caller's first call in a conversation has the
+   * OpenMetadata context block ahead of it, so the answer is always the last block.
+   */
+  public static JsonNode toolBlock(JsonNode content) {
+    return content.get(content.size() - 1);
+  }
 
   public static Map<String, Object> createJsonRpcRequest(
       String method, Map<String, Object> params) {

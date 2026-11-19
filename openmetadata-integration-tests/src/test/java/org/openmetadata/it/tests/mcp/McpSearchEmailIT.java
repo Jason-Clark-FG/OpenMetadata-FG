@@ -67,6 +67,6 @@ public class McpSearchEmailIT extends McpTestBase {
   }
 
   private static String resultText(JsonNode response) {
-    return response.path("result").path("content").path(0).path("text").asText();
+    return McpTestUtils.toolBlock(response.path("result").path("content")).path("text").asText();
   }
 }

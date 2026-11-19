@@ -112,7 +112,9 @@ public class McpUserContextIT extends McpTestBase {
     if (result.has("structuredContent")) {
       payload = result.get("structuredContent");
     } else {
-      payload = OBJECT_MAPPER.readTree(result.get("content").get(0).get("text").asText());
+      payload =
+          OBJECT_MAPPER.readTree(
+              McpTestUtils.toolBlock(result.path("content")).get("text").asText());
     }
     return payload;
   }

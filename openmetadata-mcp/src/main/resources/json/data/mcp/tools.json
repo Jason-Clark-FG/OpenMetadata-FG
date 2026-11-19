@@ -9,7 +9,7 @@
         "idempotentHint": true,
         "openWorldHint": false
       },
-      "description": "Read Company Context knowledge pills - the question/answer notes extracted from files in the Context Center. Pass 'query' to find pills that answer a question, or 'fqn' to read one you already have the name of; exactly one of the two. Either way the scope is the same: file-extracted pills shared with the organization. Each result carries the pill's title, question, answer, summary and source file, so a search result is usually enough on its own and needs no follow-up read. 'query' needs vector embeddings configured on the server; 'fqn' does not.",
+      "description": "Search the question/answer notes (knowledge pills) extracted from files in the Context Center. This is not the starting context for a task; call get_context for that. Pass 'query' to find pills that answer a question, or 'fqn' to read one you already have the name of; exactly one of the two. Either way the scope is the same: file-extracted pills shared with the organization. Each result carries the pill's title, question, answer, summary and source file, so a search result is usually enough on its own and needs no follow-up read. 'query' needs vector embeddings configured on the server; 'fqn' does not.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -359,7 +359,7 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Get what OpenMetadata, the context layer for this organization's data, gives you at the start of a task: the company's instructions for agents, guidance for the user's persona, the skills you may use, and the glossary terms, metrics and assets the user's administrator wants always in context. Call it once at the start of every task, before you answer questions about data or query it. The content is compiled for the signed-in user from their persona; it takes no arguments. Follow the instructions it returns, cite the terms, metrics and assets you use by their fully qualified names, and follow any decision OpenMetadata returns for a tool call.",
+      "description": "Call first in every task. Returns what OpenMetadata, the context layer for this organization's data, gives you at the start of a task: the company's instructions for agents, guidance for the user's persona, the skills you may use, and the glossary terms, metrics and assets the user's administrator wants always in context. Call it once at the start of every task, before you answer questions about data or query it. The content is compiled for the signed-in user from their persona; it takes no arguments. Follow the instructions it returns, cite the terms, metrics and assets you use by their fully qualified names, and follow any decision OpenMetadata returns for a tool call.",
       "parameters": {
         "type": "object",
         "properties": {},

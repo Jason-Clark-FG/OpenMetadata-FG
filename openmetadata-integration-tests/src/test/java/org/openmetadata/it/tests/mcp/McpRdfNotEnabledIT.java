@@ -103,7 +103,8 @@ public class McpRdfNotEnabledIT extends McpTestBase {
 
     assertThat(result.path("isError").asBoolean()).as(result.toString()).isTrue();
     final JsonNode error =
-        OBJECT_MAPPER.readTree(result.path("content").path(0).path("text").asText());
+        OBJECT_MAPPER.readTree(
+            McpTestUtils.toolBlock(result.path("content")).path("text").asText());
     assertThat(error.path("statusCode").asInt()).isEqualTo(400);
     assertThat(error.path("error").asText()).contains("RDF knowledge graph is not enabled");
   }

@@ -76,6 +76,13 @@ public class HarnessHookTool implements McpTool {
           CompileEvent.PRE_TOOL_USE.value(),
           CompileEvent.POST_TOOL_USE.value());
 
+  /** The most hook text the client's host shows its model, by the label its User-Agent resolved to. */
+  static int maxCharsFor(String clientName) {
+    return clientName != null && clientName.toLowerCase(Locale.ROOT).startsWith(CODEX_CLIENT_PREFIX)
+        ? CODEX_MAX_HOOK_TEXT_CHARS
+        : MAX_HOOK_TEXT_CHARS;
+  }
+
   /** The host's hook input, read once at the boundary. */
   record HookInput(
       String event,
@@ -98,10 +105,7 @@ public class HarnessHookTool implements McpTool {
     }
 
     int maxChars() {
-      return clientName != null
-              && clientName.toLowerCase(Locale.ROOT).startsWith(CODEX_CLIENT_PREFIX)
-          ? CODEX_MAX_HOOK_TEXT_CHARS
-          : MAX_HOOK_TEXT_CHARS;
+      return maxCharsFor(clientName);
     }
 
     Optional<CompileAgentContext> request() {

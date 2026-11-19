@@ -602,6 +602,7 @@ class AgentHarnessCompileIT extends McpTestBase {
     final JsonNode result =
         OBJECT_MAPPER.readTree(extractJsonFromResponse(response.body())).path("result");
     assertThat(result.path("isError").asBoolean(false)).as(result.toString()).isFalse();
-    return OBJECT_MAPPER.readTree(result.path("content").get(0).path("text").asText());
+    return OBJECT_MAPPER.readTree(
+        McpTestUtils.toolBlock(result.path("content")).path("text").asText());
   }
 }

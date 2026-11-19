@@ -269,17 +269,21 @@ class ConceptContextIT extends McpTestBase {
                 "format",
                 "json"));
     JsonNode response = executeMcpRequest(call);
-    JsonNode context = OBJECT_MAPPER.readTree(response.at("/result/content/0/text").asText());
+    JsonNode context =
+        OBJECT_MAPPER.readTree(
+            McpTestUtils.toolBlock(response.at("/result/content")).path("text").asText());
     assertThat(context.at("/assetContext/conceptContext")).isEqualTo(termContext(term));
     response = executeMcpRequest(call, deniedTablesToken);
-    context = OBJECT_MAPPER.readTree(response.at("/result/content/0/text").asText());
+    context =
+        OBJECT_MAPPER.readTree(
+            McpTestUtils.toolBlock(response.at("/result/content")).path("text").asText());
     assertThat(context.at("/assetContext/conceptContext/bindings").size()).isZero();
     response =
         executeMcpRequest(
             McpTestUtils.createToolCallRequest(
                 "get_concept_context",
                 Map.of("entityType", "metric", "fqn", metric.getFullyQualifiedName())));
-    assertThat(response.at("/result/content/0/text").asText())
+    assertThat(McpTestUtils.toolBlock(response.at("/result/content")).path("text").asText())
         .contains(EXPRESSION, orders.getFullyQualifiedName());
   }
 
@@ -394,7 +398,8 @@ class ConceptContextIT extends McpTestBase {
             reader);
     JsonNode mcpEvidence =
         OBJECT_MAPPER
-            .readTree(mcpResponse.at("/result/content/0/text").asText())
+            .readTree(
+                McpTestUtils.toolBlock(mcpResponse.at("/result/content")).path("text").asText())
             .at("/assetContext/conceptContext/evidence/0");
     assertThat(mcpEvidence.path("query").asText()).isEqualTo(MASKED_SQL);
   }
@@ -710,7 +715,8 @@ class ConceptContextIT extends McpTestBase {
                 "get_concept_context",
                 Map.of("entityType", "table", "fqn", orders.getFullyQualifiedName())));
     assertThat(wrongType.at("/result/isError").asBoolean(false)).isTrue();
-    assertThat(wrongType.at("/result/content/0/text").asText()).contains("glossaryTerm or metric");
+    assertThat(McpTestUtils.toolBlock(wrongType.at("/result/content")).path("text").asText())
+        .contains("glossaryTerm or metric");
     JsonNode missing =
         executeMcpRequest(
             McpTestUtils.createToolCallRequest(

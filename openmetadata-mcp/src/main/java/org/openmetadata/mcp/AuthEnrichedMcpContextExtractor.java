@@ -24,6 +24,10 @@ public class AuthEnrichedMcpContextExtractor
    */
   public static final String CLIENT_NAME = "Mcp-Client-Name";
 
+  /** Context key for the {@code Mcp-Session-Id} a client sends, when it sends one. */
+  public static final String SESSION_ID = "Mcp-Session-Id";
+
+  private static final int MAX_SESSION_ID_LENGTH = 128;
   private static final String USER_AGENT_HEADER = "User-Agent";
 
   /**
@@ -80,6 +84,14 @@ public class AuthEnrichedMcpContextExtractor
     }
     if (clientName != null) {
       values.put(CLIENT_NAME, clientName);
+    }
+    String sessionId = request.getHeader(SESSION_ID);
+    if (sessionId != null && !sessionId.isBlank()) {
+      values.put(
+          SESSION_ID,
+          sessionId.length() > MAX_SESSION_ID_LENGTH
+              ? sessionId.substring(0, MAX_SESSION_ID_LENGTH)
+              : sessionId);
     }
     return McpTransportContext.create(values);
   }

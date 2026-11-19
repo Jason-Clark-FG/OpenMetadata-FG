@@ -120,7 +120,8 @@ public class McpIntegrationIT extends McpTestBase {
         McpTestUtils.createGetEntityToolCall(Entity.TABLE, testTable.getFullyQualifiedName());
     JsonNode responseJson = executeMcpRequest(toolCallRequest);
 
-    String responseText = responseJson.get("result").get("content").get(0).get("text").asText();
+    String responseText =
+        McpTestUtils.toolBlock(responseJson.get("result").path("content")).get("text").asText();
     assertThat(responseText).contains("extension");
     assertThat(responseText).contains(propertyValue);
   }
@@ -132,7 +133,8 @@ public class McpIntegrationIT extends McpTestBase {
             Entity.DATABASE_SERVICE, testTable.getService().getFullyQualifiedName());
     JsonNode responseJson = executeMcpRequest(toolCallRequest);
 
-    String responseText = responseJson.get("result").get("content").get(0).get("text").asText();
+    String responseText =
+        McpTestUtils.toolBlock(responseJson.get("result").path("content")).get("text").asText();
     JsonNode config = OBJECT_MAPPER.readTree(responseText).at("/connection/config");
     assertThat(config.at("/authType/password").asText())
         .isEqualTo(PasswordEntityMasker.PASSWORD_MASK);
@@ -635,7 +637,7 @@ public class McpIntegrationIT extends McpTestBase {
   private JsonNode toolPayload(JsonNode response) throws Exception {
     JsonNode content = response.at("/result/content");
     assertThat(content.isArray()).as("tool result must carry content").isTrue();
-    return OBJECT_MAPPER.readTree(content.get(0).get("text").asText());
+    return OBJECT_MAPPER.readTree(McpTestUtils.toolBlock(content).get("text").asText());
   }
 
   private static String columnFqn(Table table, String column) {
@@ -661,7 +663,7 @@ public class McpIntegrationIT extends McpTestBase {
   private int hiddenNodeCount(JsonNode response) throws Exception {
     JsonNode content = response.at("/result/content");
     assertThat(content.isArray()).as("tool result must carry content").isTrue();
-    JsonNode payload = OBJECT_MAPPER.readTree(content.get(0).get("text").asText());
+    JsonNode payload = OBJECT_MAPPER.readTree(McpTestUtils.toolBlock(content).get("text").asText());
     assertThat(payload.has("hiddenNodes")).as("lineage must report hiddenNodes").isTrue();
     return payload.get("hiddenNodes").asInt();
   }

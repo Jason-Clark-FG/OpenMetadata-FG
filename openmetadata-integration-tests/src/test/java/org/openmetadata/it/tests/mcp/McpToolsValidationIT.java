@@ -193,7 +193,8 @@ public class McpToolsValidationIT extends McpTestBase {
               JsonNode result =
                   executeToolCall(McpTestUtils.createToolCallRequest("search_metadata", arguments));
               JsonNode response =
-                  OBJECT_MAPPER.readTree(result.get("content").get(0).get("text").asText());
+                  OBJECT_MAPPER.readTree(
+                      McpTestUtils.toolBlock(result.path("content")).get("text").asText());
               assertFoundAs(response, model.getName(), Entity.LLM_MODEL);
               assertFoundAs(response, testTable.getName(), Entity.TABLE);
             });
@@ -325,7 +326,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("result")).isTrue();
@@ -360,7 +361,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("data")).isTrue();
@@ -379,7 +380,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("data")).isTrue();
@@ -397,7 +398,8 @@ public class McpToolsValidationIT extends McpTestBase {
     Map<String, Object> toolCall = McpTestUtils.createGetTestDefinitionsToolCall("Column");
     JsonNode result = executeToolCall(toolCall);
 
-    JsonNode response = OBJECT_MAPPER.readTree(result.get("content").get(0).get("text").asText());
+    JsonNode response =
+        OBJECT_MAPPER.readTree(McpTestUtils.toolBlock(result.path("content")).get("text").asText());
     JsonNode definitions = response.get("data");
     assertThat(definitions).isNotEmpty();
     for (JsonNode definition : definitions) {
@@ -427,7 +429,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("name")).isTrue();
@@ -462,7 +464,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("status")).isTrue();
@@ -483,7 +485,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("upstreamDepth")).isTrue();
@@ -506,7 +508,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
     assertThat(response.has("name")).isTrue();
@@ -572,7 +574,8 @@ public class McpToolsValidationIT extends McpTestBase {
                       createdTestCaseName, 10, Entity.TEST_CASE);
               JsonNode result = executeToolCall(toolCall);
               JsonNode response =
-                  OBJECT_MAPPER.readTree(result.get("content").get(0).get("text").asText());
+                  OBJECT_MAPPER.readTree(
+                      McpTestUtils.toolBlock(result.path("content")).get("text").asText());
 
               JsonNode match = findResultByName(response, createdTestCaseName);
               assertThat(match)
@@ -601,7 +604,8 @@ public class McpToolsValidationIT extends McpTestBase {
                   McpTestUtils.createSearchMetadataToolCall("mcp_val_table", 10, Entity.TEST_SUITE);
               JsonNode result = executeToolCall(toolCall);
               JsonNode response =
-                  OBJECT_MAPPER.readTree(result.get("content").get(0).get("text").asText());
+                  OBJECT_MAPPER.readTree(
+                      McpTestUtils.toolBlock(result.path("content")).get("text").asText());
 
               boolean hasSuite = false;
               for (JsonNode r : response.get("results")) {
@@ -643,7 +647,7 @@ public class McpToolsValidationIT extends McpTestBase {
     JsonNode content = result.get("content");
     assertThat(content.isArray()).isTrue();
     assertThat(content).isNotEmpty();
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
 
@@ -677,7 +681,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     return OBJECT_MAPPER.readTree(firstResult.get("text").asText());
   }
@@ -689,7 +693,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     String responseText = firstResult.get("text").asText();
 
@@ -717,7 +721,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     String responseText = firstResult.get("text").asText();
 
@@ -735,7 +739,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     String responseText = firstResult.get("text").asText();
 
@@ -756,7 +760,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     String responseText = firstResult.get("text").asText();
 
@@ -781,7 +785,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
     assertThat(content.size()).isGreaterThan(0);
 
-    JsonNode firstResult = content.get(0);
+    JsonNode firstResult = McpTestUtils.toolBlock(content);
     assertThat(firstResult.has("text")).isTrue();
     String responseText = firstResult.get("text").asText();
 
@@ -806,7 +810,7 @@ public class McpToolsValidationIT extends McpTestBase {
     assertThat(content.isArray()).isTrue();
 
     if (content.size() > 0) {
-      JsonNode firstResult = content.get(0);
+      JsonNode firstResult = McpTestUtils.toolBlock(content);
       JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
       JsonNode results = response.get("results");
 
@@ -836,7 +840,7 @@ public class McpToolsValidationIT extends McpTestBase {
     JsonNode content = result.get("content");
 
     if (content.size() > 0) {
-      JsonNode firstResult = content.get(0);
+      JsonNode firstResult = McpTestUtils.toolBlock(content);
       JsonNode response = OBJECT_MAPPER.readTree(firstResult.get("text").asText());
       JsonNode results = response.get("results");
 

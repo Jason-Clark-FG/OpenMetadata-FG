@@ -171,7 +171,8 @@ class McpImpersonationIT extends McpTestBase {
     assertTrue(result.isObject(), response.toString());
     return result.has("structuredContent")
         ? result.get("structuredContent")
-        : OBJECT_MAPPER.readTree(result.path("content").get(0).path("text").asText());
+        : OBJECT_MAPPER.readTree(
+            McpTestUtils.toolBlock(result.path("content")).path("text").asText());
   }
 
   private static User createUser(TestNamespace ns, String suffix) {
