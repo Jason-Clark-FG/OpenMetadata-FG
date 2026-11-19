@@ -33,6 +33,7 @@ import {
   Search,
   Share05,
   User01,
+  XClose,
 } from '@openmetadata/ui-core-components/icons';
 import { AxiosError } from 'axios';
 import classNames from 'classnames';
@@ -68,6 +69,7 @@ import { ResourceEntity } from '../../../enums/permissions.enum';
 import {
   ContextMemory,
   ContextMemoryStatus,
+  SourceType,
 } from '../../../generated/entity/context/contextMemory';
 import { useMemoryConflictReviews } from '../../../hooks/discovery/context-center/useMemoryConflictReviews';
 import { usePageForSize } from '../../../hooks/paging/usePageForSize';
@@ -183,7 +185,11 @@ const isStatusFilterChanged = (selectedStatuses: ContextMemoryStatus[]) =>
     (status) => !selectedStatuses.includes(status)
   );
 
+const AGENT_SOURCE_PARAM = 'source';
+const AGENT_SOURCE_VALUE = 'agent';
+
 const getMemoriesViewFlags = ({
+  isAgentSource,
   selectedAsset,
   selectedAuthor,
   activeFilter,
@@ -194,6 +200,7 @@ const getMemoriesViewFlags = ({
   isReviewsLoading,
   reviewCount,
 }: {
+  isAgentSource: boolean;
   selectedAsset?: DataAssetOption;
   selectedAuthor?: MemoryFilterOption;
   activeFilter: MemoryFilterTab;
@@ -205,7 +212,10 @@ const getMemoriesViewFlags = ({
   reviewCount: number;
 }) => {
   const hasActiveFilters = Boolean(
-    selectedAsset || selectedAuthor || isStatusFilterChanged(selectedStatuses)
+    isAgentSource ||
+      selectedAsset ||
+      selectedAuthor ||
+      isStatusFilterChanged(selectedStatuses)
   );
   const isMemoriesSearching = Boolean(debouncedSearch.trim());
   const isMemoriesFilteredOnly = Boolean(
@@ -330,6 +340,8 @@ const ContextCenterMemoriesPage: FC = () => {
   const { currentUser } = useApplicationStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const memoryName = searchParams.get('memory');
+  const isAgentSource =
+    searchParams.get(AGENT_SOURCE_PARAM) === AGENT_SOURCE_VALUE;
   const { getResourcePermission } = usePermissionProvider();
 
   const [memories, setMemories] = useState<ContextMemory[]>([]);
@@ -464,6 +476,7 @@ const ContextCenterMemoriesPage: FC = () => {
           assets: selectedAsset?.id,
           author: authorFilter,
           pinned: activeFilter === 'pinned' ? true : undefined,
+          sourceType: isAgentSource ? SourceType.AgentCapture : undefined,
           sortBy: sortConfig.sortBy,
           sortOrder: sortConfig.sortOrder,
           statuses: selectedStatuses.join(','),
@@ -487,6 +500,7 @@ const ContextCenterMemoriesPage: FC = () => {
       currentUser?.id,
       currentUser?.name,
       debouncedSearch,
+      isAgentSource,
       isReviewing,
       selectedAsset?.id,
       selectedAuthor?.id,
@@ -633,6 +647,7 @@ const ContextCenterMemoriesPage: FC = () => {
     isMemoriesFilteredOnly,
     showMemoriesEmptyState,
   } = getMemoriesViewFlags({
+    isAgentSource,
     selectedAsset,
     selectedAuthor,
     activeFilter,
@@ -644,13 +659,24 @@ const ContextCenterMemoriesPage: FC = () => {
     reviewCount: reviewTotal,
   });
 
+  const clearAgentSource = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete(AGENT_SOURCE_PARAM);
+
+      return next;
+    });
+    setCurrentPage(1);
+  }, [setSearchParams]);
+
   const handleClearFilters = useCallback(() => {
+    clearAgentSource();
     setSelectedAsset(undefined);
     setSelectedAuthor(undefined);
     setSelectedStatuses(DEFAULT_MEMORY_LIST_STATUSES);
     setActiveFilter('all');
     setCurrentPage(1);
-  }, []);
+  }, [clearAgentSource]);
 
   const handleFilterChange = useCallback((key: MemoryFilterTab) => {
     setActiveFilter(key);
@@ -1212,6 +1238,16 @@ const ContextCenterMemoriesPage: FC = () => {
                     memories={memories}
                     onApproved={handlePendingApproved}
                   />
+                  {isAgentSource && (
+                    <Button
+                      color="secondary"
+                      data-testid="agent-source-filter"
+                      iconTrailing={XClose}
+                      size="sm"
+                      onClick={clearAgentSource}>
+                      {t('label.agent-memory')}
+                    </Button>
+                  )}
                   {hasActiveFilters && (
                     <Button
                       color="link-color"

@@ -903,3 +903,47 @@ describe('ContextCenterMemoriesPage — approve pending', () => {
     expect(showSuccessToast).toHaveBeenCalledWith('Memories approved: 1');
   });
 });
+
+describe('ContextCenterMemoriesPage — agent source', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('lists only agent-recorded memories for ?source=agent and drops the filter when cleared', async () => {
+    renderPage('/?source=agent');
+
+    await waitFor(() => {
+      expect(getListContextMemories).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'AgentCapture' })
+      );
+    });
+
+    fireEvent.click(screen.getByTestId('agent-source-filter'));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('agent-source-filter')
+      ).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('memory-route')).toHaveTextContent('');
+    expect(getListContextMemories).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sourceType: undefined })
+    );
+  });
+
+  it('does not filter by source without the parameter', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(getListContextMemories).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByTestId('agent-source-filter')).not.toBeInTheDocument();
+    expect(
+      (getListContextMemories as jest.Mock).mock.calls.every(
+        ([params]) => params?.sourceType === undefined
+      )
+    ).toBe(true);
+  });
+});
