@@ -91,13 +91,21 @@ public final class ToolAccessPolicy {
     ToolAccessLevel decision = ToolAccessLevel.ALLOW;
     if (access != null) {
       decision =
-          listOrEmpty(access.getServers()).stream()
-              .filter(entry -> matches(entry, call))
+          decidingEntry(access, call)
               .map(ToolAccessServer::getLevel)
-              .findFirst()
               .orElse(levelOf(access.getDefault()));
     }
     return decision;
+  }
+
+  /** The entry that decides {@code call} in one harness; empty when its default decides. */
+  public static Optional<ToolAccessServer> decidingEntry(
+      final AgentHarnessToolAccess access, final McpCall call) {
+    return access == null
+        ? Optional.empty()
+        : listOrEmpty(access.getServers()).stream()
+            .filter(entry -> matches(entry, call))
+            .findFirst();
   }
 
   /** Rejects entries without a server name or level, and a server and tool set listed twice. */

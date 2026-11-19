@@ -1425,7 +1425,7 @@
             "cite",
               "delegate"
             ],
-            "description": "find, expand, query, trace, cite or delegate (to a sub-agent the first answer lists)."
+            "description": "find, expand, query, trace, cite or delegate (to a sub-agent the first answer lists, or to call a tool of an outside system it lists under 'connections')."
           },
           "run": {
             "type": "string",
@@ -1563,6 +1563,18 @@
           "handle": {
             "type": "string",
             "description": "delegate: the 'handle' of a task still running, to read its answer."
+          },
+          "connection": {
+            "type": "string",
+            "description": "delegate: the 'name' of an outside system the first answer listed under 'connections', instead of 'agent'. Alone, it lists that connection's tools."
+          },
+          "tool": {
+            "type": "string",
+            "description": "delegate with 'connection': the name of one of its tools. Without 'arguments' it returns the tool's full input schema and calls nothing."
+          },
+          "arguments": {
+            "type": "object",
+            "description": "delegate with 'connection' and 'tool': the tool's arguments as an object matching its schema, {} for a tool that takes none. The tool is called."
           },
           "sparql": {
             "type": "string",

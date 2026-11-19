@@ -27,10 +27,28 @@ import org.openmetadata.service.aicontext.harness.HarnessDocuments;
 
 /** What the caller's effective agent harness lets knowledge_graph do. */
 record KnowledgeGraphHarness(
-    boolean rawQueries, String learnRefusal, List<SubAgentDefinition> agents, Guidance guidance) {
+    boolean rawQueries,
+    String learnRefusal,
+    List<SubAgentDefinition> agents,
+    Guidance guidance,
+    ConnectionAccess connectionAccess) {
 
+  /** The defaults when no harness can be read: no sub-agent, and no connection is offered. */
   static final KnowledgeGraphHarness DEFAULTS =
-      new KnowledgeGraphHarness(true, null, List.of(), null);
+      new KnowledgeGraphHarness(true, null, List.of(), null, ConnectionAccess.UNREADABLE);
+
+  KnowledgeGraphHarness(
+      final boolean rawQueries,
+      final String learnRefusal,
+      final List<SubAgentDefinition> agents,
+      final Guidance guidance) {
+    this(rawQueries, learnRefusal, agents, guidance, ConnectionAccess.UNREADABLE);
+  }
+
+  /** These settings with the caller's MCP Access rules for connections. */
+  KnowledgeGraphHarness withConnectionAccess(final ConnectionAccess access) {
+    return new KnowledgeGraphHarness(rawQueries, learnRefusal, agents, guidance, access);
+  }
 
   /**
    * What the caller's harness tells the model, carried in the first answer of a run: the company

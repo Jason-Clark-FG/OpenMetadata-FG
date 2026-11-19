@@ -15,6 +15,7 @@ package org.openmetadata.service.rdf.explore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import java.util.Map;
 
 /**
  * What one call served, as stored: the nodes returned as cards, each with the relationships its
@@ -61,10 +62,36 @@ public record RunStep(
       String direction,
       Integer limit,
       Integer offset,
-      String agent) {
+      String agent,
+      String connection,
+      String tool,
+      Map<String, Object> arguments) {
     public Input {
       nodes = nodes == null ? List.of() : List.copyOf(nodes);
       relationships = relationships == null ? List.of() : List.copyOf(relationships);
+    }
+
+    public Input(
+        final String question,
+        final List<String> nodes,
+        final List<String> relationships,
+        final String sparql,
+        final String direction,
+        final Integer limit,
+        final Integer offset,
+        final String agent) {
+      this(
+          question,
+          nodes,
+          relationships,
+          sparql,
+          direction,
+          limit,
+          offset,
+          agent,
+          null,
+          null,
+          null);
     }
 
     public Input(
@@ -81,6 +108,16 @@ public record RunStep(
     /** A task handed to the sub-agent {@code agent}, with the nodes it was given. */
     public static Input delegate(final String agent, final String task, final List<String> nodes) {
       return new Input(task, nodes, List.of(), null, null, null, null, agent);
+    }
+
+    /**
+     * A delegate to the connection {@code connection}: its tools when {@code tool} is null, the
+     * tool's schema when {@code arguments} is null, else the tool called with them.
+     */
+    public static Input connection(
+        final String connection, final String tool, final Map<String, Object> arguments) {
+      return new Input(
+          null, List.of(), List.of(), null, null, null, null, null, connection, tool, arguments);
     }
 
     public static Input find(final String question) {

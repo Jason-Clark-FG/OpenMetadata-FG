@@ -65,6 +65,8 @@ import org.openmetadata.service.Entity;
 import org.openmetadata.service.OpenMetadataApplicationConfig;
 import org.openmetadata.service.aicontext.PersonaContextBuilder;
 import org.openmetadata.service.aicontext.PersonaContextCache;
+import org.openmetadata.service.aicontext.agents.ConnectionRegistry;
+import org.openmetadata.service.aicontext.agents.RegisteredConnection;
 import org.openmetadata.service.aicontext.agents.SubAgentDefinition;
 import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
 import org.openmetadata.service.aicontext.harness.AgentHarnessCompiler;
@@ -380,6 +382,19 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
   public List<SubAgentDefinition> listSubAgents(@Context final SecurityContext securityContext) {
     authorizer.authorizeAdmin(securityContext);
     return SubAgentRegistry.getInstance().agents();
+  }
+
+  @GET
+  @Path("/connections")
+  @Operation(
+      operationId = "listAgentHarnessConnections",
+      summary = "List the outside MCP servers knowledge_graph can call through delegate")
+  public List<RegisteredConnection> listConnections(
+      @Context final SecurityContext securityContext) {
+    authorizer.authorizeAdmin(securityContext);
+    return ConnectionRegistry.getInstance().connections().stream()
+        .map(RegisteredConnection::of)
+        .toList();
   }
 
   // EntityResource serves these to anyone with view access. A harness is for administrators.

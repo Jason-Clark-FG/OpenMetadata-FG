@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.openmetadata.mcp.util.McpParams;
 import org.openmetadata.mcp.util.PageCursor;
+import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.rdf.RdfIriValidator;
 import org.openmetadata.service.rdf.explore.Citation;
 import org.openmetadata.service.rdf.explore.CitedRelationship;
@@ -62,13 +63,16 @@ record KnowledgeGraphCall(UUID run, Request request) {
   private static final String AGENT = "agent";
   private static final String TASK = "task";
   private static final String HANDLE = "handle";
+  private static final String CONNECTION = "connection";
+  private static final String TOOL = "tool";
+  private static final String ARGUMENTS = "arguments";
   private static final String EDGE_NODE = "node";
   private static final String EDGE_RELATIONSHIP = "relationship";
   private static final String EDGE_OTHER = "other";
   private static final String BOTH_DIRECTIONS = "both";
   private static final Set<Operation> RUN_REQUIRED = Set.of(Operation.TRACE, Operation.CITE);
 
-  sealed interface Request permits Find, Expand, Query, Trace, Cite, Delegate {}
+  sealed interface Request permits Find, Expand, Query, Trace, Cite, Delegate, ConnectionCall {}
 
   /**
    * No {@code entityTypes} looks everywhere. Otherwise {@code ontologyConcept} and {@code
@@ -111,6 +115,19 @@ record KnowledgeGraphCall(UUID run, Request request) {
   record Delegate(String agent, String task, List<String> nodes, String handle)
       implements Request {}
 
+  /**
+   * A delegate to an outside MCP server: its tools when {@code tool} is null, that tool's schema
+   * when {@code arguments} is null, else the tool called with {@code arguments}.
+   */
+  record ConnectionCall(String connection, String tool, Map<String, Object> arguments)
+      implements Request {}
+
+  static final String DELEGATE_TARGET =
+      "delegate names exactly one of 'agent' (a sub-agent the first answer listed under"
+          + " 'subAgents', with 'task', or with the 'handle' of its running task) or 'connection'"
+          + " (an outside system the first answer listed under 'connections', with 'tool' and"
+          + " 'arguments' to call one of its tools)";
+
   static KnowledgeGraphCall parse(final Map<String, Object> values) {
     final McpToolParameters parameters = McpToolParameters.from(values);
     final Operation operation = operation(parameters.optionalString(OPERATION));
@@ -133,7 +150,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
       case QUERY -> new Query(required(parameters, SPARQL, "for query: the SELECT to run"));
       case TRACE -> new Trace();
       case CITE -> cite(values);
-      case DELEGATE -> delegate(values, parameters);
+      case DELEGATE -> delegateOrConnection(values, parameters);
     };
   }
 
@@ -230,6 +247,52 @@ record KnowledgeGraphCall(UUID run, Request request) {
                 new IllegalArgumentException(
                     "'nodes' entries must be the 'id' of a card, an absolute http(s) IRI; got '%s'"
                         .formatted(value)));
+  }
+
+  private static Request delegateOrConnection(
+      final Map<String, Object> values, final McpToolParameters parameters) {
+    final boolean connection = !McpToolParameters.isBlank(parameters.optionalString(CONNECTION));
+    final boolean agent =
+        !McpToolParameters.isBlank(parameters.optionalString(AGENT))
+            || !McpToolParameters.isBlank(parameters.optionalString(HANDLE));
+    if (connection == agent) {
+      throw new IllegalArgumentException(
+          "%s; got %s.".formatted(DELEGATE_TARGET, connection ? "both" : "neither"));
+    }
+    return connection ? connectionCall(values, parameters) : delegate(values, parameters);
+  }
+
+  private static ConnectionCall connectionCall(
+      final Map<String, Object> values, final McpToolParameters parameters) {
+    final String tool = parameters.optionalString(TOOL);
+    final boolean named = !McpToolParameters.isBlank(tool);
+    final Map<String, Object> arguments = arguments(values.get(ARGUMENTS));
+    if (!named && arguments != null) {
+      throw new IllegalArgumentException(
+          "'arguments' needs the 'tool' they are for: call delegate with 'connection' alone to"
+              + " see its tools, then with 'connection', 'tool' and 'arguments'");
+    }
+    return new ConnectionCall(
+        parameters.optionalString(CONNECTION).strip(), named ? tool.strip() : null, arguments);
+  }
+
+  /** The tool's arguments as an object; null when none are passed. A JSON text is read. */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> arguments(final Object value) {
+    Object parsed = value;
+    if (value instanceof String text && !text.isBlank()) {
+      try {
+        parsed = JsonUtils.readValue(text, Map.class);
+      } catch (RuntimeException unreadable) {
+        parsed = text;
+      }
+    }
+    if (parsed != null && !(parsed instanceof Map<?, ?>) && !"".equals(parsed)) {
+      throw new IllegalArgumentException(
+          "'arguments' must be an object of the tool's arguments, e.g. {\"query\": \"orders\"};"
+              + " pass {} for a tool that takes none");
+    }
+    return parsed instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
   }
 
   /** A cite names what the answer relied on, what the turn learnt, or both. */

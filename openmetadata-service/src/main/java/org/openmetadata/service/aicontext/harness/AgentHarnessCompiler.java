@@ -154,6 +154,14 @@ public final class AgentHarnessCompiler {
     return effective(caller(securityContext));
   }
 
+  /**
+   * The MCP Access layers that apply to the caller, as the PreToolUse hook reads them: the
+   * published default harness's, then the caller's persona harness's when one applies.
+   */
+  public List<AgentHarnessToolAccess> toolAccessFor(final SecurityContext securityContext) {
+    return toolAccessLayers(caller(securityContext));
+  }
+
   /** The prompt the caller's persona context gives its users, or null when it sets none. */
   public String personaPromptFor(final SecurityContext securityContext) {
     return PersonaContextCache.definitionOf(caller(securityContext).documentPersona()).getPrompt();

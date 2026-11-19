@@ -23,6 +23,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.openmetadata.schema.utils.JsonUtils;
 
 /**
  * Builds the {@link KnowledgeGraphCard} of a call: what it served, or the whole run from its trace.
@@ -352,15 +353,35 @@ public final class KnowledgeGraphCards {
           case QUERY -> Objects.toString(input.sparql(), "").replaceAll("\\s+", " ");
           case CITE -> input.nodes().size() + " node(s) cited";
           case TRACE -> "trace";
-          case DELEGATE -> Objects.toString(input.agent(), "")
-              + ", run as the caller: “"
-              + Objects.toString(input.question(), "")
-              + "”";
+          case DELEGATE -> input.connection() == null
+              ? Objects.toString(input.agent(), "")
+                  + ", run as the caller: “"
+                  + Objects.toString(input.question(), "")
+                  + "”"
+              : connectionStep(input);
         };
     return new KnowledgeGraphCard.Step(
         step.sequence(),
         step.operation().value(),
         shorten(asked, LINE_CHARS) + " → " + step.nodes().size() + " node(s)");
+  }
+
+  /** A delegate to a connection: its tools, a tool's schema, or the tool called as the caller. */
+  private static String connectionStep(final RunStep.Input input) {
+    final String asked;
+    if (input.tool() == null) {
+      asked = input.connection() + ": its tools";
+    } else if (input.arguments() == null) {
+      asked = input.connection() + " " + input.tool() + ": its arguments";
+    } else {
+      asked =
+          input.connection()
+              + " "
+              + input.tool()
+              + ", called as the caller with "
+              + JsonUtils.pojoToJson(input.arguments());
+    }
+    return asked;
   }
 
   /** The card with the memories a cite's {@code learned} saved first among its memories. */
