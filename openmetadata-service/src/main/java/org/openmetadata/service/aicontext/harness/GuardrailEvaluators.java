@@ -43,9 +43,32 @@ public final class GuardrailEvaluators {
       int openIncidents,
       int failedTests,
       boolean certified,
-      boolean hasCertifiedAlternative) {
+      boolean hasCertifiedAlternative,
+      List<String> owners) {
     public LiveAsset {
       piiColumns = List.copyOf(piiColumns);
+      owners = List.copyOf(owners);
+    }
+
+    public LiveAsset(
+        AssetRef ref,
+        boolean deprecated,
+        List<String> piiColumns,
+        boolean piiVisibleUnmasked,
+        int openIncidents,
+        int failedTests,
+        boolean certified,
+        boolean hasCertifiedAlternative) {
+      this(
+          ref,
+          deprecated,
+          piiColumns,
+          piiVisibleUnmasked,
+          openIncidents,
+          failedTests,
+          certified,
+          hasCertifiedAlternative,
+          List.of());
     }
   }
 
@@ -116,7 +139,19 @@ public final class GuardrailEvaluators {
   }
 
   private static Optional<String> deprecated(final LiveAsset asset) {
-    return asset.deprecated() ? Optional.of(name(asset) + " is deprecated.") : Optional.empty();
+    return asset.deprecated()
+        ? Optional.of(name(asset) + " is deprecated." + replacementHint(asset))
+        : Optional.empty();
+  }
+
+  /**
+   * OpenMetadata stores no replacement for a deprecated asset, so the only structured pointer is
+   * its owner. Lineage and description text are not read: neither says an asset replaces another.
+   */
+  private static String replacementHint(final LiveAsset asset) {
+    return listOrEmpty(asset.owners()).isEmpty()
+        ? ""
+        : " Ask the owner, " + String.join(", ", asset.owners()) + ", for the replacement.";
   }
 
   private static Optional<String> unmaskedPii(final LiveAsset asset) {

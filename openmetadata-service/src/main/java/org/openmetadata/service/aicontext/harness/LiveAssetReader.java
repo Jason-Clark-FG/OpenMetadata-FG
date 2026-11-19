@@ -13,6 +13,7 @@
 package org.openmetadata.service.aicontext.harness;
 
 import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
+import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 
 import jakarta.ws.rs.core.SecurityContext;
 import java.io.IOException;
@@ -31,6 +32,7 @@ import org.openmetadata.schema.tests.type.TestCaseResolutionStatusTypes;
 import org.openmetadata.schema.tests.type.TestCaseResult;
 import org.openmetadata.schema.tests.type.TestCaseStatus;
 import org.openmetadata.schema.type.Column;
+import org.openmetadata.schema.type.EntityReference;
 import org.openmetadata.schema.type.EntityStatus;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.type.MetadataOperation;
@@ -93,7 +95,17 @@ final class LiveAssetReader {
         openIncidents(testCases),
         failedTests(testCases),
         certified,
-        !certified && hasCertifiedAlternative(ref, entity));
+        !certified && hasCertifiedAlternative(ref, entity),
+        ownerNames(entity));
+  }
+
+  private static List<String> ownerNames(final EntityInterface entity) {
+    final List<EntityReference> owners = entity.getOwners();
+    return listOrEmpty(owners).stream()
+        .map(
+            owner -> nullOrEmpty(owner.getDisplayName()) ? owner.getName() : owner.getDisplayName())
+        .filter(name -> !nullOrEmpty(name))
+        .toList();
   }
 
   private static Optional<EntityInterface> load(final AssetRef ref) {

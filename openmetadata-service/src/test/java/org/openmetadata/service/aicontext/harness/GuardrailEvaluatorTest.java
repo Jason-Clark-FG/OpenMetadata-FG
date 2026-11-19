@@ -55,6 +55,18 @@ class GuardrailEvaluatorTest {
   }
 
   @Test
+  void aDeprecatedAssetNamesItsOwnerAsTheWayToTheReplacement() {
+    final LiveAsset owned =
+        new LiveAsset(ORDERS, true, List.of(), false, 0, 0, true, false, List.of("Sales Data"));
+
+    assertEquals(
+        List.of(
+            "table svc.db.sales.orders is deprecated. Ask the owner, Sales Data, for the"
+                + " replacement."),
+        decide(List.of(owned), List.of()).getReasons());
+  }
+
+  @Test
   void piiColumnsAreDeniedOnlyWhenTheyAreMaskedForTheCaller() {
     final LiveAsset masked =
         new LiveAsset(ORDERS, false, List.of("email", "ssn"), false, 0, 0, true, false);
