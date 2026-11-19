@@ -429,6 +429,11 @@ export enum GuardrailLevel {
  */
 export interface KnowledgeGraphSettings {
     /**
+     * Connections (outside MCP servers) the tool may call. None is offered unless listed here.
+     * A persona harness lists only those it adds.
+     */
+    connections?: ConnectionSetting[];
+    /**
      * Whether agents answer data questions through knowledge_graph (find, expand, cite last)
      * rather than the catalog tools.
      */
@@ -445,6 +450,23 @@ export interface KnowledgeGraphSettings {
      * Sub-agents the tool may hand a task to. A persona harness lists only those it adds.
      */
     subAgents?: SubAgentSetting[];
+}
+
+/**
+ * Whether one registered connection (an outside MCP server) is offered to the
+ * knowledge_graph tool.
+ */
+export interface ConnectionSetting {
+    /**
+     * Whether the connection is offered. On a persona harness, true adds it for the persona;
+     * one the default offers stays offered.
+     */
+    enabled: boolean;
+    /**
+     * Name of a connection listed by `GET /v1/agentHarness/connections`. A name no longer
+     * registered is kept and does nothing.
+     */
+    name: string;
 }
 
 /**

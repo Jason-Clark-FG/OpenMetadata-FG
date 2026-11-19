@@ -44,6 +44,7 @@ import {
   HARNESS_TAB_LABEL_KEYS,
 } from '../../../constants/discovery/agentHarness.constants';
 import {
+  AgentHarnessSpec,
   AgentHarnessState,
   GuardrailLevel,
   HarnessKind,
@@ -73,6 +74,7 @@ import {
 } from '../../../rest/AgentHarnessAPI';
 import contextCenterClassBase from '../../../utils/ContextCenterClassBase';
 import {
+  enabledConnectionNames,
   enabledEventTokens,
   hasBudgetErrors,
   hasToolAccessErrors,
@@ -148,6 +150,18 @@ const AgentHarnessEditorPage = () => {
   const name = fqn
     ? (persona && getEntityName(persona)) || fqn
     : t('label.company-default-harness');
+
+  // What the knowledge graph tool may call under this harness: on a persona, the default's too.
+  const enabledConnectionsOf = (
+    spec: AgentHarnessSpec,
+    state: AgentHarnessState
+  ) =>
+    enabledConnectionNames(
+      spec,
+      state.published.kind === HarnessKind.Persona
+        ? defaultState?.resolved.knowledgeGraph
+        : undefined
+    );
 
   const hasDraft = (state: AgentHarnessState) =>
     Boolean(state.draft) || saveState !== 'saved';
@@ -252,6 +266,7 @@ const AgentHarnessEditorPage = () => {
           <GuardrailsTab
             canEdit={canEdit}
             connections={connections}
+            enabledConnections={enabledConnectionsOf(spec, state)}
             guardrails={guardrails}
             kind={state.published.kind}
             resolved={state.resolved}
@@ -277,6 +292,7 @@ const AgentHarnessEditorPage = () => {
         return (
           <KnowledgeGraphTab
             canEdit={canEdit}
+            connections={connections}
             inheritedKnowledgeGraph={
               defaultState?.resolved.knowledgeGraph ??
               state.resolved.knowledgeGraph

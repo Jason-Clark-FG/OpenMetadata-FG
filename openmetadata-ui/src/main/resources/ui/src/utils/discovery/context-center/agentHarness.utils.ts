@@ -36,6 +36,7 @@ import {
   GuardrailLevel,
   HarnessKind,
   HookEvent,
+  KnowledgeGraphSettings,
   MemoryReview,
   MemorySettings,
   MemoryVisibility,
@@ -68,6 +69,22 @@ import {
 } from '../../../interface/discovery/agentHarness.interface';
 
 /** The editable fields of a published harness, as a draft would hold them. */
+/**
+ * Names of the connections a harness switches on for the knowledge graph tool: its own, and on a
+ * persona harness the default's too (pass them as `inherited`), as the server merges them.
+ */
+export const enabledConnectionNames = (
+  spec: AgentHarnessSpec,
+  inherited?: KnowledgeGraphSettings
+): string[] => {
+  const on = (settings?: KnowledgeGraphSettings) =>
+    (settings?.connections ?? [])
+      .filter((connection) => connection.enabled)
+      .map((connection) => connection.name);
+
+  return [...new Set([...on(inherited), ...on(spec.knowledgeGraph)])];
+};
+
 export const ownSpecOf = (harness: AgentHarness): AgentHarnessSpec => {
   const {
     companyInstructions,

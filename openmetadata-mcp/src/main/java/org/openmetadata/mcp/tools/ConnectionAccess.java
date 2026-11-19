@@ -14,9 +14,12 @@
 package org.openmetadata.mcp.tools;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.ToolAccessLevel;
@@ -30,22 +33,35 @@ import org.openmetadata.service.aicontext.harness.ToolAccessPolicy.McpCall;
  * The Agent Harness's MCP Access rules applied by the server to a connection called through
  * delegate: the layers the PreToolUse hook reads (the published default harness, then the caller's
  * persona harness), decided with the connection's name as the server and the tool's as the tool.
- * The stricter layer wins. {@code readable} is false when the caller's harness could not be read:
- * then every connection is refused, so an unreadable rule never lets a call through.
+ * The stricter layer wins. {@code enabled} names the connections the caller's effective harness
+ * switches on ({@code knowledgeGraph.connections}); no other is offered, whatever the rules say.
+ * {@code readable} is false when the caller's harness could not be read: then every connection is
+ * refused, so an unreadable rule never lets a call through.
  */
-record ConnectionAccess(List<AgentHarnessToolAccess> layers, boolean readable) {
+record ConnectionAccess(
+    List<AgentHarnessToolAccess> layers, Set<String> enabled, boolean readable) {
 
   /** No rule could be read: nothing is offered. */
-  static final ConnectionAccess UNREADABLE = new ConnectionAccess(List.of(), false);
+  static final ConnectionAccess UNREADABLE = new ConnectionAccess(List.of(), Set.of(), false);
 
   static final String UNREADABLE_RULE = "the agent harness could not be read, so none is offered";
 
   ConnectionAccess {
     layers = Collections.unmodifiableList(new ArrayList<>(layers));
+    enabled = enabled == null ? Set.of() : Set.copyOf(enabled);
   }
 
-  static ConnectionAccess of(final List<AgentHarnessToolAccess> layers) {
-    return new ConnectionAccess(layers == null ? List.of() : layers, true);
+  static ConnectionAccess of(
+      final List<AgentHarnessToolAccess> layers, final Collection<String> enabled) {
+    return new ConnectionAccess(
+        layers == null ? List.of() : layers,
+        enabled == null ? Set.of() : new LinkedHashSet<>(enabled),
+        true);
+  }
+
+  /** Whether the caller's harness switches the connection on. */
+  boolean enables(final String connection) {
+    return enabled.contains(connection);
   }
 
   ToolAccessLevel level(final String connection, final String tool) {
@@ -61,9 +77,12 @@ record ConnectionAccess(List<AgentHarnessToolAccess> layers, boolean readable) {
         .toList();
   }
 
-  /** The connections that keep at least one tool for the caller. */
+  /** The connections the harness switches on that keep at least one tool for the caller. */
   List<ConnectionDefinition> offered(final List<ConnectionDefinition> connections) {
-    return connections.stream().filter(connection -> !offeredTools(connection).isEmpty()).toList();
+    return connections.stream()
+        .filter(connection -> enables(connection.name()))
+        .filter(connection -> !offeredTools(connection).isEmpty())
+        .toList();
   }
 
   /** In words, the rule that decides the call: which harness, and its entry or its default. */

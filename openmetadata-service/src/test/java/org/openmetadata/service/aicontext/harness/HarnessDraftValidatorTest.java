@@ -24,8 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.entity.context.AgentHarnessAnswer;
 import org.openmetadata.schema.entity.context.AgentHarnessCalendar;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
+import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
 import org.openmetadata.schema.entity.context.AgentMemoryReview;
@@ -152,6 +154,37 @@ class HarnessDraftValidatorTest {
     assertEquals(
         "perTurnTokenBudget 10000 is below the 14000 tokens of the enabled events",
         personaRefusal.getMessage());
+  }
+
+  @Test
+  void aConnectionTheRegistryLacksIsKeptAndDoesNotFailValidation() {
+    AgentHarnessSpec requested =
+        HarnessSpecs.specOf(HarnessSpecs.seedDefault(1L))
+            .withKnowledgeGraph(
+                new AgentHarnessKnowledgeGraph()
+                    .withConnections(
+                        List.of(
+                            new AgentHarnessConnection()
+                                .withName("not-registered-anywhere")
+                                .withEnabled(true))));
+
+    AgentHarnessSpec validated = HarnessDraftValidator.forDefault(requested);
+
+    assertEquals(
+        "not-registered-anywhere",
+        validated.getKnowledgeGraph().getConnections().getFirst().getName());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            HarnessDraftValidator.forDefault(
+                HarnessSpecs.specOf(HarnessSpecs.seedDefault(1L))
+                    .withKnowledgeGraph(
+                        new AgentHarnessKnowledgeGraph()
+                            .withConnections(
+                                List.of(
+                                    new AgentHarnessConnection()
+                                        .withName(" ")
+                                        .withEnabled(true))))));
   }
 
   @Test

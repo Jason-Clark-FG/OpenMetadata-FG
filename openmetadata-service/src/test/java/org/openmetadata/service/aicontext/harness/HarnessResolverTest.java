@@ -27,9 +27,11 @@ import org.openmetadata.schema.api.context.ResolvedHarnessEvent;
 import org.openmetadata.schema.api.context.ResolvedHarnessGuardrail;
 import org.openmetadata.schema.api.context.ResolvedHarnessSkill;
 import org.openmetadata.schema.entity.context.AgentHarness;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
+import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
 import org.openmetadata.schema.entity.context.AgentMemoryReview;
@@ -235,6 +237,45 @@ class HarnessResolverTest {
     assertFalse(view.getMemoryInherited());
     assertEquals(AgentMemoryReview.AUTHOR_ONLY, view.getMemory().getReview());
     assertFalse(view.getMemory().getCapture());
+  }
+
+  @Test
+  void connectionsAreOffByDefaultAndAPersonaAddsButCannotSwitchOffTheDefaults() {
+    AgentHarness bare = seededDefault();
+    assertEquals(
+        List.of(),
+        HarnessResolver.effective(bare, null).orElseThrow().getKnowledgeGraph().getConnections(),
+        "a default that names no connection enables none");
+
+    AgentHarness defaults =
+        seededDefault()
+            .withKnowledgeGraph(
+                new AgentHarnessKnowledgeGraph()
+                    .withConnections(
+                        List.of(connection("github", true), connection("notion", false))));
+    AgentHarness persona =
+        publishedPersona()
+            .withKnowledgeGraph(
+                new AgentHarnessKnowledgeGraph()
+                    .withConnections(
+                        List.of(connection("github", false), connection("jira", true))));
+
+    assertEquals(
+        List.of("github"), connectionsOf(HarnessResolver.effective(defaults, null).orElseThrow()));
+    assertEquals(
+        List.of("github", "jira"),
+        connectionsOf(HarnessResolver.effective(defaults, persona).orElseThrow()),
+        "the persona adds jira; switching github off in the persona leaves the default's on");
+  }
+
+  private static AgentHarnessConnection connection(String name, boolean enabled) {
+    return new AgentHarnessConnection().withName(name).withEnabled(enabled);
+  }
+
+  private static List<String> connectionsOf(AgentHarnessSpec spec) {
+    return spec.getKnowledgeGraph().getConnections().stream()
+        .map(AgentHarnessConnection::getName)
+        .toList();
   }
 
   private static AgentHarness seededDefault(ContextRule... rules) {

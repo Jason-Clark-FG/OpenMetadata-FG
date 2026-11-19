@@ -64,6 +64,11 @@ export interface McpAccessCardProps {
   errors: ToolAccessErrors;
   /** Outside MCP servers registered here, offered as rule targets. Empty leaves the card free text only. */
   connections?: McpConnection[];
+  /**
+   * Connections switched on in this harness's Knowledge Graph tab. When given, "No rule yet" names
+   * only these: a rule for a connection the tool does not know is noise.
+   */
+  enabledConnections?: string[];
   canEdit: boolean;
   onChange: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
 }
@@ -84,6 +89,7 @@ const McpAccessCard = ({
   showInherited,
   errors,
   connections = [],
+  enabledConnections,
   canEdit,
   onChange,
 }: McpAccessCardProps) => {
@@ -345,10 +351,12 @@ const McpAccessCard = ({
 
   // A default rule covers its connection on a persona harness too, shown or not.
   const renderUncovered = () => {
-    const uncovered = uncoveredConnections(connections, [
-      ...(floor?.servers ?? []),
-      ...servers,
-    ]);
+    const uncovered = uncoveredConnections(
+      enabledConnections
+        ? connections.filter(({ name }) => enabledConnections.includes(name))
+        : connections,
+      [...(floor?.servers ?? []), ...servers]
+    );
 
     return (
       uncovered.length > 0 && (

@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
 import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSubAgent;
@@ -115,6 +116,23 @@ record KnowledgeGraphHarness(
         .distinct()
         .map(registry::agent)
         .flatMap(Optional::stream)
+        .toList();
+  }
+
+  /**
+   * The connections the caller's effective harness switches on, by name; none when no harness
+   * applies. A name the registry does not hold stays in the list and simply matches nothing.
+   */
+  static List<String> enabledConnections(final Optional<AgentHarnessSpec> effective) {
+    return effective
+        .map(AgentHarnessSpec::getKnowledgeGraph)
+        .map(AgentHarnessKnowledgeGraph::getConnections)
+        .orElse(List.of())
+        .stream()
+        .filter(setting -> Boolean.TRUE.equals(setting.getEnabled()))
+        .map(AgentHarnessConnection::getName)
+        .filter(Objects::nonNull)
+        .distinct()
         .toList();
   }
 

@@ -44,6 +44,8 @@ export interface GuardrailsTabProps {
   guardrails: GuardrailDefinition[];
   /** Outside MCP servers registered here; empty when none or the request failed. */
   connections?: McpConnection[];
+  /** Connections the knowledge graph tool may call under this harness; others get no coverage note. */
+  enabledConnections?: string[];
   toolAccessErrors: ToolAccessErrors;
   showInherited: boolean;
   canEdit: boolean;
@@ -56,6 +58,7 @@ const GuardrailsTab = ({
   resolved,
   guardrails,
   connections = [],
+  enabledConnections,
   toolAccessErrors,
   showInherited,
   canEdit,
@@ -128,6 +131,7 @@ const GuardrailsTab = ({
         access={spec.toolAccess}
         canEdit={canEdit}
         connections={connections}
+        enabledConnections={enabledConnections}
         errors={toolAccessErrors}
         inherited={resolved.inheritedToolAccess}
         isPersona={isPersona}

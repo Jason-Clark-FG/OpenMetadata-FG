@@ -206,6 +206,12 @@ final class ConnectionDelegation {
           "No connection '%s' is registered. Offered to you: %s."
               .formatted(name, offeredNames(access)));
     }
+    if (access.readable() && !access.enables(name)) {
+      throw new IllegalArgumentException(
+          ("Your agent harness does not enable the connection '%s'. Enabled for you: %s. Answer"
+                  + " without it, and do not reach it another way.")
+              .formatted(name, offeredNames(access)));
+    }
     final ConnectionDefinition connection = registered.get().definition();
     if (access.offeredTools(connection).isEmpty()) {
       final String firstTool =

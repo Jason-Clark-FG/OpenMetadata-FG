@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.mcp.util.ResponseBudget;
 import org.openmetadata.schema.api.configuration.MCPConfiguration;
+import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.entity.teams.User;
 import org.openmetadata.schema.utils.JsonUtils;
@@ -159,22 +161,28 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final Authorizer authorizer, final CatalogSecurityContext caller) {
     try {
       final AgentHarnessCompiler compiler = GetContextTool.compiler(authorizer);
+      final Optional<AgentHarnessSpec> effective = compiler.effectiveFor(caller);
       return KnowledgeGraphHarness.of(
-              compiler.effectiveFor(caller),
-              personaPrompt(compiler, caller),
-              SubAgentRegistry.getInstance())
-          .withConnectionAccess(connectionAccess(compiler, caller));
+              effective, personaPrompt(compiler, caller), SubAgentRegistry.getInstance())
+          .withConnectionAccess(
+              connectionAccess(
+                  compiler, caller, KnowledgeGraphHarness.enabledConnections(effective)));
     } catch (RuntimeException unreadable) {
       LOG.warn("[KnowledgeGraph] answered with the default harness: {}", unreadable.getMessage());
       return KnowledgeGraphHarness.DEFAULTS;
     }
   }
 
-  /** The caller's MCP Access layers; none is offered when they cannot be read. */
+  /**
+   * The connections the caller's harness switches on, under the caller's MCP Access layers; none is
+   * offered when they cannot be read.
+   */
   private static ConnectionAccess connectionAccess(
-      final AgentHarnessCompiler compiler, final CatalogSecurityContext caller) {
+      final AgentHarnessCompiler compiler,
+      final CatalogSecurityContext caller,
+      final List<String> enabled) {
     try {
-      return ConnectionAccess.of(compiler.toolAccessFor(caller));
+      return ConnectionAccess.of(compiler.toolAccessFor(caller), enabled);
     } catch (RuntimeException unreadable) {
       LOG.warn("[KnowledgeGraph] offered no connection: {}", unreadable.getMessage());
       return ConnectionAccess.UNREADABLE;

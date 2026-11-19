@@ -33,6 +33,7 @@ import org.openmetadata.schema.api.context.ResolvedAgentHarness;
 import org.openmetadata.schema.api.context.ResolvedHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessAnswer;
 import org.openmetadata.schema.entity.context.AgentHarnessCalendar;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
@@ -131,7 +132,11 @@ public final class HarnessDraftValidator {
     validateKnowledgeGraph(spec.getKnowledgeGraph());
   }
 
-  /** A sub-agent the harness enables must be one this installation registers. */
+  /**
+   * A sub-agent the harness enables must be one this installation registers. A connection needs
+   * only a name: connections come and go while the server runs, so one not registered now is kept
+   * and does nothing.
+   */
   private static void validateKnowledgeGraph(final AgentHarnessKnowledgeGraph knowledgeGraph) {
     if (knowledgeGraph == null) {
       return;
@@ -142,6 +147,12 @@ public final class HarnessDraftValidator {
         throw new IllegalArgumentException(
             "knowledgeGraph.subAgents names '%s', which no provider registers. See GET /v1/agentHarness/subAgents"
                 .formatted(agent.getName()));
+      }
+    }
+    for (final AgentHarnessConnection connection : listOrEmpty(knowledgeGraph.getConnections())) {
+      if (connection.getName() == null || connection.getName().isBlank()) {
+        throw new IllegalArgumentException(
+            "knowledgeGraph.connections has an entry without a name. See GET /v1/agentHarness/connections");
       }
     }
   }

@@ -230,6 +230,22 @@ describe('McpAccessCard', () => {
     );
   });
 
+  it('names only the connections switched on in the harness', () => {
+    renderCard([], { enabledConnections: ['notion'] });
+
+    expect(screen.getByTestId('mcp-uncovered-connections')).toHaveTextContent(
+      '"connections":"Notion"'
+    );
+  });
+
+  it('says nothing about uncovered connections when none is switched on', () => {
+    renderCard([], { enabledConnections: [] });
+
+    expect(
+      screen.queryByTestId('mcp-uncovered-connections')
+    ).not.toBeInTheDocument();
+  });
+
   it('counts a rule inherited from the default as covering its connection', () => {
     renderCard([], {
       inherited: {

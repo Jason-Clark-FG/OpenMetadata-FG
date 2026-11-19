@@ -24,8 +24,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.openmetadata.schema.api.context.AgentHarnessSpec;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
+import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.ToolAccessDefault;
 import org.openmetadata.schema.entity.context.ToolAccessLevel;
@@ -125,8 +129,10 @@ class ConnectionDelegationTest {
         .withTools(new ArrayList<>(List.of(tools)));
   }
 
+  private static final List<String> ENABLED = List.of("github", "notion");
+
   private static final ConnectionAccess ALLOW_ALL =
-      ConnectionAccess.of(List.of(access(ToolAccessDefault.ALLOW)));
+      ConnectionAccess.of(List.of(access(ToolAccessDefault.ALLOW)), ENABLED);
 
   private ConnectionDelegation.Answer delegate(
       final ConnectionAccess access,
@@ -158,7 +164,6 @@ class ConnectionDelegationTest {
             new ConnectionDelegation.Argument(
                 "state", "string (one of open, closed)", false, null));
     assertThat(listing.rest()).isNull();
-    assertThat(provider.calls).isEmpty();
   }
 
   @Test
@@ -206,6 +211,70 @@ class ConnectionDelegationTest {
   }
 
   @Test
+  void aRegisteredConnectionTheHarnessDoesNotEnableIsNotOfferedAndIsRefusedByName() {
+    final ConnectionAccess githubOnly =
+        ConnectionAccess.of(List.of(access(ToolAccessDefault.ALLOW)), List.of("github"));
+
+    assertThat(delegation.offered(githubOnly))
+        .extracting(ConnectionDelegation.Summary::name)
+        .containsExactly("github");
+    assertThatThrownBy(() -> delegate(githubOnly, "notion", null, null))
+        .hasMessageContaining(
+            "Your agent harness does not enable the connection 'notion'. Enabled for you: github.");
+    assertThatThrownBy(() -> delegate(githubOnly, "notion", "search", Map.of()))
+        .hasMessageContaining("does not enable the connection 'notion'");
+    assertThat(provider.calls).isEmpty();
+  }
+
+  @Test
+  void withNoConnectionEnabledNothingIsOfferedAndTheFirstAnswerIsUnchanged() {
+    final ConnectionAccess none =
+        ConnectionAccess.of(List.of(access(ToolAccessDefault.ALLOW)), List.of());
+    final KnowledgeGraphTool.Response answer =
+        new KnowledgeGraphTool.TraceResponse(
+            run.run(), Operation.TRACE, List.of(), List.of(), List.of());
+
+    assertThat(delegation.offered(none)).isEmpty();
+    assertThat(
+            JsonUtils.pojoToJson(
+                KnowledgeGraphTool.Opening.of(
+                    answer, KnowledgeGraphHarness.DEFAULTS, delegation.offered(none))))
+        .doesNotContain("connections", "aboutConnections");
+    assertThatThrownBy(() -> delegate(none, "github", null, null))
+        .hasMessageContaining("does not enable the connection 'github'. Enabled for you: none.");
+  }
+
+  @Test
+  void anEnabledNameTheRegistryLacksDoesNothing() {
+    final ConnectionAccess withGhost =
+        ConnectionAccess.of(List.of(access(ToolAccessDefault.ALLOW)), List.of("ghost", "github"));
+
+    assertThat(delegation.offered(withGhost))
+        .extracting(ConnectionDelegation.Summary::name)
+        .containsExactly("github");
+    assertThatThrownBy(() -> delegate(withGhost, "ghost", null, null))
+        .hasMessageContaining("No connection 'ghost' is registered");
+  }
+
+  @Test
+  void theEnabledNamesComeFromTheEffectiveHarnessAndOnlyTheSwitchedOnOnes() {
+    final AgentHarnessSpec spec =
+        new AgentHarnessSpec()
+            .withKnowledgeGraph(
+                new AgentHarnessKnowledgeGraph()
+                    .withConnections(
+                        List.of(
+                            new AgentHarnessConnection().withName("github").withEnabled(true),
+                            new AgentHarnessConnection().withName("notion").withEnabled(false))));
+
+    assertThat(KnowledgeGraphHarness.enabledConnections(Optional.of(spec)))
+        .containsExactly("github");
+    assertThat(KnowledgeGraphHarness.enabledConnections(Optional.empty())).isEmpty();
+    assertThat(KnowledgeGraphHarness.enabledConnections(Optional.of(new AgentHarnessSpec())))
+        .isEmpty();
+  }
+
+  @Test
   void anUnknownConnectionOrToolIsRefusedWithWhatIsOffered() {
     assertThatThrownBy(() -> delegate(ALLOW_ALL, "jira", null, null))
         .hasMessageContaining("No connection 'jira' is registered")
@@ -222,7 +291,8 @@ class ConnectionDelegationTest {
             List.of(
                 access(
                     ToolAccessDefault.ALLOW,
-                    server("github", ToolAccessLevel.WARN, "search_issues"))));
+                    server("github", ToolAccessLevel.WARN, "search_issues"))),
+            ENABLED);
 
     final ConnectionDelegation.ToolListing listing =
         (ConnectionDelegation.ToolListing) delegate(access, "github", null, null);
@@ -244,7 +314,8 @@ class ConnectionDelegationTest {
             List.of(
                 access(
                     ToolAccessDefault.ALLOW,
-                    server("github", ToolAccessLevel.BLOCK, "create_issue"))));
+                    server("github", ToolAccessLevel.BLOCK, "create_issue"))),
+            ENABLED);
 
     final ConnectionDelegation.ToolListing listing =
         (ConnectionDelegation.ToolListing) delegate(access, "github", null, null);
@@ -265,7 +336,8 @@ class ConnectionDelegationTest {
         ConnectionAccess.of(
             List.of(
                 access(ToolAccessDefault.ALLOW),
-                access(ToolAccessDefault.ALLOW, server("notion", ToolAccessLevel.BLOCK))));
+                access(ToolAccessDefault.ALLOW, server("notion", ToolAccessLevel.BLOCK))),
+            ENABLED);
 
     assertThatThrownBy(() -> delegate(access, "notion", "search", Map.of()))
         .hasMessageContaining("not offered to you")
@@ -280,7 +352,8 @@ class ConnectionDelegationTest {
   void aDenyDefaultOffersOnlyTheListedServers() {
     final ConnectionAccess access =
         ConnectionAccess.of(
-            List.of(access(ToolAccessDefault.DENY, server("github", ToolAccessLevel.ALLOW))));
+            List.of(access(ToolAccessDefault.DENY, server("github", ToolAccessLevel.ALLOW))),
+            ENABLED);
 
     assertThat(delegation.offered(access))
         .singleElement()

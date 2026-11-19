@@ -27,6 +27,7 @@ import org.openmetadata.schema.api.context.ResolvedHarnessEvent;
 import org.openmetadata.schema.api.context.ResolvedHarnessGuardrail;
 import org.openmetadata.schema.api.context.ResolvedHarnessSkill;
 import org.openmetadata.schema.entity.context.AgentHarness;
+import org.openmetadata.schema.entity.context.AgentHarnessConnection;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
@@ -257,7 +258,8 @@ public final class HarnessResolver {
 
   /**
    * The knowledge_graph settings in effect: the persona's switches when it sets the block, else the
-   * default's; a sub-agent is enabled when the default or the persona enables it, as skills are.
+   * default's; a sub-agent or a connection is enabled when the default or the persona enables it,
+   * as skills are.
    */
   private static AgentHarnessKnowledgeGraph knowledgeGraph(
       final AgentHarnessSpec defaults, final AgentHarnessSpec persona) {
@@ -266,12 +268,16 @@ public final class HarnessResolver {
             .orElseGet(AgentHarnessKnowledgeGraph::new);
     final AgentHarnessKnowledgeGraph own = persona == null ? null : persona.getKnowledgeGraph();
     final AgentHarnessKnowledgeGraph switches = own == null ? base : own;
-    final Set<String> enabled = new LinkedHashSet<>();
+    final Set<String> agents = new LinkedHashSet<>();
+    final Set<String> connections = new LinkedHashSet<>();
     for (final AgentHarnessKnowledgeGraph layer : Arrays.asList(base, own)) {
       if (layer != null) {
         listOrEmpty(layer.getSubAgents()).stream()
             .filter(agent -> Boolean.TRUE.equals(agent.getEnabled()))
-            .forEach(agent -> enabled.add(agent.getName()));
+            .forEach(agent -> agents.add(agent.getName()));
+        listOrEmpty(layer.getConnections()).stream()
+            .filter(connection -> Boolean.TRUE.equals(connection.getEnabled()))
+            .forEach(connection -> connections.add(connection.getName()));
       }
     }
     return new AgentHarnessKnowledgeGraph()
@@ -279,8 +285,12 @@ public final class HarnessResolver {
         .withRawQueries(switches.getRawQueries())
         .withLearn(switches.getLearn())
         .withSubAgents(
-            enabled.stream()
+            agents.stream()
                 .map(name -> new AgentHarnessSubAgent().withName(name).withEnabled(true))
+                .toList())
+        .withConnections(
+            connections.stream()
+                .map(name -> new AgentHarnessConnection().withName(name).withEnabled(true))
                 .toList());
   }
 

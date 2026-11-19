@@ -25,6 +25,23 @@
       "required": ["name", "enabled"],
       "additionalProperties": false
     },
+    "connectionSetting": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessConnection",
+      "description": "Whether one registered connection (an outside MCP server) is offered to the knowledge_graph tool.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of a connection listed by `GET /v1/agentHarness/connections`. A name no longer registered is kept and does nothing.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Whether the connection is offered. On a persona harness, true adds it for the persona; one the default offers stays offered.",
+          "type": "boolean"
+        }
+      },
+      "required": ["name", "enabled"],
+      "additionalProperties": false
+    },
     "knowledgeGraphSettings": {
       "javaType": "org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph",
       "description": "How agents use the knowledge_graph tool.",
@@ -50,6 +67,14 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/subAgentSetting"
+          },
+          "default": []
+        },
+        "connections": {
+          "description": "Connections (outside MCP servers) the tool may call. None is offered unless listed here. A persona harness lists only those it adds.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/connectionSetting"
           },
           "default": []
         }
