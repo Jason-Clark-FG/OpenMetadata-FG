@@ -196,7 +196,7 @@ final class SubAgentDelegation {
             });
   }
 
-  /** The nodes passed, described as the run's cards showed them. */
+  /** The nodes passed, described as the run's cards showed them; each must be one it showed. */
   private static List<SubAgentNode> nodes(final List<RunStep> steps, final List<String> ids) {
     final Map<String, RunStep.Node> seen = new LinkedHashMap<>();
     steps.forEach(step -> step.nodes().forEach(node -> seen.putIfAbsent(node.id(), node)));
@@ -208,7 +208,13 @@ final class SubAgentDelegation {
                         node ->
                             new SubAgentNode(
                                 id, node.label(), node.entityType(), node.fullyQualifiedName()))
-                    .orElseGet(() -> new SubAgentNode(id, null, null, null)))
+                    .orElseThrow(
+                        () ->
+                            new IllegalArgumentException(
+                                ("'nodes' names '%s', which this run has not shown; pass the 'id'"
+                                        + " of a card find or expand returned in this run, or"
+                                        + " leave 'nodes' out.")
+                                    .formatted(id))))
         .toList();
   }
 

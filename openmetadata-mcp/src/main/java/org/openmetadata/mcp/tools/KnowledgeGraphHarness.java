@@ -13,6 +13,7 @@
 
 package org.openmetadata.mcp.tools;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,12 +23,32 @@ import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSubAgent;
 import org.openmetadata.service.aicontext.agents.SubAgentDefinition;
 import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
+import org.openmetadata.service.aicontext.harness.HarnessDocuments;
 
 /** What the caller's effective agent harness lets knowledge_graph do. */
 record KnowledgeGraphHarness(
-    boolean rawQueries, String learnRefusal, List<SubAgentDefinition> agents) {
+    boolean rawQueries, String learnRefusal, List<SubAgentDefinition> agents, Guidance guidance) {
 
-  static final KnowledgeGraphHarness DEFAULTS = new KnowledgeGraphHarness(true, null, List.of());
+  static final KnowledgeGraphHarness DEFAULTS =
+      new KnowledgeGraphHarness(true, null, List.of(), null);
+
+  /**
+   * What the caller's harness tells the model, carried in the first answer of a run: the company
+   * instructions, the persona's prompt, and the entry rule when the harness turns it on.
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  record Guidance(String companyInstructions, String yourUsers, String rule) {
+    static Guidance of(final String company, final String users, final String rule) {
+      final boolean empty = isBlank(company) && isBlank(users) && isBlank(rule);
+      return empty
+          ? null
+          : new Guidance(isBlank(company) ? null : company, isBlank(users) ? null : users, rule);
+    }
+
+    private static boolean isBlank(final String text) {
+      return text == null || text.isBlank();
+    }
+  }
 
   static final String RAW_QUERIES_OFF =
       "The agent harness turns raw SPARQL off for knowledge_graph: answer with find, expand and"
@@ -38,18 +59,26 @@ record KnowledgeGraphHarness(
   static final String CAPTURE_OFF = "the agent harness turns memory capture off.";
 
   static KnowledgeGraphHarness of(
-      final Optional<AgentHarnessSpec> effective, final SubAgentRegistry registry) {
-    return effective.map(spec -> of(spec, registry)).orElse(DEFAULTS);
+      final Optional<AgentHarnessSpec> effective,
+      final String personaPrompt,
+      final SubAgentRegistry registry) {
+    return effective.map(spec -> of(spec, personaPrompt, registry)).orElse(DEFAULTS);
   }
 
   private static KnowledgeGraphHarness of(
-      final AgentHarnessSpec spec, final SubAgentRegistry registry) {
+      final AgentHarnessSpec spec, final String personaPrompt, final SubAgentRegistry registry) {
     final AgentHarnessKnowledgeGraph settings =
         Optional.ofNullable(spec.getKnowledgeGraph()).orElseGet(AgentHarnessKnowledgeGraph::new);
     return new KnowledgeGraphHarness(
         !Boolean.FALSE.equals(settings.getRawQueries()),
         learnRefusal(settings, spec.getMemory()),
-        enabledAgents(settings, registry));
+        enabledAgents(settings, registry),
+        Guidance.of(
+            spec.getCompanyInstructions(),
+            personaPrompt,
+            Boolean.TRUE.equals(settings.getEntry())
+                ? HarnessDocuments.KNOWLEDGE_GRAPH_RULE
+                : null));
   }
 
   private static String learnRefusal(

@@ -1,11 +1,15 @@
-/* knowledge_graph: renders what the tool returned (its structuredContent). find, expand and query
+/* knowledge_graph: renders the card member of what the tool returned (structuredContent.card). find, expand and query
    show what the call served, each node with its trust at a glance; cite and trace draw the run's
    graph, cited emphasised, explored plain, offered faint, with trust notices, memories and steps. */
 (function () {
   "use strict";
   var h = OM.h;
   var SVG = "http://www.w3.org/2000/svg";
-  var DRAWN = 12;
+  var DRAWN = 20;
+  /* Statuses that mean "do not use"; an ordinary lifecycle status such as Unprocessed is no warning. */
+  var WARN_STATUS = { Deprecated: true, Rejected: true, Retired: true, Archived: true };
+
+  function warnStatus(node) { return node.status && WARN_STATUS[node.status] ? node.status : null; }
   var KINDS = { table: "Table", column: "Column", glossaryTerm: "Term", metric: "Metric", dashboard: "Dash",
     pipeline: "Pipe", topic: "Topic", testCase: "Test", ontologyConcept: "Concept", ontologyProperty: "Prop",
     contextMemory: "Memory", user: "User", team: "Team", databaseSchema: "Schema", database: "DB" };
@@ -20,7 +24,7 @@
     return [
       node.failingTests ? OM.tag(node.failingTests + " failing", "err") : null,
       node.openIncidents ? OM.tag(node.openIncidents + " incident" + (node.openIncidents > 1 ? "s" : ""), "warn") : null,
-      node.status && node.status !== "Active" ? OM.tag(node.status, "warn") : null,
+      warnStatus(node) ? OM.tag(node.status, "warn") : null,
       node.certification ? OM.tag(String(node.certification).replace(/^Certification\./, ""), "ok") : null,
       node.tier ? OM.tag(String(node.tier).replace(/^Tier\./, "")) : null
     ];
@@ -34,7 +38,7 @@
   function rows(nodes) { return nodes.length ? h("div", "om-rows tight", nodes.map(nodeRow)) : null; }
 
   function trouble(nodes) {
-    return nodes.filter(function (node) { return node.failingTests || node.openIncidents || (node.status && node.status !== "Active"); });
+    return nodes.filter(function (node) { return node.failingTests || node.openIncidents || warnStatus(node); });
   }
 
   function pillOf(nodes, fallback) {
@@ -95,9 +99,15 @@
 
   function label(text) { return text.length > 22 ? text.slice(0, 21) + "…" : text; }
 
-  /** The drawn nodes on an ellipse, cited first; the rest go to a list under the drawing. */
+  /** The cited nodes on an ellipse (the explored ones when nothing was cited). */
+  function drawn(data) {
+    var all = data.nodes || [];
+    var cited = all.filter(function (node) { return node.state === "cited"; });
+    return (cited.length ? cited : all).slice(0, DRAWN);
+  }
+
   function graph(data) {
-    var nodes = (data.nodes || []).slice(0, DRAWN);
+    var nodes = drawn(data);
     if (!nodes.length) { return null; }
     var width = 608, height = Math.max(180, 70 + nodes.length * 14), cx = width / 2, cy = height / 2;
     var place = {};
@@ -134,14 +144,15 @@
       var parts = [];
       if (node.failingTests) { parts.push(node.failingTests + " failing test" + (node.failingTests > 1 ? "s" : "")); }
       if (node.openIncidents) { parts.push(node.openIncidents + " open incident" + (node.openIncidents > 1 ? "s" : "")); }
-      if (node.status && node.status !== "Active") { parts.push(node.status); }
+      if (warnStatus(node)) { parts.push(node.status); }
       return { label: "Trust", tone: "warn", body: (node.name || node.id) + ": " + parts.join(", ") + "." };
     }));
   }
 
   function runView(data) {
     var counts = data.counts || {};
-    var nodes = data.nodes || [];
+    var shown = byId(drawn(data));
+    var listed = (data.nodes || []).filter(function (node) { return !shown[node.id] && node.state === "explored"; });
     var steps = data.steps || [];
     return OM.card({
       kind: "Knowledge graph",
@@ -151,7 +162,7 @@
           h("div", "om-text", (counts.calls || 0) + " calls · " + (counts.cited || 0) + " cited · " + (counts.explored || 0)
             + " explored · " + (counts.offered || 0) + " offered")),
         graph(data),
-        nodes.length > DRAWN ? OM.section("Also reached", rows(nodes.slice(DRAWN))) : null,
+        listed.length ? OM.section("Also explored", rows(listed)) : null,
         more(data.moreNodes, "nodes"),
         trustNotices(data),
         OM.section("Memories", memoryRows(data.memories || []))
@@ -166,7 +177,8 @@
     });
   }
 
-  function render(data) {
+  function render(result) {
+    var data = result && result.card ? result.card : result;
     var wholeRun = data.operation === "cite" || data.operation === "trace" || data.operation === "delegate";
     return wholeRun ? runView(data) : compactView(data);
   }

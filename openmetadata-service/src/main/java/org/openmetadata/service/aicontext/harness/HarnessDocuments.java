@@ -42,7 +42,7 @@ import org.openmetadata.service.aicontext.harness.ContextItem.AssetRef;
 import org.openmetadata.service.aicontext.harness.ContextItem.Origin;
 
 /** Turns a caller's materialized persona context into the items the compiler selects from. */
-final class HarnessDocuments {
+public final class HarnessDocuments {
   /**
    * Hosts show a tool's card only when the model calls the tool, and a model that already knows
    * the answer, or cannot compute it, answers in prose or from its own memory. Each line names the
@@ -66,7 +66,7 @@ final class HarnessDocuments {
           + " line that it was saved, with the link. Do not keep it only in your own memory.";
 
   /** The rule when the harness makes knowledge_graph the way into the data (its entry switch). */
-  static final String KNOWLEDGE_GRAPH_RULE =
+  public static final String KNOWLEDGE_GRAPH_RULE =
       "Answer questions about data through knowledge_graph: find with the user's question in plain"
           + " words, expand the relationships that matter, query only for what cards cannot give,"
           + " and end every turn with cite, passing what the turn learnt. Use the other OpenMetadata"

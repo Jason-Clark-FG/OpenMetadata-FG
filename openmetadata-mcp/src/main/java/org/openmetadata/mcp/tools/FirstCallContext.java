@@ -42,6 +42,10 @@ public final class FirstCallContext {
   private static final Logger LOG = LoggerFactory.getLogger(FirstCallContext.class);
   static final String HARNESS_HOOK = "harness_hook";
   static final String GET_CONTEXT = "get_context";
+
+  /** Carries what the caller's harness says inside its own first answer of a run. */
+  static final String KNOWLEDGE_GRAPH = "knowledge_graph";
+
   private static final String CLOSING =
       "These are standing instructions from OpenMetadata for this task. Follow them when you use"
           + " the tool result above and in the rest of the conversation.";
@@ -78,7 +82,7 @@ public final class FirstCallContext {
     McpSchema.CallToolResult answer = result;
     if (HARNESS_HOOK.equals(toolName)) {
       ledger.markHooked(caller);
-    } else if (GET_CONTEXT.equals(toolName)) {
+    } else if (GET_CONTEXT.equals(toolName) || KNOWLEDGE_GRAPH.equals(toolName)) {
       ledger.markDelivered(caller);
     } else if (!Boolean.TRUE.equals(result.isError()) && ledger.isDue(caller)) {
       answer = withContext(authorizer, securityContext, caller, result);

@@ -163,7 +163,7 @@ check("a memory fact or asset named with markup stays text", () => {
 });
 
 check("knowledge_graph find lists what it served with trust at a glance", () => {
-  const card = open("knowledge-graph-v1.html", fixtures.kgfind);
+  const card = open("knowledge-graph-v1.html", { operation: "find", card: fixtures.kgfind });
   assert.equal(card.text(".kg-row").length, 5);
   assert.ok(card.text(".kg-row")[0].includes("4 failing"));
   assert.ok(card.text(".kg-row")[0].includes("3 incidents"));
@@ -172,12 +172,21 @@ check("knowledge_graph find lists what it served with trust at a glance", () => 
   assert.equal(card.document.querySelectorAll("svg .kg-node").length, 0);
 });
 
-check("knowledge_graph cite draws the run with cited, explored and offered nodes", () => {
-  const card = open("knowledge-graph-v1.html", fixtures.kgcite);
-  assert.equal(card.document.querySelectorAll("svg g.kg-node").length, 10);
+check("an ordinary lifecycle status is no warning", () => {
+  const ordinary = structuredClone(fixtures.kgfind);
+  ordinary.nodes.forEach((node) => { node.status = "Unprocessed"; node.failingTests = 0; node.openIncidents = 0; });
+  const card = open("knowledge-graph-v1.html", { card: ordinary });
+  assert.ok(card.text(".kg-row").every((row) => !row.includes("Unprocessed")));
+  assert.doesNotMatch(card.text(".om-pill")[0], /attention/);
+});
+
+check("knowledge_graph cite draws the cited nodes and lists the explored ones, never the offered", () => {
+  const card = open("knowledge-graph-v1.html", { operation: "cite", card: fixtures.kgcite });
+  assert.equal(card.document.querySelectorAll("svg g.kg-node").length, 3);
   assert.equal(card.document.querySelectorAll("svg g.kg-node.cited").length, 3);
-  assert.equal(card.document.querySelectorAll("svg g.kg-node.offered").length, 3);
-  assert.equal(card.document.querySelectorAll("svg line.kg-edge.cited").length, 2);
+  assert.equal(card.text(".kg-row.explored").length, 4);
+  assert.equal(card.text(".kg-row.offered").length, 0);
+  assert.equal(card.document.querySelectorAll("svg line.kg-edge.cited").length, 1);
   assert.match(card.text(".om-notice-body")[0], /orders: 4 failing tests, 3 open incidents/);
   assert.equal(card.text(".kg-memory").length, 2);
   assert.equal(card.text(".om-pill")[0], "3 cited");
@@ -186,7 +195,7 @@ check("knowledge_graph cite draws the run with cited, explored and offered nodes
 check("a knowledge_graph node named with markup stays text", () => {
   const hostile = structuredClone(fixtures.kgcite);
   hostile.nodes[0].name = "<img src=x onerror=alert(1)>";
-  const card = open("knowledge-graph-v1.html", hostile);
+  const card = open("knowledge-graph-v1.html", { card: hostile });
   assert.equal(card.document.querySelectorAll("img").length, 0);
 });
 

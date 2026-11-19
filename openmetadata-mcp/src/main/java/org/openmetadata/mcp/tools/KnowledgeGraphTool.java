@@ -35,6 +35,7 @@ import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.agents.SubAgentDefinition;
 import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
 import org.openmetadata.service.aicontext.agents.SubAgentResult;
+import org.openmetadata.service.aicontext.harness.AgentHarnessCompiler;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
@@ -96,6 +97,9 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   /** Room the response keeps beyond its cards: run, operation, counts and skip notes. */
   private static final long ENVELOPE_RESERVE = 1_000;
 
+  /** Room kept for the card a host draws, which travels in the same response. */
+  private static final long CARD_RESERVE = 6_000;
+
   /** Room for a field's name and separators. */
   private static final long FIELD_CHARS = 24;
 
@@ -151,11 +155,24 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   private static KnowledgeGraphHarness harnessOf(
       final Authorizer authorizer, final CatalogSecurityContext caller) {
     try {
+      final AgentHarnessCompiler compiler = GetContextTool.compiler(authorizer);
       return KnowledgeGraphHarness.of(
-          GetContextTool.compiler(authorizer).effectiveFor(caller), SubAgentRegistry.getInstance());
+          compiler.effectiveFor(caller),
+          personaPrompt(compiler, caller),
+          SubAgentRegistry.getInstance());
     } catch (RuntimeException unreadable) {
       LOG.warn("[KnowledgeGraph] answered with the default harness: {}", unreadable.getMessage());
       return KnowledgeGraphHarness.DEFAULTS;
+    }
+  }
+
+  private static String personaPrompt(
+      final AgentHarnessCompiler compiler, final CatalogSecurityContext caller) {
+    try {
+      return compiler.personaPromptFor(caller);
+    } catch (RuntimeException unreadable) {
+      LOG.warn("[KnowledgeGraph] answered without the persona prompt: {}", unreadable.getMessage());
+      return null;
     }
   }
 
@@ -227,7 +244,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
           TraceResponse,
           CiteResponse,
           DelegateResponse,
-          Opening {
+          Opening,
+          WithCard {
     UUID run();
 
     Operation operation();
@@ -309,15 +327,26 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
    * The first answer of a run, with the sub-agents the caller's harness enables: {@code delegate}
    * hands one of them a task.
    */
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
   public record Opening(
-      @JsonUnwrapped Response answer, List<SubAgentDefinition> subAgents, String aboutSubAgents)
+      @JsonUnwrapped Response answer,
+      KnowledgeGraphHarness.Guidance harness,
+      List<SubAgentDefinition> subAgents,
+      String aboutSubAgents)
       implements Response {
     static final String ABOUT =
-        "delegate hands one of these a 'task' with optional card 'nodes'; it runs as you, with"
-            + " your access. A 'running' result carries a 'handle': call delegate with it later.";
+        "When one of these sub-agents fits the task (its 'whenToUse' says when; for analytics, the"
+            + " person wants numbers from the warehouse), hand the task to it with delegate instead"
+            + " of writing SQL or SPARQL yourself, and say in the answer that the agent ran it."
+            + " delegate takes 'agent', 'task' and optional card 'nodes'; it runs as the person,"
+            + " with their access. A 'running' result carries a 'handle': call delegate with it"
+            + " later.";
 
-    Opening(final Response answer, final List<SubAgentDefinition> subAgents) {
-      this(answer, subAgents, ABOUT);
+    static Response of(final Response answer, final KnowledgeGraphHarness harness) {
+      final boolean agents = !harness.agents().isEmpty();
+      return agents || harness.guidance() != null
+          ? new Opening(answer, harness.guidance(), harness.agents(), agents ? ABOUT : null)
+          : answer;
     }
 
     @Override
@@ -343,13 +372,33 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
    * The answer as text for the model, unchanged, and the card an MCP Apps host draws of it. A card
    * that cannot be built is left out; the answer never fails for it.
    */
-  public CardResult executeWithCard(
+  /**
+   * The answer with its card as one member ({@code card}), so a host's model reads the whole answer
+   * whichever part of the result it takes. A card that would not fit the response is left out.
+   */
+  public Map<String, Object> executeWithCard(
       final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final Map<String, Object> params)
       throws IOException {
     final Response response = execute(authorizer, securityContext, params);
-    return new CardResult(response, card(securityContext, response, params));
+    final KnowledgeGraphCard card = card(securityContext, response, params);
+    final boolean fits = card != null && chars(response) + chars(card) <= responseLimit();
+    return JsonUtils.getMap(fits ? new WithCard(response, card) : response);
+  }
+
+  /** An answer and the card a host draws from it. */
+  public record WithCard(@JsonUnwrapped Response answer, KnowledgeGraphCard card)
+      implements Response {
+    @Override
+    public UUID run() {
+      return answer.run();
+    }
+
+    @Override
+    public Operation operation() {
+      return answer.operation();
+    }
   }
 
   private KnowledgeGraphCard card(
@@ -383,6 +432,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       case DelegateResponse delegate -> runCard(
           securityContext, Operation.DELEGATE, delegate.run());
       case Opening opening -> cardOf(securityContext, opening.answer(), sparql);
+      case WithCard carded -> carded.card();
     };
   }
 
@@ -441,9 +491,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
               Operation.DELEGATE,
               delegation.delegate(securityContext, harness, run, traces.get(), delegate));
         };
-    return firstCall && !harness.agents().isEmpty()
-        ? new Opening(answer, harness.agents())
-        : answer;
+    return firstCall ? Opening.of(answer, harness) : answer;
   }
 
   @Override
@@ -606,7 +654,11 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
    * the envelope's room. A caller cannot change it.
    */
   static long budget() {
-    return Math.min(DEFAULT_RESPONSE_CHARS, ResponseBudget.defaultBudgetChars()) - ENVELOPE_RESERVE;
+    return responseLimit() - ENVELOPE_RESERVE - CARD_RESERVE;
+  }
+
+  private static long responseLimit() {
+    return Math.min(DEFAULT_RESPONSE_CHARS, ResponseBudget.defaultBudgetChars());
   }
 
   private static ExpandRequest expandRequest(

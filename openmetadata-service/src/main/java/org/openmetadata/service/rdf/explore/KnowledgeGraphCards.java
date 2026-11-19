@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,6 +36,9 @@ public final class KnowledgeGraphCards {
   public static final int MAX_GROUPS = 10;
   public static final int MAX_MEMORIES = 10;
   public static final int MAX_STEPS = 20;
+  public static final int MAX_CITED = 20;
+  public static final int MAX_EXPLORED = 8;
+  private static final Pattern ENTITY_IRI = Pattern.compile("/entity/[^/]+/[^/]+$");
 
   private static final String OFFERED = "offered";
   private static final String EXPLORED = "explored";
@@ -123,15 +127,25 @@ public final class KnowledgeGraphCards {
         trusted.stream().collect(Collectors.toMap(NodeCard::id, Function.identity(), (a, b) -> a));
     final Set<String> offering =
         trace.edges().stream().map(TraceEdge::node).collect(Collectors.toSet());
-    final List<KnowledgeGraphCard.Node> nodes =
+    final List<KnowledgeGraphCard.Node> reached =
         trace.nodes().stream()
+            .filter(KnowledgeGraphCards::isCatalogEntity)
             .map(node -> runNode(node, stateOf(node, offering), byId.get(node.id())))
             .sorted(Comparator.comparingInt(KnowledgeGraphCards::rank))
             .toList();
+    final List<KnowledgeGraphCard.Node> cited = inState(reached, CITED);
+    final List<KnowledgeGraphCard.Node> explored = inState(reached, EXPLORED);
+    final List<KnowledgeGraphCard.Node> nodes =
+        Stream.concat(head(cited, MAX_CITED).stream(), head(explored, MAX_EXPLORED).stream())
+            .toList();
+    final int moreNodes = more(cited, MAX_CITED) + more(explored, MAX_EXPLORED);
+    final Set<String> shown =
+        nodes.stream().map(KnowledgeGraphCard.Node::id).collect(Collectors.toSet());
     final List<KnowledgeGraphCard.Edge> edges =
         trace.edges().stream()
             .filter(edge -> edge.other() != null)
             .map(KnowledgeGraphCards::edge)
+            .filter(edge -> shown.contains(edge.from()) && shown.contains(edge.to()))
             .distinct()
             .toList();
     final List<KnowledgeGraphCard.Memory> memories =
@@ -141,9 +155,9 @@ public final class KnowledgeGraphCards {
     return new KnowledgeGraphCard(
         operation.value(),
         trace.run().toString(),
-        counts(nodes, trace.steps().size()),
-        head(nodes, MAX_NODES),
-        more(nodes, MAX_NODES),
+        counts(reached, trace.steps().size()),
+        nodes,
+        moreNodes,
         head(edges, MAX_EDGES),
         more(edges, MAX_EDGES),
         List.of(),
@@ -152,9 +166,20 @@ public final class KnowledgeGraphCards {
         head(steps, MAX_STEPS),
         more(steps, MAX_STEPS),
         null,
-        more(nodes, MAX_NODES) > 0
-            ? "%d more nodes the run reached are not shown.".formatted(more(nodes, MAX_NODES))
-            : null);
+        moreNodes > 0 ? "%d more nodes the run used are not shown.".formatted(moreNodes) : null);
+  }
+
+  /** A catalog entity, not an ontology class, property or other IRI a query named. */
+  private static boolean isCatalogEntity(final TraceNode node) {
+    final String type = node.entityType();
+    final boolean typedEntity =
+        type != null && !type.isBlank() && !OntologyTermKind.isTermType(type);
+    return typedEntity || (type == null && ENTITY_IRI.matcher(node.id()).find());
+  }
+
+  private static List<KnowledgeGraphCard.Node> inState(
+      final List<KnowledgeGraphCard.Node> nodes, final String state) {
+    return nodes.stream().filter(node -> state.equals(node.state())).toList();
   }
 
   private static String stateOf(final TraceNode node, final Set<String> offering) {

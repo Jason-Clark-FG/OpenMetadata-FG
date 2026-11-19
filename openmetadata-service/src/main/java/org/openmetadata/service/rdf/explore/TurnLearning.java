@@ -42,6 +42,11 @@ final class TurnLearning {
       NOT_SAVED + "'corrects' must be the id of a memory this run showed; %s was not.";
   private static final String NO_EVIDENCE =
       NOT_SAVED + "no evidence; quote the person's words or a tool result under 'evidence'.";
+  private static final String OWN_RESULT =
+      NOT_SAVED
+          + "what knowledge_graph showed or did not show is what the graph holds, not a"
+          + " learning; quote the person, or another tool's result and name that 'tool'.";
+  private static final String OWN_TOOL = "knowledge_graph";
   private static final String REPEAT = NOT_SAVED + "memory %s (\"%s\") already says this.";
 
   private final List<RunStep> steps;
@@ -79,6 +84,8 @@ final class TurnLearning {
       reason = CORRECTS_NOT_SHOWN.formatted(corrects);
     } else if (!hasEvidence(candidate)) {
       reason = NO_EVIDENCE;
+    } else if (!fromThePersonOrAnotherTool(candidate.evidence())) {
+      reason = OWN_RESULT;
     }
     return Optional.ofNullable(reason);
   }
@@ -89,6 +96,12 @@ final class TurnLearning {
         && evidence.source() != null
         && evidence.quote() != null
         && !evidence.quote().isBlank();
+  }
+
+  private static boolean fromThePersonOrAnotherTool(final LearnedCandidate.Evidence evidence) {
+    final String tool = evidence.tool() == null ? "" : evidence.tool();
+    return evidence.source() == EvidenceSource.USER
+        || (!tool.isBlank() && !tool.contains(OWN_TOOL));
   }
 
   private static LearnedOutcome written(

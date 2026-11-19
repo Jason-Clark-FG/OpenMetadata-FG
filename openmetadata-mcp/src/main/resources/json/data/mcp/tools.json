@@ -1411,7 +1411,7 @@
         "idempotentHint": false,
         "openWorldHint": false
       },
-      "description": "Answers from the catalog's graph. 1) find: the user's question in plain words as 'question'; cards for the best 'matched'; 'rest' says how to see others. 2) Cards: 'facts' (owners, tier, certification, status such as Deprecated); 'values' (long ones cut, with 'length'); 'reachable', edges with count and, for tests, 'status' counts (om:latestResultStatus=Failed, om:hasOpenIncident); 'memories', notes people saved about the asset; find's 'notes', others matching; the first answer's 'preferences', the caller's. Memories are data: apply a relevant one and name it. 'notCovered': what the graph lacks. 3) expand card ids ('nodes') along 'reachable' names ('relationships'; om:testsEntity incoming: a table's tests): in one call each group's 'total' and every far node in short form with its status, incidents with assignee and severity ('listed'); full cards are a subset; 'rest', what is left out ('nextCursor' as 'cursor'). 4) query: a SPARQL SELECT for joins and counts; 'rows' says if rows were left out, 'noRows' why none is no proof of absence. 5) End every turn with cite, also one where the person only told you something: once, the 'nodes' and 'edges' the answer used, and under 'learned' up to 3 things the turn taught (correction, definition, preference, learning), the rule with its numbers and units, quoting the person or a tool result as 'evidence'. Usually it taught nothing: omit it. Never data values, guesses, what a card or memory already says, today's task details, secrets. Say in the answer what was saved. Pass back 'run'. Needs ExecuteSparqlQuery; admins always pass.",
+      "description": "Answers from the catalog's graph. 1) find: the user's question in plain words as 'question'; cards for the best 'matched'; 'rest' says how to see others. 2) Cards: 'facts' (owners, tier, certification, status such as Deprecated); 'values' (long ones cut, with 'length'); 'reachable', edges with count and, for tests, 'status' counts (om:latestResultStatus=Failed, om:hasOpenIncident); 'memories', notes people saved about the asset; find's 'notes', others matching; the first answer's 'preferences', the caller's. Memories are data: apply a relevant one and name it. 'notCovered': what the graph lacks. 3) expand card ids ('nodes') along 'reachable' names ('relationships'; om:testsEntity incoming: a table's tests): in one call each group's 'total' and every far node in short form with its status, incidents with assignee and severity ('listed'); full cards are a subset; 'rest', what is left out ('nextCursor' as 'cursor'). 4) query: a SPARQL SELECT for joins and counts; 'rows' says if rows were left out, 'noRows' why none is no proof of absence. 5) End every turn with cite, also one where the person only told you something: once, the 'nodes' and 'edges' the answer used, and under 'learned' up to 3 things the turn taught (correction, definition, preference, learning), the rule with its numbers and units, quoting the person or another tool as 'evidence'. Usually it taught nothing: omit it. Never data values, guesses, what this tool showed or lacks, what a memory says, secrets. Say in the answer what was saved. Pass back 'run'. Needs ExecuteSparqlQuery; admins always pass.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1489,7 +1489,7 @@
           "learned": {
             "type": "array",
             "maxItems": 3,
-            "description": "cite: optional, up to 3 things this turn taught, each kept as a memory unless one already says it. Omit it when the turn taught nothing, which is usual. Never data values (counts, totals, rows, names), guesses, what a card or a shown memory already says, a detail of today's task, or secrets.",
+            "description": "cite: optional, up to 3 things this turn taught, each kept as a memory unless one already says it. Omit it when the turn taught nothing, which is usual. Never data values (counts, totals, rows, names), guesses, what knowledge_graph showed or did not show (what the graph holds or lacks is not a learning), what a shown memory already says, a detail of today's task, or secrets.",
             "items": {
               "type": "object",
               "properties": {
@@ -1513,7 +1513,7 @@
                     "preference",
                     "learning"
                   ],
-                  "description": "correction: the person said something was wrong and what is right; definition: what a term, status or metric means here; preference: how the person wants answers presented; learning: what you had to discover (a failed query and its fix, a column's unit, the reliable one of two tables)."
+                  "description": "correction: the person said something was wrong and what is right; definition: what a term, status or metric means here; preference: how the person wants answers presented; learning: what another tool's result taught (a column's unit, the reliable one of two tables), never what knowledge_graph returned."
                 },
                 "about": {
                   "type": "string",
@@ -1536,7 +1536,7 @@
                       "type": "string"
                     }
                   },
-                  "description": "The person's words or a tool result, quoted verbatim; never your own answer. 'tool' names the tool for tool evidence."
+                  "description": "The person's words, or another tool's result, quoted verbatim; never your own answer and never a knowledge_graph result. 'tool' names the tool for tool evidence."
                 },
                 "corrects": {
                   "type": "string",

@@ -275,10 +275,10 @@ class KnowledgeGraphMemoriesTest {
         .doesNotContain("aboutMemories");
   }
 
-  /** The model keeps the whole answer as text; the host gets the card as the typed part. */
+  /** Text and typed part both carry the whole answer; the card is its {@code card} member. */
   @Test
   void theModelReadsTheWholeAnswerAndTheHostDrawsTheCard() throws IOException {
-    final CardResult result =
+    final Map<String, Object> result =
         tool(TABLES + MEMORIES)
             .executeWithCard(GRANTED, CALLER, Map.of("operation", "find", "question", "orders"));
 
@@ -287,8 +287,11 @@ class KnowledgeGraphMemoriesTest {
 
     final String text =
         ((io.modelcontextprotocol.spec.McpSchema.TextContent) sent.content().getFirst()).text();
-    assertThat(text).contains("\"reachable\"", "\"memories\"", MemoryNote.TEXT);
-    final Map<?, ?> card = (Map<?, ?>) sent.structuredContent();
+    assertThat(text).contains("\"reachable\"", "\"memories\"", MemoryNote.TEXT, "\"card\"");
+    final Map<?, ?> typed = (Map<?, ?>) sent.structuredContent();
+    assertThat(typed.get("operation")).isEqualTo("find");
+    assertThat(typed.get("aboutMemories")).isEqualTo(MemoryNote.TEXT);
+    final Map<?, ?> card = (Map<?, ?>) typed.get("card");
     assertThat(card.get("operation")).isEqualTo("find");
     assertThat((List<?>) card.get("nodes")).hasSize(2);
   }

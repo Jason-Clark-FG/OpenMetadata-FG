@@ -154,6 +154,11 @@ public final class AgentHarnessCompiler {
     return effective(caller(securityContext));
   }
 
+  /** The prompt the caller's persona context gives its users, or null when it sets none. */
+  public String personaPromptFor(final SecurityContext securityContext) {
+    return PersonaContextCache.definitionOf(caller(securityContext).documentPersona()).getPrompt();
+  }
+
   /** The memory settings that apply to the caller and the persona they are served under, if any. */
   public Optional<AppliedMemory> memory(final SecurityContext securityContext) {
     final Caller caller = caller(securityContext);
