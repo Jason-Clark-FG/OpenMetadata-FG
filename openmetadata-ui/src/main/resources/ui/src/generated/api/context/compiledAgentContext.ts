@@ -91,6 +91,12 @@ export interface AppliedHarnesses {
  */
 export interface AppliedHarness {
     /**
+     * Human-readable name to show for the harness. A persona harness is named by its persona's
+     * id so a persona rename does not break it; this is the persona's display name, or its name
+     * when it has none.
+     */
+    displayName?: string;
+    /**
      * Id of the harness.
      */
     id: string;

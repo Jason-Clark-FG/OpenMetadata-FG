@@ -55,6 +55,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.openmetadata.schema.api.data.MetricAssetDirection;
+import org.openmetadata.schema.entity.data.GlossaryTerm;
 import org.openmetadata.schema.entity.data.Metric;
 import org.openmetadata.schema.entity.teams.Persona;
 import org.openmetadata.schema.type.AIContext;
@@ -1011,6 +1012,45 @@ class PersonaContextBuilderTest {
             .selectRules(definition)
             .size(),
         "a knowledge rule must still be materialized despite the flag");
+  }
+
+  @Test
+  void aRuleMaterializedKnowledgeItemCarriesItsEntityName() throws IOException {
+    SearchRepository repository = mock(SearchRepository.class);
+    when(repository.listWithDeepPagination(
+            eq(Entity.GLOSSARY_TERM),
+            isNull(),
+            anyString(),
+            any(String[].class),
+            any(SearchSortFilter.class),
+            anyInt(),
+            nullable(Object[].class)))
+        .thenReturn(
+            new SearchResultListMapper(
+                List.of(Map.of("fullyQualifiedName", "Business.Revenue")), 1));
+    GlossaryTerm term =
+        new GlossaryTerm()
+            .withId(UUID.randomUUID())
+            .withName("Revenue")
+            .withFullyQualifiedName("Business.Revenue")
+            .withDescription("Money earned.");
+    ContextRule rule =
+        new ContextRule().withName("Terms").withEntityType(Entity.GLOSSARY_TERM).withEnabled(true);
+    try (MockedStatic<Entity> entities = mockStatic(Entity.class)) {
+      entities
+          .when(() -> Entity.getEntityByName(eq(Entity.GLOSSARY_TERM), anyString(), any(), any()))
+          .thenReturn(term);
+
+      AIContext selected =
+          new PersonaContextBuilder(persona(), new PersonaContextDefinition(), repository)
+              .selectRules(new PersonaContextDefinition().withRules(List.of(rule)))
+              .getFirst()
+              .entities()
+              .getFirst()
+              .context();
+
+      assertEquals("Revenue", selected.getName());
+    }
   }
 
   @Test
