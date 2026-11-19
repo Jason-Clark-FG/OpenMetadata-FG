@@ -28,6 +28,13 @@ public record FarNode(String id, String name, String type, Map<String, Object> s
     status = status == null ? Map.of() : Map.copyOf(status);
   }
 
+  private static final int ID_ENTRY_CHARS = "{\"id\":\"\"},".length();
+
+  /** The fewest characters a listing entry for {@code id} can take: the id alone. */
+  static long smallestChars(final String id) {
+    return (long) id.length() + ID_ENTRY_CHARS;
+  }
+
   /** The status values in name order, as a listing shows them. */
   @Override
   public Map<String, Object> status() {

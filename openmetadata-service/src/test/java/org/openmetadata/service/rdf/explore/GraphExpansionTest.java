@@ -340,4 +340,48 @@ class GraphExpansionTest {
 
     assertThat(graph.queries()).hasSize(5);
   }
+
+  /**
+   * Short forms are read only for as many far nodes as the response could hold at the smallest
+   * entry, in the order the listing takes them, so a wide expansion never reads all of them.
+   */
+  @Test
+  void shortFormsAreReadOnlyForTheFarNodesTheResponseCouldHold() {
+    final String wide =
+        IntStream.range(0, 300)
+            .mapToObj(
+                index ->
+                    "<%1$s> om:hasColumn <%2$scolumn/c%3$03d> ; om:hasTag <%2$stag/t%3$03d> .\n"
+                        .formatted(ORDERS, E, index))
+            .collect(Collectors.joining());
+    final InMemoryGraph graph = InMemoryGraph.ofTurtle(wide);
+
+    final ExpandPage page =
+        new GraphExpansion(graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical())
+            .expand(
+                new ExpandRequest(
+                    List.of(ORDERS),
+                    List.of(OM + "hasColumn", HAS_TAG),
+                    Set.of(Direction.OUTGOING),
+                    20,
+                    0,
+                    8_000));
+
+    final String shortForms =
+        graph.queries().stream()
+            .filter(query -> query.contains("?field"))
+            .findFirst()
+            .orElseThrow();
+    final long read = shortForms.split("column/c|tag/t", -1).length - 1L;
+    assertThat(read).isLessThan(8_000 / E.length()).isGreaterThan(0);
+    assertThat(page.expansions())
+        .allSatisfy(
+            group -> {
+              assertThat(group.total()).isEqualTo(300);
+              assertThat(group.listed()).isNotEmpty().hasSizeLessThan(300);
+              assertThat(group.rest())
+                  .contains(group.listed().size() + " of 300 are listed")
+                  .contains("OFFSET " + group.listed().size());
+            });
+  }
 }

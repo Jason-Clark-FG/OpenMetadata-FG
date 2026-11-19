@@ -164,28 +164,63 @@ public final class GraphExpansion {
       final List<GroupKey> keys,
       final Map<GroupKey, List<String>> ids,
       final ExpandRequest request) {
+    final long overhead = (long) keys.size() * (GROUP_CHARS + REST_CHARS);
+    final List<Turn> turns = turns(keys, ids);
     final Map<String, FarNode> shortForms =
-        shortForms(ids.values().stream().flatMap(List::stream).distinct().toList());
+        shortForms(
+            holdable(turns, request.maxChars() - overhead).stream()
+                .map(Turn::id)
+                .distinct()
+                .toList());
     final Map<GroupKey, List<FarNode>> listed = new LinkedHashMap<>();
     keys.forEach(key -> listed.put(key, new ArrayList<>()));
-    long used = (long) keys.size() * (GROUP_CHARS + REST_CHARS);
+    long used = overhead;
+    for (final Turn turn : turns) {
+      final FarNode far = shortForms.get(turn.id());
+      final long cost = far == null ? Long.MAX_VALUE : JsonUtils.pojoToJson(far).length() + 1L;
+      if (far == null || used + cost > request.maxChars()) {
+        return listed;
+      }
+      used += cost;
+      listed.get(turn.key()).add(far);
+    }
+    return listed;
+  }
+
+  /** The listing order: each group's first far node, then each group's second, and so on. */
+  private static List<Turn> turns(
+      final List<GroupKey> keys, final Map<GroupKey, List<String>> ids) {
+    final List<Turn> turns = new ArrayList<>();
     final int longest = ids.values().stream().mapToInt(List::size).max().orElse(0);
     for (int index = 0; index < longest; index++) {
       for (final GroupKey key : keys) {
         final List<String> groupIds = ids.getOrDefault(key, List.of());
         if (index < groupIds.size()) {
-          final FarNode far = shortForms.get(groupIds.get(index));
-          final long cost = JsonUtils.pojoToJson(far).length() + 1L;
-          if (used + cost > request.maxChars()) {
-            return listed;
-          }
-          used += cost;
-          listed.get(key).add(far);
+          turns.add(new Turn(key, groupIds.get(index)));
         }
       }
     }
-    return listed;
+    return turns;
   }
+
+  /**
+   * The leading turns the response could hold if each entry were as small as an entry can be (its
+   * id alone), so no short form is read for a far node that could never be listed.
+   */
+  private static List<Turn> holdable(final List<Turn> turns, final long budget) {
+    long used = 0;
+    int count = 0;
+    while (count < turns.size()) {
+      used += FarNode.smallestChars(turns.get(count).id());
+      if (used > budget) {
+        break;
+      }
+      count++;
+    }
+    return turns.subList(0, count);
+  }
+
+  private record Turn(GroupKey key, String id) {}
 
   private static long listChars(
       final List<GroupKey> keys, final Map<GroupKey, List<FarNode>> listed) {
