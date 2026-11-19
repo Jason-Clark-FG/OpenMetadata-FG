@@ -69,6 +69,7 @@ public class McpServer implements McpServerProvider {
   protected DefaultPromptsContext promptsContext;
   private Environment environment;
   private volatile String mcpBotName;
+  OfferedTools offeredTools = OfferedTools.ALL;
 
   // Default constructor for dynamic loading
   public McpServer() {
@@ -87,6 +88,10 @@ public class McpServer implements McpServerProvider {
       Authorizer authorizer,
       Limits limits,
       OpenMetadataApplicationConfig config) {
+    List<McpSchema.Tool> tools = getTools();
+    this.offeredTools =
+        OfferedTools.parse(
+            config.getMcpOfferedTools(), tools.stream().map(McpSchema.Tool::name).toList());
     this.jwtFilter =
         new JwtFilter(
             SecurityConfigurationManager.getCurrentAuthConfig(),
@@ -101,7 +106,7 @@ public class McpServer implements McpServerProvider {
     this.limits = limits;
     this.environment = environment;
     MutableServletContextHandler contextHandler = environment.getApplicationContext();
-    List<McpSchema.Tool> tools = getTools();
+    logOfferedTools(offeredTools);
     McpToolRegistry.setToolNames(tools.stream().map(McpSchema.Tool::name).toList());
     logToolGating(tools, SecurityConfigurationManager.getCurrentMcpConfig());
     SecurityConfigurationManager.getInstance()
@@ -136,7 +141,12 @@ public class McpServer implements McpServerProvider {
    * ontology document straight off the classpath and works with RDF disabled.
    */
   private static final Set<String> RDF_DEPENDENT_TOOLS =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "shacl_validate");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "shacl_validate",
+          "knowledge_graph");
 
   private static final Set<String> WRITE_HELPER_TOOLS = Set.of("describe_entity_type");
 
@@ -176,8 +186,16 @@ public class McpServer implements McpServerProvider {
    * #executeTool} refuses them on each call. See ADR:2026-11-04-mcp-read-only-mode-hides-write-tools
    * and ADR:2026-11-05-mcp-admins-can-disable-single-tools.
    */
-  static McpSyncListFilter<McpSchema.Tool> toolFilter(Supplier<MCPConfiguration> config) {
-    return (context, tool) -> refusalReason(tool, config.get()).isEmpty();
+  static McpSyncListFilter<McpSchema.Tool> toolFilter(
+      Supplier<MCPConfiguration> config, OfferedTools offered) {
+    return (context, tool) ->
+        offered.offers(tool.name()) && refusalReason(tool, config.get()).isEmpty();
+  }
+
+  private static void logOfferedTools(OfferedTools offered) {
+    if (offered.isRestricted()) {
+      LOG.info("[MCP] This server offers only the tool(s) {}", offered.names());
+    }
   }
 
   static final String INSTRUCTIONS =
@@ -195,20 +213,31 @@ public class McpServer implements McpServerProvider {
           + " alternative OpenMetadata names. Treat deprecated assets and assets with open"
           + " incidents as untrusted unless the user asks for them.";
 
+  /**
+   * The server's instructions: {@link #INSTRUCTIONS} when every tool is offered; when an
+   * allowlist ({@code MCP_OFFERED_TOOLS}) narrows the tools, only the allowlist's own text, which
+   * names no tool it does not offer.
+   */
+  static Optional<String> instructions(OfferedTools offered) {
+    return offered.isRestricted() ? offered.instructions() : Optional.of(INSTRUCTIONS);
+  }
+
   static McpStatelessSyncServer buildServer(
       McpStatelessServerTransport transport,
       McpSchema.ServerCapabilities capabilities,
-      Supplier<MCPConfiguration> mcpConfig) {
-    return io.modelcontextprotocol.server.McpServer.sync(transport)
-        .serverInfo(serverInfo(mcpConfig.get()))
-        .capabilities(capabilities)
-        .instructions(INSTRUCTIONS)
-        // SDK 2.x checks tools/call arguments against the tool schema by default. Kept off: the
-        // tools accept looser shapes on purpose, see
-        // ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk.
-        .validateToolInputs(false)
-        .addToolFilter(toolFilter(mcpConfig))
-        .build();
+      Supplier<MCPConfiguration> mcpConfig,
+      OfferedTools offered) {
+    var specification =
+        io.modelcontextprotocol.server.McpServer.sync(transport)
+            .serverInfo(serverInfo(mcpConfig.get()))
+            .capabilities(capabilities)
+            // SDK 2.x checks tools/call arguments against the tool schema by default. Kept off: the
+            // tools accept looser shapes on purpose, see
+            // ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk.
+            .validateToolInputs(false)
+            .addToolFilter(toolFilter(mcpConfig, offered));
+    instructions(offered).ifPresent(specification::instructions);
+    return specification.build();
   }
 
   // The name and version clients see in initialize come from the MCP settings, read at startup. A
@@ -330,7 +359,8 @@ public class McpServer implements McpServerProvider {
           buildServer(
               statelessOauthTransport,
               serverCapabilities,
-              SecurityConfigurationManager::getCurrentMcpConfig);
+              SecurityConfigurationManager::getCurrentMcpConfig,
+              offeredTools);
       addToolsToServer(server, tools);
       addPromptsToServer(server, prompts);
       McpAppsResources.specifications(baseUrl).forEach(server::addResource);
@@ -504,8 +534,13 @@ public class McpServer implements McpServerProvider {
     try {
       ImpersonationContext.setImpersonatedBy(attributedBot(securityContext));
       outcome =
-          refusalReason(tool, SecurityConfigurationManager.getCurrentMcpConfig())
-              .map(DefaultToolContext::forbidden)
+          offeredTools
+              .refusal(tool.name())
+              .map(DefaultToolContext::notOffered)
+              .or(
+                  () ->
+                      refusalReason(tool, SecurityConfigurationManager.getCurrentMcpConfig())
+                          .map(DefaultToolContext::forbidden))
               .orElseGet(
                   () ->
                       toolContext.callToolWithMetadata(

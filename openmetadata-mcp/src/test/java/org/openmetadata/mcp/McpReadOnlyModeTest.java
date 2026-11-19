@@ -138,7 +138,8 @@ class McpReadOnlyModeTest {
     McpStatelessServerTransport transport = mock(McpStatelessServerTransport.class);
     McpServer mcpServer = new McpServer();
     McpStatelessSyncServer server =
-        McpServer.buildServer(transport, mcpServer.buildServerCapabilities(), () -> READ_ONLY);
+        McpServer.buildServer(
+            transport, mcpServer.buildServerCapabilities(), () -> READ_ONLY, OfferedTools.ALL);
     mcpServer.addToolsToServer(server, mcpServer.getTools());
     ArgumentCaptor<McpStatelessServerHandler> handler =
         ArgumentCaptor.forClass(McpStatelessServerHandler.class);
@@ -160,7 +161,7 @@ class McpReadOnlyModeTest {
   @Test
   void toolsListFollowsTheSettingWithoutARestart() {
     AtomicReference<MCPConfiguration> config = new AtomicReference<>(new MCPConfiguration());
-    McpSyncListFilter<McpSchema.Tool> filter = McpServer.toolFilter(config::get);
+    McpSyncListFilter<McpSchema.Tool> filter = McpServer.toolFilter(config::get, OfferedTools.ALL);
     McpSchema.Tool patchEntity = toolNamed("patch_entity");
 
     assertTrue(filter.isVisible(McpTransportContext.EMPTY, patchEntity));
@@ -173,7 +174,7 @@ class McpReadOnlyModeTest {
   }
 
   private static List<McpSchema.Tool> exposed(List<McpSchema.Tool> tools, MCPConfiguration config) {
-    McpSyncListFilter<McpSchema.Tool> filter = McpServer.toolFilter(() -> config);
+    McpSyncListFilter<McpSchema.Tool> filter = McpServer.toolFilter(() -> config, OfferedTools.ALL);
     return tools.stream()
         .filter(tool -> filter.isVisible(McpTransportContext.EMPTY, tool))
         .toList();

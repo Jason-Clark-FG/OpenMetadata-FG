@@ -424,6 +424,10 @@ objectStorage:
     blobEndpoint: ${ASSET_UPLOADER_AZURE_BLOB_ENDPOINT:-""}
     prefixPath: ${ASSET_UPLOADER_AZURE_PREFIX_PATH:-"assets/default"}
 
+# MCP tools this server offers, comma separated, e.g. knowledge_graph. Blank offers every tool.
+# Read at start; a name the server does not register stops the start.
+mcpOfferedTools: ${MCP_OFFERED_TOOLS:-}
+
 migrationConfiguration:
   flywayPath: "./bootstrap/sql/migrations/flyway"
   nativePath: "./bootstrap/sql/migrations/native"

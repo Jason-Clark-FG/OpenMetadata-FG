@@ -49,10 +49,17 @@ class RdfToolDescriptionVocabularyTest {
           "entity_neighborhood",
           "find_by_tag",
           "shacl_validate",
-          "ontology_describe");
+          "ontology_describe",
+          "knowledge_graph");
   private static final Set<String> QUERY_PERMISSION_TOOLS =
-      Set.of("sparql_query", "entity_neighborhood", "find_by_tag", "ontology_describe");
+      Set.of(
+          "sparql_query",
+          "entity_neighborhood",
+          "find_by_tag",
+          "ontology_describe",
+          "knowledge_graph");
   private static final int SPARQL_QUERY_DESCRIPTION_BUDGET = 3_000;
+  private static final int KNOWLEDGE_GRAPH_DESCRIPTION_BUDGET = 1_600;
   private static final Pattern OM_TERM = Pattern.compile("\\bom:([A-Za-z][A-Za-z0-9]*)");
   private static final Pattern COLUMN_LINEAGE_QUERY =
       Pattern.compile("SELECT DISTINCT \\?column.*?OFFSET 0");
@@ -104,6 +111,39 @@ class RdfToolDescriptionVocabularyTest {
         .isLessThanOrEqualTo(SPARQL_QUERY_DESCRIPTION_BUDGET);
   }
 
+  /** A host model that loaded no other tool learns the whole loop from this text, every request. */
+  @Test
+  void knowledgeGraphCanBeUsedFromItsDescriptionAloneWithinItsBudget() {
+    final McpSchema.Tool tool = tools.get("knowledge_graph");
+
+    assertThat(tool.description().length()).isLessThanOrEqualTo(KNOWLEDGE_GRAPH_DESCRIPTION_BUDGET);
+    assertThat(tool.description())
+        .contains("question in plain words", "'reachable'", "'values'", "expand", "SPARQL SELECT")
+        .contains("cite", "once", "'run'")
+        .doesNotContain("sparql_query");
+    assertThat(parameterDescription(tool, "question")).contains("plain words");
+    assertThat(parameterDescription(tool, "run")).contains("cite");
+    assertThat(parameterDescription(tool, "sparql")).doesNotContain("sparql_query");
+  }
+
+  /** Cards carry health and trust, expand is one call, and an empty query is not an absence. */
+  @Test
+  void knowledgeGraphSaysWhatCardsSignalAndThatAnEmptyQueryProvesNothing() {
+    final String description = tools.get("knowledge_graph").description();
+
+    assertThat(description)
+        .contains("'status'", "om:latestResultStatus=Failed", "om:hasOpenIncident", "Deprecated")
+        .contains("om:testsEntity", "in one call", "'rows'", "'noRows'")
+        .contains("'listed'", "short form", "full cards are a subset", "'matched'", "'rest'")
+        .contains("assignee and severity")
+        .contains("'memories'", "notes people saved", "'preferences'", "apply", "name it");
+  }
+
+  private static String parameterDescription(final McpSchema.Tool tool, final String name) {
+    final Map<?, ?> properties = (Map<?, ?>) tool.inputSchema().get("properties");
+    return ((Map<?, ?>) properties.get(name)).get("description").toString();
+  }
+
   @Test
   void permissionWordingMatchesTheAccessMatrix() {
     QUERY_PERMISSION_TOOLS.forEach(
@@ -116,7 +156,7 @@ class RdfToolDescriptionVocabularyTest {
         .contains("Admin only")
         .doesNotContainIgnoringCase("bot");
     assertThat(tools.get("ontology_describe").description())
-        .contains("no 'resource') is open to every caller");
+        .contains("no 'resource') is open to every caller", "and so is a 'term'");
   }
 
   @Test

@@ -259,7 +259,10 @@ public class McpSdkUpgradeTest {
     McpStatelessServerTransport transport = mock(McpStatelessServerTransport.class);
     McpStatelessSyncServer server =
         McpServer.buildServer(
-            transport, new McpServer().buildServerCapabilities(), MCPConfiguration::new);
+            transport,
+            new McpServer().buildServerCapabilities(),
+            MCPConfiguration::new,
+            OfferedTools.ALL);
     McpSchema.Tool searchMetadata =
         McpUtils.getToolProperties("json/data/mcp/tools.json").stream()
             .filter(tool -> "search_metadata".equals(tool.name()))
@@ -307,7 +310,8 @@ public class McpSdkUpgradeTest {
     when(transport.protocolVersions()).thenReturn(List.of("2025-11-25"));
     MCPConfiguration configured =
         new MCPConfiguration().withMcpServerName("acme-mcp").withMcpServerVersion("9.9.9");
-    McpServer.buildServer(transport, new McpServer().buildServerCapabilities(), () -> configured);
+    McpServer.buildServer(
+        transport, new McpServer().buildServerCapabilities(), () -> configured, OfferedTools.ALL);
     ArgumentCaptor<McpStatelessServerHandler> handler =
         ArgumentCaptor.forClass(McpStatelessServerHandler.class);
     verify(transport).setMcpHandler(handler.capture());

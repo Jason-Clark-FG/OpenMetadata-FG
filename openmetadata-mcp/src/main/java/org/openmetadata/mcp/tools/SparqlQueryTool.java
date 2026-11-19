@@ -27,6 +27,7 @@ import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.RdfSparqlService;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
+import org.openmetadata.service.rdf.SparqlQueryLimits;
 import org.openmetadata.service.rdf.agent.AgentSparqlAudit;
 import org.openmetadata.service.rdf.agent.AgentSparqlCaller;
 import org.openmetadata.service.rdf.agent.AgentSparqlException;
@@ -122,20 +123,38 @@ public class SparqlQueryTool extends RdfMcpTool<SparqlQueryTool.Result> {
       final CatalogSecurityContext securityContext, final Map<String, Object> params)
       throws IOException {
     McpToolParameters parameters = McpToolParameters.from(params);
+    return execute(securityContext, parameters, maxBytes(parameters));
+  }
+
+  /**
+   * The whole answer, bounded only by the store's own output cap, for a caller that fits the rows
+   * to its response itself rather than cutting the body at a byte.
+   */
+  Result executeWhole(final CatalogSecurityContext securityContext, final String sparql) {
+    return execute(
+        securityContext,
+        McpToolParameters.from(Map.of("query", sparql)),
+        SparqlQueryLimits.MAX_OUTPUT_BYTES);
+  }
+
+  private Result execute(
+      final CatalogSecurityContext securityContext,
+      final McpToolParameters parameters,
+      final int maxBytes) {
     String sparql = parameters.requiredString("query");
     return isAdministrator(securityContext)
-        ? executeAsAdministrator(securityContext, parameters, sparql)
-        : executeWithAgentProfile(securityContext, parameters, sparql);
+        ? executeAsAdministrator(securityContext, parameters, sparql, maxBytes)
+        : executeWithAgentProfile(securityContext, parameters, sparql, maxBytes);
   }
 
   private Result executeAsAdministrator(
       final CatalogSecurityContext securityContext,
       final McpToolParameters parameters,
-      final String sparql) {
+      final String sparql,
+      final int maxBytes) {
     RdfSparqlService.ReadQuery query = RdfSparqlService.ReadQuery.parse(sparql);
     RdfRepository repository = repository();
     String inferenceLevel = parameters.optionalString(INFERENCE_LEVEL_PARAMETER);
-    int maxBytes = maxBytes(parameters);
     RdfSparqlService sparqlService =
         new RdfSparqlService(repository, new SparqlFederationGuard(repository.getConfig()));
     RdfSparqlService.QueryResult queryResult =
@@ -158,13 +177,14 @@ public class SparqlQueryTool extends RdfMcpTool<SparqlQueryTool.Result> {
   private Result executeWithAgentProfile(
       final CatalogSecurityContext securityContext,
       final McpToolParameters parameters,
-      final String sparql) {
+      final String sparql,
+      final int maxBytes) {
     RdfRepository repository = repository();
     AgentSparqlCaller caller =
         AgentSparqlCaller.of(requirePrincipal(securityContext), serviceActor(securityContext));
     AgentSparqlResult result = runAgentQuery(repository, caller, parameters, sparql);
     RdfBody.Bounded body =
-        RdfBody.bound(new String(result.body(), StandardCharsets.UTF_8), maxBytes(parameters));
+        RdfBody.bound(new String(result.body(), StandardCharsets.UTF_8), maxBytes);
 
     return new Result(
         JSON_FORMAT,

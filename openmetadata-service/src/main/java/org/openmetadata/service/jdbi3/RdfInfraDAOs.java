@@ -97,6 +97,9 @@ public interface RdfInfraDAOs {
   @CreateSqlObject
   RdfActiveDatasetDAO rdfActiveDatasetDAO();
 
+  @CreateSqlObject
+  RdfExplorationRunDAO rdfExplorationRunDAO();
+
   record OntologyAnnexRow(
       UUID glossaryId,
       long revision,
@@ -610,6 +613,34 @@ public interface RdfInfraDAOs {
 
     @SqlUpdate("DELETE FROM rdf_custom_ontology WHERE name = :name")
     int delete(@Bind("name") String name);
+  }
+
+  /**
+   * Steps of knowledge-graph exploration runs, kept for a bounded time and never projected into
+   * the graph (ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day). The auto-increment
+   * id orders the steps of a run.
+   */
+  interface RdfExplorationRunDAO {
+    @ConnectionAwareSqlUpdate(
+        value =
+            "INSERT INTO rdf_exploration_run_step (runId, createdAt, json) "
+                + "VALUES (:runId, :createdAt, :json)",
+        connectionType = MYSQL)
+    @ConnectionAwareSqlUpdate(
+        value =
+            "INSERT INTO rdf_exploration_run_step (runId, createdAt, json) "
+                + "VALUES (:runId, :createdAt, :json::jsonb)",
+        connectionType = POSTGRES)
+    void insert(
+        @Bind("runId") String runId, @Bind("createdAt") long createdAt, @Bind("json") String json);
+
+    @SqlQuery(
+        "SELECT json FROM rdf_exploration_run_step WHERE runId = :runId "
+            + "AND createdAt >= :notBefore ORDER BY id")
+    List<String> listSteps(@Bind("runId") String runId, @Bind("notBefore") long notBefore);
+
+    @SqlUpdate("DELETE FROM rdf_exploration_run_step WHERE createdAt < :cutoff")
+    int deleteBefore(@Bind("cutoff") long cutoff);
   }
 
   interface RdfReindexLockDAO {

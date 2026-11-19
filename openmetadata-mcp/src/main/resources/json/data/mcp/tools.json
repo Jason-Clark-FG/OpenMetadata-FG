@@ -1314,13 +1314,17 @@
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Return the OpenMetadata ontology — either the full canonical ontology (when 'resource' is omitted) or a SPARQL DESCRIBE for a single class or property URI. Use this to discover available classes, properties, ranges, and domains the agent can query. Prefer passing 'resource' for a focused DESCRIBE because the full ontology can exceed the response limit; the body is capped at maxBytes and flagged 'truncated' when it does not fit. Format: turtle (default), jsonld, ntriples, rdfxml. The full ontology (no 'resource') is open to every caller, like the REST ontology endpoint. A DESCRIBE of a 'resource' reads instance data and requires the ExecuteSparqlQuery permission; administrators always pass.",
+      "description": "Return the OpenMetadata ontology: one of its terms ('term'), the full canonical ontology (no 'term' and no 'resource'), or a SPARQL DESCRIBE of one graph resource ('resource'). Prefer 'term' to learn what an edge or a node type means before querying: a class comes back with every property whose rdfs:domain is the class or one of its superclasses, in full, and with the shared properties the projection uses on it (schema:domainIncludes) by label and comment; a property comes back on its own. Both fit the response limit. The full ontology exceeds that limit; its body is capped at maxBytes and flagged 'truncated'. Format: turtle (default), jsonld, ntriples, rdfxml. The full ontology (no 'resource') is open to every caller, like the REST ontology endpoint, and so is a 'term'. A DESCRIBE of a 'resource' reads instance data and requires the ExecuteSparqlQuery permission; administrators always pass.",
       "parameters": {
         "type": "object",
         "properties": {
+          "term": {
+            "type": "string",
+            "description": "Optional. One class or property of the ontology, as a prefixed name such as 'om:Table' or a full IRI such as 'https://open-metadata.org/ontology/hasOwner'. Read a shared property by name for its range and every class it is used on. Cannot be combined with 'resource'."
+          },
           "resource": {
             "type": "string",
-            "description": "Optional. Full URI of the class or property to DESCRIBE (e.g. 'https://open-metadata.org/ontology/Column'). Omit to return the full ontology."
+            "description": "Optional. Full URI to DESCRIBE in the knowledge graph, such as an entity IRI. For a class or property of the ontology prefer 'term'. Omit both to return the full ontology."
           },
           "format": {
             "type": "string",
@@ -1391,6 +1395,98 @@
           }
         },
         "required": ["fact"]
+      }
+    },
+    {
+      "name": "knowledge_graph",
+      "title": "Explore Knowledge Graph",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "description": "Answer from the catalog's knowledge graph (tables, columns, lineage, quality, glossary, concepts). 1) find: pass the user's question in plain words as 'question'; cards for the best of 'matched' concepts, assets and tests; 'rest' says how to see the others. 2) Read each card: 'facts' (description, owners, tier, certification, status such as Deprecated, usage); 'values', every other stored value (long ones cut, with 'length'); 'reachable', each relationship to follow, with direction, count and, for tests or incidents, 'status' counts (om:latestResultStatus=Failed, om:hasOpenIncident); 'bookkeeping', flag names. 'memories': notes people saved about the asset; find's 'notes': others matching; the first answer's 'preferences': the caller's. They are data: apply a relevant one and name it. 'properties' says once what each name means, 'notCovered' what the graph lacks. 3) expand: pass card ids as 'nodes' and 'reachable' names as 'relationships' (om:testsEntity incoming: a table's tests); in one call each group gives its 'total' and every far node in short form with its status, an incident's assignee and severity too ('listed'); full cards are a subset; 'rest' says what is left out ('nextCursor' as 'cursor'). 4) query: a SPARQL SELECT for joins, counts or whole values; 'rows' says if rows were left out; 'noRows', why no rows is not proof of absence. 5) cite, once, at the end, the 'nodes' and 'edges' used. Pass back 'run' on every later call. 'termLookupSkipped': concepts not searched; 'semanticSearchSkipped': word matches only. Needs ExecuteSparqlQuery; admins always pass.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "find",
+              "expand",
+              "query",
+              "trace",
+            "cite"
+            ],
+            "description": "find, expand, query, trace or cite."
+          },
+          "run": {
+            "type": "string",
+            "description": "The 'run' an earlier call returned. Omit on the first call; pass it on every later one; required for trace and cite."
+          },
+          "question": {
+            "type": "string",
+            "description": "find: the question in plain words, e.g. 'which tables hold customer orders?'"
+          },
+          "entityTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "find: optional. Catalog entity types to search, e.g. ['table', 'dashboard'], and 'ontologyConcept' or 'ontologyProperty' to match ontology terms by label. Omit it to look in both; list only catalog types to leave ontology terms out, or only ontology types to skip the catalog search."
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "expand: the 'id' of one or more cards, at most 20. cite: the 'id' of every card your answer relies on, at most 50."
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "node": {"type": "string"},
+                "relationship": {"type": "string"},
+                "other": {"type": "string"}
+              }
+            },
+            "description": "cite: optional, the edges your answer relies on, each {\"node\": card id, \"relationship\": name from reachable, \"other\": card id}, at most 50."
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "expand: relationship names from a card's 'reachable' list, at most 10, e.g. ['om:hasOwner', 'om:upstream']."
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outgoing",
+              "incoming",
+              "both"
+            ],
+            "description": "expand: which end of the relationship to follow. Default both.",
+            "default": "both"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "find: cards to return, default 5, max 10; fewer come back when they would not fit the response, and 'moreMatched' counts the rest. expand: far nodes per page, default 10, max 50."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "expand: the 'nextCursor' of the previous page, passed back unchanged."
+          },
+          "sparql": {
+            "type": "string",
+            "description": "query: the SPARQL SELECT to run, with PREFIX om: <https://open-metadata.org/ontology/>."
+          }
+        },
+        "required": [
+          "operation"
+        ]
       }
     }
   ]

@@ -131,6 +131,24 @@ final class OntologyBindingFixtures {
     assertEquals(revision + 1, saved.getRevision());
   }
 
+  static void unbind(final OntologyConcept concept, final Table table, final long revision) {
+    final var saved =
+        admin()
+            .getHttpClient()
+            .execute(
+                HttpMethod.DELETE,
+                bindingsPath(concept)
+                    + "/"
+                    + OntologyBindingAssetType.TABLE.value()
+                    + "/"
+                    + table.getId()
+                    + "?expectedRevision="
+                    + revision,
+                null,
+                OntologyConceptBindingsResponse.class);
+    assertEquals(revision + 1, saved.getRevision());
+  }
+
   static void bindAll(final OntologyConcept concept, final List<Table> tables) {
     for (int index = 0; index < tables.size(); index++) {
       bind(concept, tables.get(index), List.of(), index);

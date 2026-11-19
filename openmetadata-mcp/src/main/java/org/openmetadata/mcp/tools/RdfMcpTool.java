@@ -92,6 +92,18 @@ abstract class RdfMcpTool<T> implements TypedMcpTool<T> {
       final Map<String, Object> params)
       throws IOException {
     authorize(authorizer, securityContext, params);
+    return executeAuthorized(authorizer, securityContext, params);
+  }
+
+  /**
+   * Runs after {@link #authorize}. A tool that hands the call to another tool, which checks its own
+   * permissions, overrides this to pass the authorizer on.
+   */
+  protected T executeAuthorized(
+      final Authorizer authorizer,
+      final CatalogSecurityContext securityContext,
+      final Map<String, Object> params)
+      throws IOException {
     return executeAuthorized(securityContext, params);
   }
 

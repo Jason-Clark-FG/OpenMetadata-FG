@@ -393,7 +393,7 @@ public class SemanticSearchTool implements McpTool {
     return result.get("returnedCount") instanceof Number number ? number.intValue() : 0;
   }
 
-  private static boolean isViewable(
+  static boolean isViewable(
       Authorizer authorizer, CatalogSecurityContext securityContext, Map<String, Object> hit) {
     EntityReference entity =
         new EntityReference()

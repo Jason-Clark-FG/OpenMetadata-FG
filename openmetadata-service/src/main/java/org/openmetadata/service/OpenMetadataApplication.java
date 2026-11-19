@@ -100,6 +100,7 @@ import org.openmetadata.search.IndexMappingLoader;
 import org.openmetadata.service.alerting.channel.Channels;
 import org.openmetadata.service.apps.ApplicationContext;
 import org.openmetadata.service.apps.ApplicationHandler;
+import org.openmetadata.service.apps.InvalidMcpConfigurationException;
 import org.openmetadata.service.apps.McpServerProvider;
 import org.openmetadata.service.apps.bundles.searchIndex.distributed.DistributedJobParticipant;
 import org.openmetadata.service.apps.bundles.searchIndex.distributed.ServerIdentityResolver;
@@ -590,6 +591,8 @@ public class OpenMetadataApplication extends Application<OpenMetadataApplication
       }
     } catch (ClassNotFoundException ex) {
       LOG.info("MCP module not found in classpath, skipping MCP server initialization");
+    } catch (InvalidMcpConfigurationException ex) {
+      throw ex;
     } catch (Exception ex) {
       LOG.error("Error initializing MCP server", ex);
     }

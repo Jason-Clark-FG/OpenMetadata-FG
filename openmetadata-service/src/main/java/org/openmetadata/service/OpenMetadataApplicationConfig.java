@@ -203,6 +203,13 @@ public class OpenMetadataApplicationConfig extends Configuration {
   @JsonProperty("mcpConfiguration")
   private org.openmetadata.schema.api.configuration.MCPConfiguration mcpConfiguration;
 
+  /**
+   * The MCP tools this server offers, comma separated; blank offers every tool. Read once at
+   * start; a name the server does not register stops the start.
+   */
+  @JsonProperty("mcpOfferedTools")
+  private String mcpOfferedTools;
+
   @JsonProperty("rdf")
   private RdfConfiguration rdfConfiguration = new RdfConfiguration();
 

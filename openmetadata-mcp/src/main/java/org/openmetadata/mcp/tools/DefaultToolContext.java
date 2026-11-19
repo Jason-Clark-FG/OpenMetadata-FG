@@ -160,6 +160,9 @@ public class DefaultToolContext {
         case "ontology_describe":
           result = new OntologyDescribeTool().execute(authorizer, securityContext, params);
           break;
+        case "knowledge_graph":
+          result = new KnowledgeGraphTool().execute(authorizer, securityContext, params);
+          break;
         default:
           return new CallToolOutcome(
               errorResult(errorPayload("Unknown function: " + toolName, STATUS_BAD_REQUEST)),
@@ -232,6 +235,14 @@ public class DefaultToolContext {
   }
 
   /** A call refused before it reaches any tool, answered in the shape of a tool's own 403. */
+  /** A tool this server does not offer: neither an unknown tool nor an authorization failure. */
+  public static CallToolOutcome notOffered(String message) {
+    return new CallToolOutcome(
+        errorResult(errorPayload(message, STATUS_BAD_REQUEST)),
+        0L,
+        McpToolCallUsage.ErrorCategory.VALIDATION);
+  }
+
   public static CallToolOutcome forbidden(String message) {
     return new CallToolOutcome(
         errorResult(errorPayload(message, STATUS_FORBIDDEN)),

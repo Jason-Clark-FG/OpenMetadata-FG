@@ -1427,6 +1427,8 @@ public class TestSuiteBootstrap implements LauncherSessionListener {
     configurePipelineServiceClient(config);
     configureCache(config);
     configureRdf(config);
+    // -DmcpOfferedTools=knowledge_graph starts the suite's server offering only those MCP tools.
+    config.setMcpOfferedTools(System.getProperty("mcpOfferedTools"));
     return config;
   }
 

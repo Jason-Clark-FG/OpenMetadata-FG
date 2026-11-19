@@ -51,6 +51,14 @@ class DefaultToolContextTest {
   }
 
   @Test
+  void knowledgeGraphIsDispatchedToItsTool() {
+    DefaultToolContext.CallToolOutcome outcome = invokeWithToolName("knowledge_graph");
+
+    assertThat(textOf(outcome.result())).contains("'operation'").doesNotContain("Unknown function");
+    assertThat(outcome.errorCategory()).isEqualTo(McpToolCallUsage.ErrorCategory.VALIDATION);
+  }
+
+  @Test
   void classifyAuthorizationExceptionAsAuth() {
     assertThat(DefaultToolContext.classifyException(new AuthorizationException("forbidden")))
         .isEqualTo(McpToolCallUsage.ErrorCategory.AUTH);
