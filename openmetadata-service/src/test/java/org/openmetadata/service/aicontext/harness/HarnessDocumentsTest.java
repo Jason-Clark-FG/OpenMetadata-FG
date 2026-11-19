@@ -146,12 +146,14 @@ class HarnessDocumentsTest {
         HarnessDocuments.from(new Sources(capturing, capturing, definition, new PersonaContext()))
             .fixed()
             .stream()
+            .filter(item -> ContextItem.MEMORY.equals(item.kind()))
             .map(ContextItem::text)
             .toList();
     final List<String> off =
         HarnessDocuments.from(new Sources(silent, silent, definition, new PersonaContext()))
             .fixed()
             .stream()
+            .filter(item -> ContextItem.MEMORY.equals(item.kind()))
             .map(ContextItem::text)
             .toList();
 

@@ -37,6 +37,8 @@ import org.openmetadata.it.tests.mcp.McpTestUtils;
 class McpAppsResourceIT extends McpTestBase {
   private static final String CARD_URI = "ui://openmetadata/answer-citation-v1.html";
   private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
+  private static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
+  private static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @BeforeAll
@@ -138,7 +140,7 @@ class McpAppsResourceIT extends McpTestBase {
   }
 
   @Test
-  void toolsListCarriesTheCardsOnFinishAnswerAndEntityDetailsOnly() throws Exception {
+  void toolsListCarriesEachCardOnTheToolsThatFillIt() throws Exception {
     final JsonNode tools =
         executeMcpRequest(McpTestUtils.createJsonRpcRequest("tools/list", Map.of()))
             .path("result")
@@ -152,6 +154,13 @@ class McpAppsResourceIT extends McpTestBase {
       }
     }
     assertThat(withView)
-        .isEqualTo(Map.of("finish_answer", CARD_URI, "get_entity_details", ASSET_URI));
+        .isEqualTo(
+            Map.of(
+                "finish_answer", CARD_URI,
+                "get_entity_details", ASSET_URI,
+                "get_concept_context", ASSET_URI,
+                "find_context", ASSET_URI,
+                "get_entity_lineage", LINEAGE_URI,
+                "get_concept_relations", ONTOLOGY_URI));
   }
 }

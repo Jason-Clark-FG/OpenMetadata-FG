@@ -55,7 +55,8 @@ class McpReadOnlyModeTest {
           "patch_entity",
           "create_lineage",
           "create_test_case",
-          "describe_entity_type");
+          "describe_entity_type",
+          "remember");
 
   private static final MCPConfiguration READ_ONLY = new MCPConfiguration().withReadOnly(true);
 
