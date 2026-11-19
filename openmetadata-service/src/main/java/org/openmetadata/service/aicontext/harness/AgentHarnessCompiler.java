@@ -368,17 +368,26 @@ public final class AgentHarnessCompiler {
 
   private static AppliedHarnesses applied(final Caller caller) {
     final AppliedHarnesses applied =
-        new AppliedHarnesses().withDefault(appliedHarness(caller.defaultHarness()));
+        new AppliedHarnesses()
+            .withDefault(
+                appliedHarness(caller.defaultHarness(), caller.defaultHarness().getDisplayName()));
     if (caller.personaHarness() != null) {
-      applied.withPersona(appliedHarness(caller.personaHarness()));
+      applied.withPersona(appliedHarness(caller.personaHarness(), personaLabel(caller.persona())));
     }
     return applied;
   }
 
-  private static AppliedHarness appliedHarness(final AgentHarness harness) {
+  private static String personaLabel(final Persona persona) {
+    return persona == null || nullOrEmpty(persona.getDisplayName())
+        ? persona == null ? null : persona.getName()
+        : persona.getDisplayName();
+  }
+
+  private static AppliedHarness appliedHarness(final AgentHarness harness, final String label) {
     return new AppliedHarness()
         .withId(harness.getId())
         .withName(harness.getName())
+        .withDisplayName(nullOrEmpty(label) ? harness.getName() : label)
         .withVersion(harness.getVersion());
   }
 }

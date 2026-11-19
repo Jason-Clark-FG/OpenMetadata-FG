@@ -32,8 +32,11 @@ import org.openmetadata.schema.type.aicontext.FieldContext;
 import org.openmetadata.schema.type.aicontext.KnowledgeItem;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.type.personaContext.RuleResult;
+import org.openmetadata.schema.type.personaContext.SearchScope;
+import org.openmetadata.schema.type.personaContext.SearchScopeRule;
 import org.openmetadata.schema.type.personaContext.SharedKnowledge;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.SearchScopeNote;
 import org.openmetadata.service.aicontext.harness.CompileSelector.Document;
 import org.openmetadata.service.aicontext.harness.ContextItem.AssetRef;
 import org.openmetadata.service.aicontext.harness.ContextItem.Origin;
@@ -79,8 +82,40 @@ final class HarnessDocuments {
               "prompt",
               "## Your users\n\n" + sources.definition().getPrompt()));
     }
+    final String searchScope = SearchScopeNote.render(displayScope(sources.context())).strip();
+    if (!searchScope.isEmpty()) {
+      items.add(
+          ContextItem.fixed(Origin.PERSONA, ContextItem.SEARCH_SCOPE, "searchScope", searchScope));
+    }
     items.addAll(skillItems(sources));
     return items;
+  }
+
+  /** The rule names carry the harness prefix the merge added, which the model need not see. */
+  private static SearchScope displayScope(final PersonaContext context) {
+    final SearchScope scope = context.getSearchScope();
+    if (scope == null) {
+      return null;
+    }
+    return new SearchScope()
+        .withEntityTypes(scope.getEntityTypes())
+        .withRules(
+            listOrEmpty(scope.getRules()).stream()
+                .map(
+                    rule ->
+                        new SearchScopeRule()
+                            .withRuleName(unprefixed(rule.getRuleName()))
+                            .withEntityType(rule.getEntityType())
+                            .withQueryFilter(rule.getQueryFilter()))
+                .toList());
+  }
+
+  private static String unprefixed(final String ruleName) {
+    return Stream.of(HarnessResolver.DEFAULT_RULE_PREFIX, HarnessResolver.PERSONA_RULE_PREFIX)
+        .filter(ruleName::startsWith)
+        .findFirst()
+        .map(prefix -> ruleName.substring(prefix.length()))
+        .orElse(ruleName);
   }
 
   private static List<ContextItem> skillItems(final Sources sources) {

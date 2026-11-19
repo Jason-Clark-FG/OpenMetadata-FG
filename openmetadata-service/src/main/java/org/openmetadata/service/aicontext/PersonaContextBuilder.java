@@ -753,6 +753,7 @@ public class PersonaContextBuilder {
               .withId(entity.getId())
               .withFullyQualifiedName(entity.getFullyQualifiedName())
               .withEntityType(entityType)
+              .withName(entity.getName())
               .withDisplayName(entity.getDisplayName())
               .withDescription(entity.getDescription())
               .withGeneratedAt(System.currentTimeMillis());

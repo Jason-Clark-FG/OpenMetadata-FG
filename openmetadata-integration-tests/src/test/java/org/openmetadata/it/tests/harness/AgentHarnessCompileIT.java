@@ -79,10 +79,44 @@ class AgentHarnessCompileIT extends McpTestBase {
 
     assertThat(rest.getText()).contains(PROMPT_HEADING).contains(caller.prompt());
     assertThat(rest.getHarness().getPersona().getId()).isEqualTo(caller.harnessId());
+    assertThat(rest.getHarness().getPersona().getDisplayName())
+        .isEqualTo(
+            caller.persona().getDisplayName() == null
+                ? caller.persona().getName()
+                : caller.persona().getDisplayName());
+    assertThat(rest.getHarness().getPersona().getName()).isNotEqualTo(caller.persona().getName());
     assertThat(rest.getHarness().getDefault().getName()).isEqualTo("CompanyDefault");
     assertThat(tool.path("text").asText()).isEqualTo(rest.getText());
     assertThat(tool.path("tokens").asInt()).isEqualTo(rest.getTokens());
     assertThat(tool.path("skills").isArray()).isTrue();
+  }
+
+  @Test
+  void aFilteredInSearchRuleAddsTheSearchScopeNoteToSessionStart() throws Exception {
+    final Caller caller =
+        callerWithHarness(
+            "compile_scope",
+            spec -> {
+              spec.getContext()
+                  .withRules(
+                      List.of(
+                          new ContextRule()
+                              .withName("sales-tables")
+                              .withEntityType(Entity.TABLE)
+                              .withSections(Set.of())
+                              .withMaxAssets(1)
+                              .withEnabled(true)
+                              .withFilteredInSearch(true)));
+              return spec;
+            });
+
+    final String text = compile(caller.token(), CompileEvent.SESSION_START).getText();
+
+    assertThat(text)
+        .contains("## Search scope")
+        .contains("This is a relevance default, not a permission boundary")
+        .contains("- sales-tables — table (every entity of this type)");
+    assertThat(text.indexOf(PROMPT_HEADING)).isLessThan(text.indexOf("## Search scope"));
   }
 
   @Test
