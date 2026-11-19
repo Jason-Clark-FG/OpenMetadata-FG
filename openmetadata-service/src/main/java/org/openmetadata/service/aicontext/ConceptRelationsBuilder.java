@@ -19,12 +19,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.openmetadata.schema.api.context.ConceptJoinStep;
 import org.openmetadata.schema.api.context.ConceptRelation;
 import org.openmetadata.schema.api.context.ConceptRelations;
@@ -139,69 +137,77 @@ public final class ConceptRelationsBuilder {
   private List<ConceptJoinStep> joinPath(final GlossaryTerm term, final GlossaryTerm target) {
     final Optional<MappedTable> from = catalog.tableOf(term.getFullyQualifiedName());
     final Optional<MappedTable> to = catalog.tableOf(target.getFullyQualifiedName());
-    List<ConceptJoinStep> path = List.of();
-    if (from.isPresent() && to.isPresent()) {
-      final List<Hop> forward = walk(from.get().fqn(), to.get().fqn());
-      if (!forward.isEmpty()) {
-        path = steps(forward, false);
-      } else {
-        final List<Hop> backward = walk(to.get().fqn(), from.get().fqn());
-        path = backward.isEmpty() ? List.of() : steps(backward, true);
-      }
-    }
-    return path;
+    return from.isPresent() && to.isPresent()
+        ? meet(routes(from.get().fqn()), routes(to.get().fqn()))
+        : List.of();
   }
 
   /**
-   * Breadth-first over declared foreign keys from {@code start}, reading at most {@value
-   * #MAX_TABLES_READ} tables. Only the keys a table declares are followed, so a path that runs
-   * against the keys is found by walking from its other end.
+   * Keys are declared on the table that holds them, so each end walks its own keys and the path is
+   * joined where the walks meet: at the other end, or at a table both reach, such as a dimension two
+   * facts share. The nearest meeting within {@value #MAX_JOIN_HOPS} hops wins.
    */
-  private List<Hop> walk(final String start, final String goal) {
-    final Map<String, Hop> arrivedBy = new HashMap<>();
-    final Set<String> seen = new HashSet<>(Set.of(start));
+  private List<ConceptJoinStep> meet(
+      final Map<String, List<Hop>> fromRoutes, final Map<String, List<Hop>> toRoutes) {
+    String best = null;
+    int bestLength = MAX_JOIN_HOPS + 1;
+    for (final Map.Entry<String, List<Hop>> entry : fromRoutes.entrySet()) {
+      final List<Hop> other = toRoutes.get(entry.getKey());
+      final int length = other == null ? Integer.MAX_VALUE : entry.getValue().size() + other.size();
+      if (length < bestLength) {
+        best = entry.getKey();
+        bestLength = length;
+      }
+    }
+    return best == null || bestLength == 0
+        ? List.of()
+        : steps(fromRoutes.get(best), toRoutes.get(best));
+  }
+
+  /**
+   * Breadth-first over the keys each table declares, from {@code start}, reading at most {@value
+   * #MAX_TABLES_READ} tables: the route to every table reached, nearest first.
+   */
+  private Map<String, List<Hop>> routes(final String start) {
+    final Map<String, List<Hop>> routes = new LinkedHashMap<>(Map.of(start, List.of()));
     final Deque<String> queue = new ArrayDeque<>(List.of(start));
-    final Map<String, Integer> depth = new HashMap<>(Map.of(start, 0));
     int read = 0;
-    boolean found = false;
-    while (!queue.isEmpty() && !found && read < MAX_TABLES_READ) {
+    while (!queue.isEmpty() && read < MAX_TABLES_READ) {
       final String current = queue.poll();
-      if (depth.get(current) >= MAX_JOIN_HOPS) {
+      if (routes.get(current).size() >= MAX_JOIN_HOPS) {
         continue;
       }
       read++;
       for (final ForeignKey key : catalog.foreignKeys(current)) {
-        if (seen.add(key.toTable()) && catalog.canView(Entity.TABLE, key.toTable())) {
-          arrivedBy.put(key.toTable(), new Hop(current, key));
-          depth.put(key.toTable(), depth.get(current) + 1);
+        if (!routes.containsKey(key.toTable()) && catalog.canView(Entity.TABLE, key.toTable())) {
+          final List<Hop> route = new ArrayList<>(routes.get(current));
+          route.add(new Hop(current, key));
+          routes.put(key.toTable(), List.copyOf(route));
           queue.add(key.toTable());
-          found = found || key.toTable().equals(goal);
         }
       }
     }
-    final List<Hop> hops = new ArrayList<>();
-    if (found) {
-      String at = goal;
-      while (!at.equals(start)) {
-        final Hop hop = arrivedBy.get(at);
-        hops.add(hop);
-        at = hop.fromTable();
-      }
-      Collections.reverse(hops);
-    }
-    return hops;
+    return routes;
   }
 
-  /** The columns the path joins on, from the first term's table; consecutive repeats collapse. */
-  private List<ConceptJoinStep> steps(final List<Hop> hops, final boolean reversed) {
+  private static List<String[]> ends(final List<Hop> route) {
     final List<String[]> ends = new ArrayList<>();
-    for (final Hop hop : hops) {
+    for (final Hop hop : route) {
       ends.add(new String[] {hop.fromTable(), hop.key().column()});
       ends.add(new String[] {hop.key().toTable(), hop.key().toColumn()});
     }
-    if (reversed) {
-      Collections.reverse(ends);
-    }
+    return ends;
+  }
+
+  /**
+   * The columns the path joins on, from the first term's table to the target's; the shared table's
+   * column appears once when both routes land on it through the same column.
+   */
+  private List<ConceptJoinStep> steps(final List<Hop> fromRoute, final List<Hop> toRoute) {
+    final List<String[]> ends = ends(fromRoute);
+    final List<String[]> back = ends(toRoute);
+    Collections.reverse(back);
+    ends.addAll(back);
     final List<ConceptJoinStep> steps = new ArrayList<>();
     for (final String[] end : ends) {
       final boolean repeat =

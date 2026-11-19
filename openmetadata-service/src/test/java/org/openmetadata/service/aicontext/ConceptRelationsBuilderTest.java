@@ -183,6 +183,36 @@ class ConceptRelationsBuilderTest {
   }
 
   @Test
+  void twoTablesThatShareADimensionJoinThroughIt() {
+    tables.put("Commercial.ARR", new MappedTable("db.finance.arr_daily", true));
+    tables.put("Commercial.Bookings", new MappedTable("db.core.orders", true));
+    keys.put(
+        "db.finance.arr_daily", List.of(new ForeignKey("customer_id", "db.core.customers", "id")));
+    keys.put("db.core.orders", List.of(new ForeignKey("customer_id", "db.core.customers", "id")));
+
+    ConceptRelations result =
+        builder.build(term("ARR", "Commercial.ARR"), term("Bookings", "Commercial.Bookings"));
+
+    assertThat(result.getJoinPath())
+        .extracting(step -> step.getTable() + "." + step.getColumn())
+        .containsExactly("arr_daily.customer_id", "customers.id", "orders.customer_id");
+  }
+
+  @Test
+  void aPathLongerThanTheHopLimitThroughASharedTableIsNotReturned() {
+    tables.put("Commercial.A", new MappedTable("db.s.a", true));
+    tables.put("Commercial.B", new MappedTable("db.s.b", true));
+    keys.put("db.s.a", List.of(new ForeignKey("x", "db.s.a2", "x")));
+    keys.put("db.s.a2", List.of(new ForeignKey("y", "db.s.hub", "y")));
+    keys.put("db.s.b", List.of(new ForeignKey("x", "db.s.b2", "x")));
+    keys.put("db.s.b2", List.of(new ForeignKey("y", "db.s.hub", "y")));
+
+    ConceptRelations result = builder.build(term("A", "Commercial.A"), term("B", "Commercial.B"));
+
+    assertThat(result.getJoinPath()).isEmpty();
+  }
+
+  @Test
   void noDeclaredKeyMeansNoJoinPathRatherThanAGuess() {
     tables.put("Commercial.Customer", new MappedTable("db.analytics.dim_customer", true));
     tables.put("Commercial.Revenue", new MappedTable("db.analytics.fct_revenue", true));
