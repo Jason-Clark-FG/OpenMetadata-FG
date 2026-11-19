@@ -28,6 +28,11 @@ public record FindResult(
     int moreMatched,
     String termLookupSkipped) {
 
+  /** Whether a card of this result carries memories. */
+  public boolean carriesMemories() {
+    return MemoryNote.carriedBy(nodes);
+  }
+
   public FindResult {
     nodes = List.copyOf(nodes);
     properties = Map.copyOf(properties);

@@ -72,7 +72,10 @@ public final class GraphExpansion {
         candidates.subList(
             0,
             PageBudget.rowsThatFit(
-                candidates, cardsById, descriptions, request.maxChars() - listChars));
+                candidates,
+                cardsById,
+                descriptions,
+                request.maxChars() - listChars - MemoryNote.reserveFor(cardsById.values())));
     final List<NodeCard> pageCards =
         page.stream()
             .map(ExpansionRow::other)

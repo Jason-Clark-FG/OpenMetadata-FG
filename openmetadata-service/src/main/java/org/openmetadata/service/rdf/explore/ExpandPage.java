@@ -34,4 +34,9 @@ public record ExpandPage(
     properties = Map.copyOf(properties);
     notCovered = List.copyOf(notCovered);
   }
+
+  /** Whether a card of this page carries memories. */
+  public boolean carriesMemories() {
+    return MemoryNote.carriedBy(nodes);
+  }
 }

@@ -75,7 +75,10 @@ public final class KnowledgeGraphExplorer {
     final List<NodeCard> read =
         cards.read(matched.subList(0, Math.min(request.limit(), matched.size())));
     final List<NodeCard> found =
-        read.subList(0, PageBudget.cardsThatFit(read, descriptions, request.maxChars()));
+        read.subList(
+            0,
+            PageBudget.cardsThatFit(
+                read, descriptions, request.maxChars() - MemoryNote.reserveFor(read)));
     record(
         run,
         Operation.FIND,
@@ -100,6 +103,11 @@ public final class KnowledgeGraphExplorer {
                     .map(nodes -> nodes.get(index)))
         .distinct()
         .toList();
+  }
+
+  /** The memories the graph holds, read through this caller's graph reader. */
+  public GraphMemories memories() {
+    return new GraphMemories(graph);
   }
 
   public ExpandPage expand(final RunContext run, final ExpandRequest request) {

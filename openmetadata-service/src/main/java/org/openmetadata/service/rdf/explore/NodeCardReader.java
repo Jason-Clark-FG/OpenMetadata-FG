@@ -30,6 +30,7 @@ import org.apache.jena.query.QuerySolution;
  */
 public final class NodeCardReader {
 
+  private static final String APPLIED_TO = "om:appliedTo";
   private static final Comparator<Reachable> REACHABLE_ORDER =
       Comparator.comparing(Reachable::relationship).thenComparing(Reachable::direction);
 
@@ -37,6 +38,7 @@ public final class NodeCardReader {
   private final OntologyVocabulary vocabulary;
   private final NodeIris nodeIris;
   private final Set<String> bookkeeping;
+  private final GraphMemories memories;
 
   public NodeCardReader(
       final GraphReader graph, final OntologyVocabulary vocabulary, final String baseUri) {
@@ -44,6 +46,7 @@ public final class NodeCardReader {
     this.vocabulary = Objects.requireNonNull(vocabulary);
     this.nodeIris = new NodeIris(baseUri);
     this.bookkeeping = Bookkeeping.namesIn(vocabulary);
+    this.memories = new GraphMemories(graph);
   }
 
   /**
@@ -63,24 +66,47 @@ public final class NodeCardReader {
         CardValues.byNode(
             SparqlRows.parse(graph.select(ExplorationQueries.values(nodes))), vocabulary);
     final Map<String, List<Reachable>> reachable = readReachable(nodes);
+    final Map<String, MemoryListing> anchored = memories.onCards(anchoring(reachable));
     return nodes.stream()
         .map(
             node ->
                 card(
                     node,
-                    facts.get(node),
-                    values.getOrDefault(node, List.of()),
-                    reachable.getOrDefault(node, List.of())))
+                    new Read(
+                        facts.get(node),
+                        values.getOrDefault(node, List.of()),
+                        reachable.getOrDefault(node, List.of()),
+                        anchored.get(node))))
         .toList();
   }
 
-  private NodeCard card(
-      final String node,
-      final CardFacts facts,
-      final List<CardValue> values,
-      final List<Reachable> reachable) {
-    final boolean inGraph = facts != null || !values.isEmpty() || !reachable.isEmpty();
-    final CardFacts known = facts == null ? new CardFacts() : facts;
+  /** What the reads gave for one node. */
+  private record Read(
+      CardFacts facts, List<CardValue> values, List<Reachable> reachable, MemoryListing memories) {}
+
+  /**
+   * The nodes with an {@code om:appliedTo} edge, the only ones a memory can be anchored to, so a
+   * batch without one costs no further read.
+   */
+  private static List<String> anchoring(final Map<String, List<Reachable>> reachable) {
+    return reachable.entrySet().stream()
+        .filter(
+            entry ->
+                entry.getValue().stream()
+                    .anyMatch(
+                        offer ->
+                            APPLIED_TO.equals(offer.relationship())
+                                && offer.direction() == Direction.OUTGOING))
+        .map(Map.Entry::getKey)
+        .sorted()
+        .toList();
+  }
+
+  private NodeCard card(final String node, final Read read) {
+    final List<CardValue> values = read.values();
+    final List<Reachable> reachable = read.reachable();
+    final boolean inGraph = read.facts() != null || !values.isEmpty() || !reachable.isEmpty();
+    final CardFacts known = read.facts() == null ? new CardFacts() : read.facts();
     final List<String> types = known.types().stream().map(vocabulary::compact).sorted().toList();
     final Map<Boolean, List<CardValue>> kept =
         values.stream()
@@ -92,6 +118,7 @@ public final class NodeCardReader {
         Optional.ofNullable(known.label()).orElseGet(() -> DerivedLabel.of(types, values)),
         types,
         known.keyFacts(),
+        read.memories(),
         kept.get(false),
         kept.get(true).stream().map(CardValue::property).toList(),
         reachable,

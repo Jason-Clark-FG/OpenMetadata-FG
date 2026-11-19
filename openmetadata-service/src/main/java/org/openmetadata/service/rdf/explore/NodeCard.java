@@ -30,6 +30,7 @@ public record NodeCard(
     String label,
     List<String> types,
     KeyFacts facts,
+    MemoryListing memories,
     List<CardValue> values,
     List<String> bookkeeping,
     List<Reachable> reachable,
