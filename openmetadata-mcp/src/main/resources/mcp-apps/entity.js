@@ -77,7 +77,7 @@
 
   function keyColumns(entity) {
     var columns = entity.columns || [];
-    var notable = columns.filter(function (column) { return column.constraint === "PRIMARY_KEY" || ownLabels(column).length; });
+    var notable = columns.filter(function (column) { return column.constraint === "PRIMARY_KEY" || column.dqFailing || ownLabels(column).length; });
     var rest = columns.filter(function (column) { return notable.indexOf(column) < 0; });
     return notable.concat(rest).slice(0, MAX_COLUMNS).map(columnRow);
   }
@@ -126,7 +126,7 @@
         h("div", "om-intro",
           h("div", "om-label", container(entity)),
           h("div", "om-title om-mono", entity.name || ""),
-          entity.description ? h("div", "om-text", entity.description.split("\n")[0].slice(0, 400)) : null),
+          entity.description ? h("div", "om-body-text", entity.description.split("\n")[0].slice(0, 400)) : null),
         OM.notices([entity.deprecated ? { label: "Deprecated", tone: "warn", body: "This asset is deprecated. Prefer a maintained alternative." } : null]),
         OM.stats(statCells(entity, now)),
         OM.section("Key columns", columns.length ? h("div", "om-columns", columns) : null)

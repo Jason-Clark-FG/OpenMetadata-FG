@@ -84,9 +84,9 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-pill.warn { background: var(--card-warn-bg); color: var(--card-warn); }
 .om-pill.err { background: var(--card-err-bg); color: var(--card-err); }
 
-.om-intro { padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+.om-intro { padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 6px; }
 .om-label { font-size: 12px; color: var(--card-fg3); overflow-wrap: anywhere; }
-.om-title { font-size: 18px; line-height: 1.35; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.om-title { font-size: 18px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
 .om-text { font-size: 13px; color: var(--card-fg2); text-wrap: pretty; overflow-wrap: anywhere; }
 
 .om-notices { display: flex; flex-direction: column; border-top: 1px solid var(--card-line); }
@@ -200,3 +200,5 @@ a:focus-visible, .om-fold-head:focus-visible { outline: 2px solid var(--card-bra
 .om-footer a { font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) { .om-chevron { transition: none; } }
+.om-section:has(> .om-columns) { gap: 2px; }
+.om-section:has(> .om-columns) > .om-section-title { padding-bottom: 4px; }
