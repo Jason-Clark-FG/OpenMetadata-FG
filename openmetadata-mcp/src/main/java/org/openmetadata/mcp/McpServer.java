@@ -150,6 +150,9 @@ public class McpServer implements McpServerProvider {
 
   private static final Set<String> WRITE_HELPER_TOOLS = Set.of("describe_entity_type");
 
+  /** Tools that read and also write, and that refuse their writes when the server is read-only. */
+  private static final Set<String> WITHHOLDS_ITS_OWN_WRITES = Set.of("knowledge_graph");
+
   /**
    * Advertises the knowledge-graph tools only where they can actually run.
    *
@@ -296,10 +299,12 @@ public class McpServer implements McpServerProvider {
 
   // The MCP spec defaults readOnlyHint to false, so a tool without it counts as a write tool.
   // describe_entity_type only reads, but it exists to prepare a create_entity call.
+  // knowledge_graph writes only what a turn learnt, which it refuses itself in read-only mode.
   private static boolean isAvailableInReadOnlyMode(McpSchema.Tool tool) {
     boolean readOnlyHint =
         tool.annotations() != null && Boolean.TRUE.equals(tool.annotations().readOnlyHint());
-    return readOnlyHint && !WRITE_HELPER_TOOLS.contains(tool.name());
+    return (readOnlyHint && !WRITE_HELPER_TOOLS.contains(tool.name()))
+        || WITHHOLDS_ITS_OWN_WRITES.contains(tool.name());
   }
 
   private static Optional<String> refusalReason(McpSchema.Tool tool, MCPConfiguration config) {

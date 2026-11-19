@@ -12,16 +12,39 @@
  */
 package org.openmetadata.service.rdf.explore;
 
+import java.util.List;
 import java.util.Set;
 
 /**
  * A find: the caller's words, the kinds of ontology term to match by label (none for a catalog
- * only find), at most {@code limit} cards, and the characters they may take.
+ * only find), at most {@code limit} cards, and the characters they may take; the memories that
+ * matched the question, offered beside the cards, and the caller's preferences sent with them.
  */
 public record FindRequest(
-    String question, Set<OntologyTermKind> termKinds, int limit, long maxChars) {
+    String question,
+    Set<OntologyTermKind> termKinds,
+    int limit,
+    long maxChars,
+    GraphMemories.Matches matches,
+    List<MemoryEntry> preferences) {
 
   public FindRequest {
     termKinds = Set.copyOf(termKinds);
+    preferences = List.copyOf(preferences);
+  }
+
+  /** A find that offers no memories beside its cards. */
+  public FindRequest(
+      final String question,
+      final Set<OntologyTermKind> termKinds,
+      final int limit,
+      final long maxChars) {
+    this(
+        question,
+        termKinds,
+        limit,
+        maxChars,
+        new GraphMemories.Matches(List.of(), null),
+        List.of());
   }
 }

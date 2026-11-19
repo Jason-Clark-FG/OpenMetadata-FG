@@ -13,6 +13,7 @@
 package org.openmetadata.service.rdf.explore;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Set;
 
 /**
  * One memory as a response shows it: its node, title, statement (question and answer, cut like
@@ -27,4 +28,28 @@ public record MemoryEntry(
     Integer length,
     String stage,
     Boolean awaitingReview,
-    String changedAt) {}
+    String changedAt) {
+
+  /** The entry of a memory read from the catalog rather than the graph, cut the same way. */
+  public static MemoryEntry of(
+      final String iri,
+      final String title,
+      final String question,
+      final String answer,
+      final String stage,
+      final Long changedAt) {
+    return new StoredMemory(
+            iri,
+            Set.of(),
+            title,
+            question,
+            question == null ? 0 : question.length(),
+            answer,
+            answer == null ? 0 : answer.length(),
+            stage,
+            changedAt,
+            false,
+            0)
+        .cut();
+  }
+}

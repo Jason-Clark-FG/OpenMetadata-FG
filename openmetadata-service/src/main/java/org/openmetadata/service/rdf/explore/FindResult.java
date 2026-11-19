@@ -26,7 +26,8 @@ public record FindResult(
     Map<String, RelationshipAbout> properties,
     List<NotCoveredGroup> notCovered,
     int moreMatched,
-    String termLookupSkipped) {
+    String termLookupSkipped,
+    GraphMemories.Notes notes) {
 
   /** Whether a card of this result carries memories. */
   public boolean carriesMemories() {

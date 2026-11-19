@@ -39,6 +39,7 @@ public final class NodeCardReader {
   private final NodeIris nodeIris;
   private final Set<String> bookkeeping;
   private final GraphMemories memories;
+  private final Map<String, List<MemoryEntry>> savedInRun;
 
   public NodeCardReader(
       final GraphReader graph, final OntologyVocabulary vocabulary, final String baseUri) {
@@ -47,6 +48,25 @@ public final class NodeCardReader {
     this.nodeIris = new NodeIris(baseUri);
     this.bookkeeping = Bookkeeping.namesIn(vocabulary);
     this.memories = new GraphMemories(graph);
+    this.savedInRun = Map.of();
+  }
+
+  private NodeCardReader(
+      final NodeCardReader reader, final Map<String, List<MemoryEntry>> savedInRun) {
+    this.graph = reader.graph;
+    this.vocabulary = reader.vocabulary;
+    this.nodeIris = reader.nodeIris;
+    this.bookkeeping = reader.bookkeeping;
+    this.memories = reader.memories;
+    this.savedInRun = Map.copyOf(savedInRun);
+  }
+
+  /**
+   * This reader, whose cards also carry the memories a run saved, by the node they are about, until
+   * the graph holds them: the graph is written through a queue.
+   */
+  NodeCardReader withSaved(final Map<String, List<MemoryEntry>> saved) {
+    return new NodeCardReader(this, saved);
   }
 
   /**
@@ -76,7 +96,8 @@ public final class NodeCardReader {
                         facts.get(node),
                         values.getOrDefault(node, List.of()),
                         reachable.getOrDefault(node, List.of()),
-                        anchored.get(node))))
+                        GraphMemories.withSaved(
+                            anchored.get(node), savedInRun.getOrDefault(node, List.of())))))
         .toList();
   }
 

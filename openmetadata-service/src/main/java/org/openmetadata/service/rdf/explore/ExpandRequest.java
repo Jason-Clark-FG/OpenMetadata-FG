@@ -18,7 +18,8 @@ import java.util.Set;
 /**
  * Which relationships to follow from which nodes. {@code relationships} are full IRIs; {@code
  * offset} counts the (node, relationship, direction, far node) rows earlier pages returned. A page
- * ends early rather than serialize past {@code maxChars}, and always carries at least one row.
+ * ends early rather than serialize past {@code maxChars}, and always carries at least one row. The
+ * caller's {@code preferences}, sent with it, are recorded as shown.
  */
 public record ExpandRequest(
     List<String> nodes,
@@ -26,11 +27,24 @@ public record ExpandRequest(
     Set<Direction> directions,
     int limit,
     int offset,
-    long maxChars) {
+    long maxChars,
+    List<MemoryEntry> preferences) {
 
   public ExpandRequest {
     nodes = List.copyOf(nodes);
     relationships = List.copyOf(relationships);
     directions = Set.copyOf(directions);
+    preferences = List.copyOf(preferences);
+  }
+
+  /** An expansion sent without the caller's preferences. */
+  public ExpandRequest(
+      final List<String> nodes,
+      final List<String> relationships,
+      final Set<Direction> directions,
+      final int limit,
+      final int offset,
+      final long maxChars) {
+    this(nodes, relationships, directions, limit, offset, maxChars, List.of());
   }
 }

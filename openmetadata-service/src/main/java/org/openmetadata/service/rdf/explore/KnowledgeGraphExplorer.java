@@ -15,6 +15,7 @@ package org.openmetadata.service.rdf.explore;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -36,7 +37,6 @@ public final class KnowledgeGraphExplorer {
   private final NodeCardReader cards;
   private final OntologyTerms terms;
   private final PropertyDescriptions descriptions;
-  private final GraphExpansion expansion;
   private final NodeIris nodeIris;
   private final RunTraceStore traces;
   private final Clock clock;
@@ -52,7 +52,6 @@ public final class KnowledgeGraphExplorer {
     this.cards = new NodeCardReader(graph, vocabulary, baseUri);
     this.terms = new OntologyTerms(graph);
     this.descriptions = new PropertyDescriptions(vocabulary);
-    this.expansion = new GraphExpansion(graph, cards, vocabulary);
     this.nodeIris = new NodeIris(baseUri);
     this.traces = Objects.requireNonNull(traces);
     this.clock = Objects.requireNonNull(clock);
@@ -73,24 +72,32 @@ public final class KnowledgeGraphExplorer {
     final List<String> matched =
         alternate(lookup.terms(), hits.stream().map(nodeIris::of).distinct().toList());
     final List<NodeCard> read =
-        cards.read(matched.subList(0, Math.min(request.limit(), matched.size())));
+        cardsFor(run).read(matched.subList(0, Math.min(request.limit(), matched.size())));
     final List<NodeCard> found =
         read.subList(
             0,
             PageBudget.cardsThatFit(
                 read, descriptions, request.maxChars() - MemoryNote.reserveFor(read)));
+    final GraphMemories.Notes notes =
+        request.matches().beside(found.stream().map(NodeCard::id).collect(Collectors.toSet()));
     record(
         run,
         Operation.FIND,
         RunStep.Input.find(request.question()),
-        RunSteps.served(found),
+        Stream.of(
+                RunSteps.served(found),
+                RunSteps.memories(notes.listing()),
+                RunSteps.memories(request.preferences()))
+            .flatMap(List::stream)
+            .toList(),
         List.of());
     return new FindResult(
         found,
         descriptions.describeCards(found),
         NotCoveredGroups.of(found),
         matched.size() - found.size(),
-        lookup.skipped());
+        lookup.skipped(),
+        notes);
   }
 
   private static List<String> alternate(final List<String> first, final List<String> second) {
@@ -111,7 +118,7 @@ public final class KnowledgeGraphExplorer {
   }
 
   public ExpandPage expand(final RunContext run, final ExpandRequest request) {
-    final ExpandPage page = expansion.expand(request);
+    final ExpandPage page = new GraphExpansion(graph, cardsFor(run), vocabulary).expand(request);
     record(
         run,
         Operation.EXPAND,
@@ -121,7 +128,11 @@ public final class KnowledgeGraphExplorer {
             direction(request.directions()),
             request.limit(),
             request.offset()),
-        Stream.concat(RunSteps.served(page.nodes()).stream(), RunSteps.listed(page).stream())
+        Stream.of(
+                RunSteps.served(page.nodes()),
+                RunSteps.listed(page),
+                RunSteps.memories(request.preferences()))
+            .flatMap(List::stream)
             .toList(),
         RunSteps.expanded(page));
     return page;
@@ -132,11 +143,23 @@ public final class KnowledgeGraphExplorer {
    * can cite them.
    */
   public void recordQuery(final RunContext run, final String sparql, final String resultBody) {
+    recordQuery(run, sparql, resultBody, List.of());
+  }
+
+  /** As above, with the caller's preferences the answer carried, recorded as shown. */
+  public void recordQuery(
+      final RunContext run,
+      final String sparql,
+      final String resultBody,
+      final List<MemoryEntry> preferences) {
     record(
         run,
         Operation.QUERY,
         RunStep.Input.query(sparql),
-        QueriedNodes.of(sparql, resultBody).stream().map(RunSteps::queried).toList(),
+        Stream.concat(
+                QueriedNodes.of(sparql, resultBody).stream().map(RunSteps::queried),
+                RunSteps.memories(preferences).stream())
+            .toList(),
         List.of());
   }
 
@@ -198,18 +221,64 @@ public final class KnowledgeGraphExplorer {
    * are accepted; the rest come back refused. Nothing is recorded when nothing is accepted.
    */
   public CiteResult cite(final RunContext run, final Citation citation) {
+    final CiteOutcome outcome = cite(run, citation, List.of(), MemoryWriter.refusing(""));
+    return new CiteResult(outcome.cited(), outcome.refused());
+  }
+
+  /**
+   * The final step of a turn: records what the answer relied on, as {@link #cite(RunContext,
+   * Citation)} does, and keeps what the turn learnt through {@code writer}. A step that cites
+   * nothing is still recorded when it carried candidates.
+   */
+  public CiteOutcome cite(
+      final RunContext run,
+      final Citation citation,
+      final List<LearnedCandidate> learned,
+      final MemoryWriter writer) {
+    final List<RunStep> steps = steps(run.run());
     final Citations.Checked checked =
         Citations.check(
-            trace(run.run()), citation, name -> vocabulary.compact(vocabulary.expand(name)));
-    if (checked.citesAnything()) {
-      record(
-          run,
-          Operation.CITE,
-          RunStep.Input.cite(checked.result().cited().nodes()),
-          List.of(),
-          checked.edges());
+            RunTraceFolder.fold(run.run(), steps),
+            citation,
+            name -> vocabulary.compact(vocabulary.expand(name)));
+    final List<LearnedOutcome> outcomes =
+        learned.isEmpty()
+            ? List.of()
+            : new TurnLearning(steps, nodeIris).keep(learned, writer, run.run());
+    if (checked.citesAnything() || !outcomes.isEmpty()) {
+      traces.append(
+          run.run(),
+          new RunStep(
+              Operation.CITE,
+              clock.millis(),
+              run.principal(),
+              RunStep.Input.cite(checked.result().cited().nodes()),
+              List.of(),
+              checked.edges(),
+              outcomes));
     }
-    return checked.result();
+    return new CiteOutcome(
+        checked.result().cited(),
+        checked.result().refused(),
+        outcomes.stream().map(LearnedOutcome::withoutCandidate).toList());
+  }
+
+  /** A run's recorded steps; a run that recorded none cannot be cited. */
+  private List<RunStep> steps(final UUID run) {
+    final List<RunStep> steps = traces.steps(run);
+    if (steps.isEmpty()) {
+      throw new IllegalArgumentException(
+          "No steps are recorded for run %s. A run keeps its trace for %d hours; pass the 'run' a knowledge_graph call returned."
+              .formatted(run, RunTraceStore.RETENTION.toHours()));
+    }
+    return steps;
+  }
+
+  /** The card reader for {@code run}: its cards also carry the memories the run saved. */
+  private NodeCardReader cardsFor(final RunContext run) {
+    final Map<String, List<MemoryEntry>> saved =
+        new TurnLearning(traces.steps(run.run()), nodeIris).savedByAnchor();
+    return saved.isEmpty() ? cards : cards.withSaved(saved);
   }
 
   public RunTrace trace(final UUID run) {

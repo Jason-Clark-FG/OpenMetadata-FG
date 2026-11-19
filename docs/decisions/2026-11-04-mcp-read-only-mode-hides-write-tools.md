@@ -1,7 +1,7 @@
 # MCP read-only mode hides every tool not annotated readOnlyHint, for every caller including admins
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-04 (initial) · v2 2026-11-05 (single tools can be disabled) · v3 2026-11-06 (tools/list follows the setting without a restart)
+- **Revisions:** v1 2026-11-04 (initial) · v2 2026-11-05 (single tools can be disabled) · v3 2026-11-06 (tools/list follows the setting without a restart) · v4 2026-11-19 (knowledge_graph stays and withholds its own writes)
 - **Deciders:** Vishnu Jain
 - **Guard:** `McpReadOnlyModeTest`
 - **Related:** #36577, #33323, #36579
@@ -46,3 +46,12 @@ setting. A stateless server cannot send `notifications/tools/list_changed`, so i
 `listChanged: false`, and a client that cached the list sees the change when it lists tools again;
 until then the 403 on every call, unchanged, is what stops a cached write tool. This removes the
 restart in the Decision and the re-registration cost named in Consequences.
+
+**v4 2026-11-19.** `knowledge_graph` now saves what a turn learnt as context memories on its
+final `cite`, so it is annotated `readOnlyHint: false` truthfully. Hiding it in read-only mode
+would take the whole graph exploration away from read-only deployments, so it is the one tool kept
+in read-only mode although it can write (`McpServer.WITHHOLDS_ITS_OWN_WRITES`): on a read-only
+server it saves nothing and answers each candidate with "this MCP server is read-only, so nothing
+is saved." Every other write tool is withheld as before. Guard: `McpReadOnlyModeTest`
+(`theKnowledgeGraphToolStaysInReadOnlyModeThoughItCanSaveMemories`), `KnowledgeGraphMemoriesTest`.
+

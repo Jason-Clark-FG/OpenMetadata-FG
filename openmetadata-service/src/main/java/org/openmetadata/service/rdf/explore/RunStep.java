@@ -18,7 +18,8 @@ import java.util.List;
 
 /**
  * What one call served, as stored: the nodes returned as cards, each with the relationships its
- * card offered, and the edges an expansion returned.
+ * card offered, the memories it showed, the edges an expansion returned, and for a cite what the
+ * turn learnt and what became of it.
  */
 public record RunStep(
     Operation operation,
@@ -26,11 +27,24 @@ public record RunStep(
     String principal,
     Input input,
     List<Node> nodes,
-    List<Edge> edges) {
+    List<Edge> edges,
+    @JsonInclude(JsonInclude.Include.NON_EMPTY) List<LearnedOutcome> learned) {
 
   public RunStep {
     nodes = List.copyOf(nodes);
     edges = List.copyOf(edges);
+    learned = learned == null ? List.of() : List.copyOf(learned);
+  }
+
+  /** A step that learnt nothing; steps stored before candidates were recorded read back so. */
+  public RunStep(
+      final Operation operation,
+      final long at,
+      final String principal,
+      final Input input,
+      final List<Node> nodes,
+      final List<Edge> edges) {
+    this(operation, at, principal, input, nodes, edges, List.of());
   }
 
   /**

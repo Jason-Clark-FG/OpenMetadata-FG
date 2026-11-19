@@ -200,6 +200,36 @@ public final class GraphMemories {
         .toList();
   }
 
+  /**
+   * {@code listing} with the memories a run saved that it does not hold yet, newest first: the
+   * graph is written through a queue, so a memory saved a moment ago may not be in it.
+   */
+  static MemoryListing withSaved(final MemoryListing listing, final List<MemoryEntry> saved) {
+    final Set<String> held =
+        listing == null
+            ? Set.of()
+            : listing.shown().stream().map(MemoryEntry::id).collect(Collectors.toSet());
+    final List<MemoryEntry> added =
+        saved.reversed().stream().filter(memory -> !held.contains(memory.id())).toList();
+    return added.isEmpty() ? listing : merged(listing, added);
+  }
+
+  private static MemoryListing merged(final MemoryListing listing, final List<MemoryEntry> added) {
+    final List<MemoryEntry> all = new ArrayList<>(added);
+    final int held = listing == null ? 0 : listing.total();
+    if (listing != null) {
+      all.addAll(listing.shown());
+    }
+    final List<MemoryEntry> shown = all.stream().limit(SHOWN).toList();
+    final int total = held + added.size();
+    return new MemoryListing(
+        shown,
+        total,
+        total > shown.size()
+            ? CARD_REST.formatted(shown.size(), total, total - shown.size())
+            : null);
+  }
+
   private static MemoryListing listing(
       final List<StoredMemory> memories, final Comparator<StoredMemory> order, final String rest) {
     final List<MemoryEntry> shown =

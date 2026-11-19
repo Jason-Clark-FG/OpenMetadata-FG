@@ -1,13 +1,14 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's) · v18 2026-11-19 (a status relationship shows the status it points to) · v19 2026-11-19 (memories on cards, notes in find, preferences once per run)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's) · v18 2026-11-19 (a status relationship shows the status it points to) · v19 2026-11-19 (memories on cards, notes in find, preferences once per run) · v20 2026-11-19 (cite is the final step and keeps what a turn learnt)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
   `RdfToolDescriptionVocabularyTest`, `ExplorationQueriesTest`, `OntologyTermsTest`,
   `KnowledgeGraphExplorerTest`, `CatalogStartingPointsTest`, `RdfKnowledgeGraphToolIT`,
-  `GraphMemoriesTest`, `KnowledgeGraphMemoriesTest`, `RdfKnowledgeGraphMemoryIT`
+  `GraphMemoriesTest`, `KnowledgeGraphMemoriesTest`, `RdfKnowledgeGraphMemoryIT`,
+  `TurnLearningTest`, `RdfKnowledgeGraphLearningIT`
 - **Related:** ADR:2026-09-16-agent-sparql-execution,
   ADR:2026-11-17-knowledge-graph-runs-are-traced-in-sql-for-a-day,
   ADR:2026-11-06-mcp-tool-arguments-are-coerced-by-tools-not-validated-by-the-sdk
@@ -489,4 +490,64 @@ from 1,032 to 1,694 characters with two memories, plus the 482-character note on
 Known limits: memory nodes found through notes or preferences are not recorded as served nodes, so
 `cite` refuses them unless a card or expansion served them; following lineage to a neighbour's
 memories is out of scope, as in AskCollate.
+
+## Amendment 2026-11-19. Cite is the final step and keeps what a turn learnt
+
+People should not have to say "remember". AskCollate keeps knowledge without being asked: after
+every successful turn a bounded review of the finished turn decides what is worth keeping
+(ADR:ai-platform/2026-09-29-memory-capture-runs-at-the-end-of-the-chat-stream). Over MCP the
+server never sees the conversation, so it cannot run that review; but every run already ends with
+a step the model takes, `cite` (24 of 24 runs in the last round). That step becomes the review. A
+separate `remember` tool was rejected: it needs the model to decide, mid-answer, to call another
+tool, which is the explicit request the owner does not want; the final step is already taken.
+
+- **The candidate.** `cite` takes `learned`, at most three candidates in the AskCollate capture's
+  shape and sizes: `title` (80), `question` (300), `answer` (600), `kind` (`correction`,
+  `definition`, `preference`, `learning`, mapped to Note, Note, Preference and Learning as the
+  capture prompt maps them), `about` (a card the run showed; absent for a personal one),
+  `evidence` (`source` user or tool, the `quote`, the `tool`) and `corrects` (a memory the run
+  showed). A malformed candidate is a correction naming the field; a `cite` may carry `learned`
+  alone, with no nodes. Nothing learnt is the normal case and `learned` is left out.
+- **What is kept, in order, each outcome named.** `about` must be a node the run served, and one
+  a memory can be about (minted by id, not a memory); `corrects` a memory the run showed (on a
+  card, among find's notes, among the preferences, or saved earlier in the run, which the run's
+  steps now record as served nodes of type `contextMemory`); evidence must be present; and the
+  candidate must not say what a memory the run showed, one on its anchor or one the caller owns
+  already says, by the bar re-extraction uses (`MemoryReviewHolds.restates`: the identity bar of
+  `MemoryTextSimilarity` with no conflicting number), in a stage still in use. A repeat names the
+  memory that says it (`sameAs`). The rest is saved.
+- **The create path** is `create_entity`'s: the create permission and the entity limits as the
+  caller, the entity rules, then `ContextMemoryRepository`, which decides the stage (Approved in
+  OpenMetadata; Unprocessed for a non-admin where review is required) and checks the writer may
+  point at the anchor. The memory is the caller's, `EntityScoped` with `Entity` visibility on its
+  `about`, else `UserGlobal` and `Private` (a preference reaches every first answer of the
+  caller's runs; anything else is recalled when relevant), with `sourceType`
+  `ConversationExtraction`, the source the capture uses. A correction of an Approved (or any
+  settled) memory is a new memory that names it as `parentMemory` and never edits it; a correction
+  of one awaiting review replaces its text in place through `patch_entity`
+  (ADR:ai-platform/2026-10-05-new-memories-await-reconciliation-and-approved-memories-stay-authoritative, v6).
+- **Provenance.** The run is `sourceConversation` (a run is a UUID). The entity has no field for
+  evidence; it is kept in `description` ("Learnt in a knowledge_graph run. Evidence (user): ...")
+  until one exists. The run's trace keeps every candidate and its outcome on the cite step
+  (`learned`), and the memories every step showed.
+- **The answer.** Each outcome has the `title`, and either the `saved` memory (id, title, stage),
+  the node it is `about` and `effect`, the stage in words (who it is in force for now), or the
+  `reason` it was not saved.
+- **In force at once.** The graph is written through a queue, so a memory reaches a card a few
+  seconds after it is saved (and longer when the writer is busy). Every later card of the same run
+  carries the memories the run saved, from its trace, until the graph holds them.
+- **Deferred by decision:** a model reviewing candidates on the server, a screen for the shape of
+  the text, and any rule about who else may read a saved memory.
+- **Annotations and read-only mode.** The tool now writes, so it is annotated `readOnlyHint:
+  false` (`destructiveHint` and `idempotentHint` false). A host that asks before running a tool
+  that is not read-only may now ask before `knowledge_graph` calls. In read-only mode the tool stays
+  available and saves nothing (ADR:2026-11-04-mcp-read-only-mode-hides-write-tools, v4).
+- **Texts.** The description and the instructions ask every turn to end with `cite`, also a turn
+  in which the person only told the model something, say what to put under `learned` and what
+  never, and ask the answer to say what was saved. To fit, the description dropped
+  `bookkeeping`, `properties`, `termLookupSkipped` and `semanticSearchSkipped`, and the catalog
+  types and usage in its first sentences; the instructions dropped the trust facts' names and
+  "SELECT".
+
+This supersedes the v19 known limit that memories in notes and preferences are not served.
 

@@ -120,7 +120,48 @@ class KnowledgeGraphCallTest {
             List.of("'nodes'", "at most " + KnowledgeGraphCall.MAX_CITED)),
         Arguments.of(
             Map.of("operation", "find", "question", "orders", "run", "run-1"),
-            List.of("'run'", "'run-1'")));
+            List.of("'run'", "'run-1'")),
+        Arguments.of(
+            learned(Collections.nCopies(LearnedCandidates.MAX_CANDIDATES + 1, candidate("note"))),
+            List.of("'learned'", "at most 3")),
+        Arguments.of(learned(List.of(candidate("hunch"))), List.of("'kind'", "correction")),
+        Arguments.of(
+            learned(List.of(Map.of("title", "x".repeat(81), "kind", "note"))),
+            List.of("'title'", "at most 80")));
+  }
+
+  private static Map<String, Object> learned(final List<Map<String, Object>> candidates) {
+    return Map.of("operation", "cite", "run", UUID.randomUUID().toString(), "learned", candidates);
+  }
+
+  private static Map<String, Object> candidate(final String kind) {
+    return Map.of(
+        "title",
+        "Refunds stay in revenue",
+        "question",
+        "Do refunds count?",
+        "answer",
+        "Refunded orders stay in the revenue of their month.",
+        "kind",
+        kind);
+  }
+
+  @Test
+  void aCiteMayCarryOnlyWhatTheTurnLearnt() {
+    final KnowledgeGraphCall call =
+        KnowledgeGraphCall.parse(learned(List.of(candidate("definition"))));
+
+    final KnowledgeGraphCall.Cite cite = (KnowledgeGraphCall.Cite) call.request();
+    assertThat(cite.citation().nodes()).isEmpty();
+    assertThat(cite.learned())
+        .singleElement()
+        .satisfies(
+            learned -> {
+              assertThat(learned.kind())
+                  .isEqualTo(org.openmetadata.service.rdf.explore.LearnedKind.DEFINITION);
+              assertThat(learned.evidence()).isNull();
+              assertThat(learned.about()).isNull();
+            });
   }
 
   @ParameterizedTest

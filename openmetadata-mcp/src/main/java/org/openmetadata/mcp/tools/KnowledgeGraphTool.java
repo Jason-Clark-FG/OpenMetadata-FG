@@ -22,14 +22,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.mcp.util.ResponseBudget;
+import org.openmetadata.schema.api.configuration.MCPConfiguration;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.entity.teams.User;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
 import org.openmetadata.service.rdf.RdfSparqlService;
@@ -38,7 +39,7 @@ import org.openmetadata.service.rdf.SparqlQueryExecutionGuard;
 import org.openmetadata.service.rdf.SparqlQueryExecutionGuard.QueryTimeoutException;
 import org.openmetadata.service.rdf.SparqlQueryLimits.OutputLimitExceededException;
 import org.openmetadata.service.rdf.explore.Citation;
-import org.openmetadata.service.rdf.explore.CiteResult;
+import org.openmetadata.service.rdf.explore.CiteOutcome;
 import org.openmetadata.service.rdf.explore.ExpandPage;
 import org.openmetadata.service.rdf.explore.ExpandRequest;
 import org.openmetadata.service.rdf.explore.ExpansionGroup;
@@ -46,9 +47,11 @@ import org.openmetadata.service.rdf.explore.FindRequest;
 import org.openmetadata.service.rdf.explore.FindResult;
 import org.openmetadata.service.rdf.explore.GraphMemories;
 import org.openmetadata.service.rdf.explore.KnowledgeGraphExplorer;
+import org.openmetadata.service.rdf.explore.LearnedOutcome;
 import org.openmetadata.service.rdf.explore.MemoryEntry;
 import org.openmetadata.service.rdf.explore.MemoryListing;
 import org.openmetadata.service.rdf.explore.MemoryNote;
+import org.openmetadata.service.rdf.explore.MemoryWriter;
 import org.openmetadata.service.rdf.explore.NoRows;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.OntologyVocabulary;
@@ -66,6 +69,7 @@ import org.openmetadata.service.rdf.federation.SparqlFederationGuard;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.DefaultAuthorizer;
 import org.openmetadata.service.security.auth.CatalogSecurityContext;
+import org.openmetadata.service.security.auth.SecurityConfigurationManager;
 
 /**
  * One tool over the knowledge graph: {@code find} starting nodes, {@code expand} relationships,
@@ -95,8 +99,24 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   private final StartingPoints startingPoints;
   private final Supplier<RunTraceStore> traces;
   private final Clock clock;
+  private final MemoryWriters writers;
+
+  /** The writer that keeps what a turn learnt, for one caller. */
+  @FunctionalInterface
+  interface MemoryWriters {
+    MemoryWriter forCaller(
+        Authorizer authorizer, CatalogSecurityContext securityContext, String baseUri);
+  }
+
+  /** A read-only server keeps nothing a turn learnt; the rest of the tool still answers. */
+  static final String READ_ONLY = "this MCP server is read-only, so nothing is saved.";
 
   public KnowledgeGraphTool() {
+    this(null);
+  }
+
+  /** The tool as the MCP server runs it, with the entity limits a saved memory counts against. */
+  public KnowledgeGraphTool(final Limits limits) {
     this(
         RdfRepository::getInstanceOrNull,
         RdfProjectionStateResolver::resolveConfigured,
@@ -104,7 +124,16 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         () ->
             new SqlRunTraceStore(
                 Entity.getCollectionDAO().rdfExplorationRunDAO(), Clock.systemUTC()),
-        Clock.systemUTC());
+        Clock.systemUTC(),
+        (authorizer, caller, baseUri) ->
+            isReadOnly() || limits == null
+                ? MemoryWriter.refusing(READ_ONLY)
+                : new MemoryCapture(authorizer, limits, caller, baseUri));
+  }
+
+  private static boolean isReadOnly() {
+    final MCPConfiguration config = SecurityConfigurationManager.getCurrentMcpConfig();
+    return config != null && Boolean.TRUE.equals(config.getReadOnly());
   }
 
   KnowledgeGraphTool(
@@ -113,7 +142,24 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final StartingPoints startingPoints,
       final Supplier<RunTraceStore> traces,
       final Clock clock) {
+    this(
+        repositorySupplier,
+        projectionStateSupplier,
+        startingPoints,
+        traces,
+        clock,
+        (authorizer, caller, baseUri) -> MemoryWriter.refusing(READ_ONLY));
+  }
+
+  KnowledgeGraphTool(
+      final Supplier<RdfRepository> repositorySupplier,
+      final Supplier<RdfProjectionState> projectionStateSupplier,
+      final StartingPoints startingPoints,
+      final Supplier<RunTraceStore> traces,
+      final Clock clock,
+      final MemoryWriters writers) {
     super(repositorySupplier, projectionStateSupplier);
+    this.writers = Objects.requireNonNull(writers);
     this.sparqlQuery =
         new SparqlQueryTool(
             repositorySupplier,
@@ -188,8 +234,16 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       String aboutMemories)
       implements Response {}
 
-  /** What a cite recorded, and what it refused because the run never reached it. */
-  public record CiteResponse(UUID run, Operation operation, Citation cited, Citation refused)
+  /**
+   * What a cite recorded, what it refused because the run never reached it, and what became of
+   * each thing the turn learnt ({@code learned}, absent when it carried none).
+   */
+  public record CiteResponse(
+      UUID run,
+      Operation operation,
+      Citation cited,
+      Citation refused,
+      @JsonInclude(JsonInclude.Include.NON_EMPTY) List<LearnedOutcome> learned)
       implements Response {}
 
   public record TraceResponse(
@@ -218,7 +272,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       case KnowledgeGraphCall.Query query -> query(
           securityContext, repository, new Turn(run, budget(), firstCall), query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
-      case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
+      case KnowledgeGraphCall.Cite cite -> cite(authorizer, securityContext, repository, run, cite);
     };
   }
 
@@ -290,11 +344,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         explorer.find(
             run,
             new FindRequest(
-                find.question(), find.termKinds(), find.limit(), turn.budget() - memoryChars),
+                find.question(),
+                find.termKinds(),
+                find.limit(),
+                turn.budget() - memoryChars,
+                matches,
+                preferences),
             catalog.hits());
-    final GraphMemories.Notes notes =
-        matches.beside(found.nodes().stream().map(NodeCard::id).collect(Collectors.toSet()));
-    return findResponse(run, find, found, catalog, new FindMemories(notes, preferences));
+    return findResponse(run, find, found, catalog, new FindMemories(found.notes(), preferences));
   }
 
   /** What a find carries of memories beside its cards. */
@@ -361,7 +418,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         preferences(turn, securityContext, explorer, repository.getBaseUri());
     final long memoryChars = preferences.isEmpty() ? 0 : chars(preferences) + NOTE_CHARS;
     final ExpandPage page =
-        explorer.expand(run, expandRequest(expand, turn.budget() - memoryChars));
+        explorer.expand(run, expandRequest(expand, turn.budget() - memoryChars, preferences));
     return new ExpandResponse(
         run.run(),
         Operation.EXPAND,
@@ -383,7 +440,9 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   }
 
   private static ExpandRequest expandRequest(
-      final KnowledgeGraphCall.Expand expand, final long budget) {
+      final KnowledgeGraphCall.Expand expand,
+      final long budget,
+      final List<MemoryEntry> preferences) {
     final OntologyVocabulary vocabulary = OntologyVocabulary.canonical();
     return new ExpandRequest(
         expand.nodes(),
@@ -391,7 +450,8 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         expand.directions(),
         expand.limit(),
         expand.offset(),
-        budget);
+        budget,
+        preferences);
   }
 
   private QueryResponse query(
@@ -416,7 +476,7 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
                 candidate -> queryResponse(run, candidate, null, sparql),
                 size -> size <= budget)
             .orElseGet(() -> new QueryRows.Fitted(bounded(result, budget), null));
-    explorer.recordQuery(run, sparql.sparql(), fitted.result().body());
+    explorer.recordQuery(run, sparql.sparql(), fitted.result().body(), preferences);
     final NoRows noRows =
         fitted.rows() != null && fitted.rows().isEmpty()
             ? explorer.explainNoRows(sparql.sparql())
@@ -470,12 +530,20 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   }
 
   private CiteResponse cite(
+      final Authorizer authorizer,
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
       final RunContext run,
       final KnowledgeGraphCall.Cite cite) {
-    final CiteResult result = explorer(securityContext, repository).cite(run, cite.citation());
-    return new CiteResponse(run.run(), Operation.CITE, result.cited(), result.refused());
+    final CiteOutcome result =
+        explorer(securityContext, repository)
+            .cite(
+                run,
+                cite.citation(),
+                cite.learned(),
+                writers.forCaller(authorizer, securityContext, repository.getBaseUri()));
+    return new CiteResponse(
+        run.run(), Operation.CITE, result.cited(), result.refused(), result.learned());
   }
 
   private TraceResponse trace(

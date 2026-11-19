@@ -77,6 +77,17 @@ class McpReadOnlyModeTest {
     assertTrue(exposed.contains("search_metadata"));
   }
 
+  /** It explores the graph; a read-only server only keeps it from saving what a turn learnt. */
+  @Test
+  void theKnowledgeGraphToolStaysInReadOnlyModeThoughItCanSaveMemories() {
+    McpSchema.Tool knowledgeGraph =
+        McpSchema.Tool.builder("knowledge_graph", Map.of("type", "object"))
+            .annotations(new McpSchema.ToolAnnotations(null, false, false, false, false, null))
+            .build();
+
+    assertEquals(List.of(knowledgeGraph), exposed(List.of(knowledgeGraph), READ_ONLY));
+  }
+
   @Test
   void aToolWithoutAReadOnlyHintIsWithheld() {
     McpSchema.Tool unannotated =

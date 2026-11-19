@@ -139,6 +139,21 @@ class RdfToolDescriptionVocabularyTest {
         .contains("'memories'", "notes people saved", "'preferences'", "apply", "name it");
   }
 
+  /** The final step is what makes a run keep what it learnt, so the text must ask for it. */
+  @Test
+  void knowledgeGraphAsksEveryTurnToEndWithACiteThatSaysWhatItLearnt() {
+    final McpSchema.Tool tool = tools.get("knowledge_graph");
+
+    assertThat(tool.description())
+        .contains("End every turn with cite", "only told you something", "'learned'")
+        .contains("correction, definition, preference, learning", "numbers and units", "'evidence'")
+        .contains("Usually it taught nothing", "Never data values", "guesses", "secrets")
+        .contains("Say in the answer what was saved");
+    assertThat(parameterDescription(tool, "learned")).contains("Omit it", "Never data values");
+    assertThat(tool.annotations().readOnlyHint()).isFalse();
+    assertThat(tool.annotations().destructiveHint()).isFalse();
+  }
+
   private static String parameterDescription(final McpSchema.Tool tool, final String name) {
     final Map<?, ?> properties = (Map<?, ?>) tool.inputSchema().get("properties");
     return ((Map<?, ?>) properties.get(name)).get("description").toString();

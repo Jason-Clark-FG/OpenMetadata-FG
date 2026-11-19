@@ -14,6 +14,8 @@
 package org.openmetadata.service.rdf.explore;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.rdf.RdfUtils;
 
@@ -22,6 +24,7 @@ final class NodeIris {
 
   private static final String ENTITY_PATH = "entity/";
   private static final char SEGMENT_SEPARATOR = '/';
+  private static final String MEMORY = "contextMemory";
 
   private final String baseUri;
 
@@ -35,6 +38,26 @@ final class NodeIris {
     return Entity.TABLE_COLUMN.equals(hit.entityType())
         ? RdfUtils.columnUri(baseUri, hit.fullyQualifiedName())
         : RdfUtils.entityUri(baseUri, hit.entityType(), hit.id());
+  }
+
+  /**
+   * Whether {@code iri} names a catalog entity a memory can be about: one minted by id, as a
+   * column or an ontology term is not, and not a memory itself.
+   */
+  boolean isAnchor(final String iri) {
+    final String type = entityType(iri);
+    return type != null && !MEMORY.equals(type) && entityId(iri).isPresent();
+  }
+
+  /** The id segment of a catalog entity IRI minted by id. */
+  Optional<UUID> entityId(final String iri) {
+    Optional<UUID> id = Optional.empty();
+    try {
+      id = Optional.of(UUID.fromString(iri.substring(iri.lastIndexOf(SEGMENT_SEPARATOR) + 1)));
+    } catch (IllegalArgumentException notAnId) {
+      // A column is minted by its qualified name, an ontology term by its own IRI.
+    }
+    return id;
   }
 
   /** The entity type segment of a catalog entity IRI, or null for any other node. */
