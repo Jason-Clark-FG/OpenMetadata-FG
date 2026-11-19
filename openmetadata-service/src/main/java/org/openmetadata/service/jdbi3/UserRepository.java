@@ -826,6 +826,19 @@ public class UserRepository extends EntityRepository<User> {
     if (userDefaultPersona != null) {
       return userDefaultPersona;
     }
+    return derivedDefaultPersona(user);
+  }
+
+  /**
+   * The default a user gets without choosing one: the persona their teams agree on, else the system
+   * default. Derived on every read and never stored as a {@code DEFAULTS_TO} relationship, so
+   * leaving the team drops it. Teams that disagree give the user none to inherit.
+   */
+  private EntityReference derivedDefaultPersona(User user) {
+    List<EntityReference> teamDefaults = getInheritedPersonas(user);
+    if (teamDefaults.size() == 1) {
+      return teamDefaults.get(0);
+    }
     PersonaRepository personaRepository =
         (PersonaRepository) Entity.getEntityRepository(Entity.PERSONA);
     Persona systemDefault = personaRepository.getSystemDefaultPersona();
@@ -1420,8 +1433,17 @@ public class UserRepository extends EntityRepository<User> {
       }
     }
 
+    List<User> withoutOwnDefault =
+        users.stream().filter(u -> !userToDefaultPersona.containsKey(u.getId())).toList();
+    Map<UUID, List<EntityReference>> teamDefaults =
+        withoutOwnDefault.isEmpty() ? Map.of() : resolveInheritedPersonas(withoutOwnDefault);
+
     for (User user : users) {
       EntityReference defaultPersonaRef = userToDefaultPersona.get(user.getId());
+      if (defaultPersonaRef == null) {
+        List<EntityReference> fromTeams = teamDefaults.getOrDefault(user.getId(), List.of());
+        defaultPersonaRef = fromTeams.size() == 1 ? fromTeams.get(0) : null;
+      }
       user.setDefaultPersona(defaultPersonaRef);
     }
   }
@@ -1430,7 +1452,12 @@ public class UserRepository extends EntityRepository<User> {
     if (!fields.contains("personas") || users == null || users.isEmpty()) {
       return;
     }
+    Map<UUID, List<EntityReference>> inheritedByUser = resolveInheritedPersonas(users);
+    users.forEach(u -> u.setInheritedPersonas(inheritedByUser.getOrDefault(u.getId(), List.of())));
+  }
 
+  private Map<UUID, List<EntityReference>> resolveInheritedPersonas(List<User> users) {
+    Map<UUID, List<EntityReference>> inheritedByUser = new HashMap<>();
     // Step 1: Collect all team IDs across all users.
     // Use pre-loaded teams when available, batch-fetch only for users that need it.
     Map<UUID, List<UUID>> userToTeamIds = new HashMap<>();
@@ -1464,8 +1491,7 @@ public class UserRepository extends EntityRepository<User> {
     }
 
     if (allTeamIds.isEmpty()) {
-      users.forEach(u -> u.setInheritedPersonas(Collections.emptyList()));
-      return;
+      return inheritedByUser;
     }
 
     // Step 2: Single batch query for all Team→Persona HAS relationships
@@ -1491,7 +1517,6 @@ public class UserRepository extends EntityRepository<User> {
     // Step 3: Distribute inherited personas to each user
     for (User user : users) {
       if (Boolean.TRUE.equals(user.getIsBot())) {
-        user.setInheritedPersonas(Collections.emptyList());
         continue;
       }
       List<UUID> teamIds = userToTeamIds.getOrDefault(user.getId(), Collections.emptyList());
@@ -1503,8 +1528,9 @@ public class UserRepository extends EntityRepository<User> {
           inherited.add(persona);
         }
       }
-      user.setInheritedPersonas(inherited);
+      inheritedByUser.put(user.getId(), inherited);
     }
+    return inheritedByUser;
   }
 
   private void fetchAndSetDomains(List<User> users, Fields fields) {
@@ -2227,21 +2253,14 @@ public class UserRepository extends EntityRepository<User> {
           getFromEntityRef(original.getId(), USER, Relationship.DEFAULTS_TO, Entity.PERSONA, false);
 
       EntityReference updatedDefaultPersona = updated.getDefaultPersona();
-      PersonaRepository personaRepository =
-          (PersonaRepository) Entity.getEntityRepository(Entity.PERSONA);
-      Persona systemDefaultPersona = personaRepository.getSystemDefaultPersona();
-
-      // Only process defaultPersona changes if it's not just the system providing a default value
-      // If the updated default persona is the system default and the original had no explicit
-      // default,
-      // then this is not an actual change - it's just the system providing a default value
-      boolean isSystemDefaultBeingApplied =
+      // A read-modify-write sends back the derived default (team or system) in defaultPersona;
+      // with no stored default that is a value the system supplied, not a change to persist.
+      boolean isDerivedDefaultBeingApplied =
           updatedDefaultPersona != null
-              && systemDefaultPersona != null
-              && updatedDefaultPersona.getId().equals(systemDefaultPersona.getId())
-              && originalDefaultPersona == null;
+              && originalDefaultPersona == null
+              && isDerivedDefault(original, updatedDefaultPersona);
 
-      if (!isSystemDefaultBeingApplied) {
+      if (!isDerivedDefaultBeingApplied) {
         if (originalDefaultPersona != null) {
           // Delete the relationship: persona --DEFAULTS_TO--> user
           deleteTo(original.getId(), USER, Relationship.DEFAULTS_TO, Entity.PERSONA);
@@ -2249,6 +2268,11 @@ public class UserRepository extends EntityRepository<User> {
         assignDefaultPersona(updated, updatedDefaultPersona);
         recordChange("defaultPersona", originalDefaultPersona, updatedDefaultPersona, true);
       }
+    }
+
+    private boolean isDerivedDefault(User original, EntityReference persona) {
+      EntityReference derived = derivedDefaultPersona(original);
+      return derived != null && derived.getId().equals(persona.getId());
     }
 
     private void updatePersonaPreferences(User original, User updated) {
