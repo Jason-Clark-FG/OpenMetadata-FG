@@ -40,6 +40,7 @@ import org.openmetadata.schema.api.context.SkillDefinition;
 import org.openmetadata.schema.entity.context.AgentHarness;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
+import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
 import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.HookEvent;
@@ -139,6 +140,17 @@ public final class AgentHarnessCompiler {
         .filter(skill -> offered.contains(skill.getName()))
         .toList();
   }
+
+  /** The memory settings that apply to the caller and the persona they are served under, if any. */
+  public Optional<AppliedMemory> memory(final SecurityContext securityContext) {
+    final Caller caller = caller(securityContext);
+    return effective(caller)
+        .map(AgentHarnessSpec::getMemory)
+        .map(settings -> new AppliedMemory(settings, caller.persona()));
+  }
+
+  /** The memory settings in force for a caller; {@code persona} is null when none applies. */
+  public record AppliedMemory(AgentHarnessMemory settings, Persona persona) {}
 
   /**
    * What the calling administrator's agent would receive if {@code harness} had {@code spec},

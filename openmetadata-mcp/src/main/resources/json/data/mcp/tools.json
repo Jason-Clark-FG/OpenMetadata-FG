@@ -1240,6 +1240,60 @@
           }
         }
       }
+    },
+    {
+      "name": "remember",
+      "title": "Remember",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "description": "When the user corrects you or states a lasting fact about the data (a definition, which table to use, a caveat), call remember with the fact and the assets it is about. OpenMetadata saves it as a memory linked to those assets, as the signed-in user, under the memory settings of the user's agent harness: who can read it, and whether a restatement of a memory that already exists is merged into it. Pass one fact in plain words, for example 'ARR excludes churned customers' or 'Use analytics.fct_orders, not raw.orders'. Do not use it for passing details of this conversation or for anything that is not about the company's data. If capture is turned off, nothing is saved and the result says so; tell the user.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fact": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "The fact to remember, stated so it stands alone for someone who did not see this conversation."
+          },
+          "about": {
+            "type": "array",
+            "maxItems": 10,
+            "description": "The assets, glossary terms and metrics the fact is about. The first is the one the memory is filed under. Assets you read in this conversation are linked as well. Names the user cannot see are left out.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fqn": {
+                  "type": "string",
+                  "description": "Fully qualified name."
+                },
+                "entityType": {
+                  "type": "string",
+                  "description": "Type of the entity, for example table, glossaryTerm, metric or dashboard. Defaults to table."
+                }
+              },
+              "required": ["fqn"]
+            }
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional short title. Taken from the fact when omitted."
+          },
+          "question": {
+            "type": "string",
+            "description": "Optional. The question the fact answers, when the user was correcting an answer you gave."
+          },
+          "memoryType": {
+            "type": "string",
+            "enum": ["Preference", "UseCase", "Note", "Runbook", "Faq", "Learning"],
+            "description": "Kind of memory. Defaults to Learning."
+          }
+        },
+        "required": ["fact"]
+      }
     }
   ]
 }

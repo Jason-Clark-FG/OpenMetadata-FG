@@ -31,6 +31,8 @@ import org.openmetadata.mcp.tools.DefaultToolContext;
 import org.openmetadata.mcp.tools.DeliveryLedger;
 import org.openmetadata.mcp.tools.FirstCallContext;
 import org.openmetadata.mcp.tools.HarnessHookTool;
+import org.openmetadata.mcp.tools.RememberTool;
+import org.openmetadata.mcp.tools.SessionAssets;
 import org.openmetadata.mcp.usage.McpUsageRecorder;
 import org.openmetadata.schema.api.configuration.MCPConfiguration;
 import org.openmetadata.schema.entity.app.mcp.McpToolCallUsage;
@@ -479,10 +481,17 @@ public class McpServer implements McpServerProvider {
 
   private McpSchema.CallToolResult executeTool(
       McpSchema.Tool tool, McpTransportContext context, McpSchema.CallToolRequest initialRequest) {
-    McpSchema.CallToolRequest req = withClientName(tool, context, initialRequest);
+    McpSchema.CallToolRequest named = withClientName(tool, context, initialRequest);
     CatalogSecurityContext securityContext = securityContextFrom(context);
     String userName = securityContext.getUserPrincipal().getName();
     String clientName = (String) context.get(AuthEnrichedMcpContextExtractor.CLIENT_NAME);
+    DeliveryLedger.Caller caller =
+        new DeliveryLedger.Caller(
+            userName,
+            clientName,
+            (String) context.get(AuthEnrichedMcpContextExtractor.ACTIVE_PERSONA_HEADER),
+            (String) context.get(AuthEnrichedMcpContextExtractor.SESSION_ID));
+    McpSchema.CallToolRequest req = withConversation(tool, caller, named);
     DefaultToolContext.CallToolOutcome outcome = null;
     try {
       ImpersonationContext.setImpersonatedBy(attributedBot(securityContext));
@@ -493,16 +502,11 @@ public class McpServer implements McpServerProvider {
                   () ->
                       toolContext.callToolWithMetadata(
                           authorizer, limits, tool.name(), securityContext, req));
+      if (!Boolean.TRUE.equals(outcome.result().isError())) {
+        SessionAssets.shared().observe(caller, tool.name(), req.arguments());
+      }
       return firstCallContext.apply(
-          authorizer,
-          securityContext,
-          new DeliveryLedger.Caller(
-              userName,
-              clientName,
-              (String) context.get(AuthEnrichedMcpContextExtractor.ACTIVE_PERSONA_HEADER),
-              (String) context.get(AuthEnrichedMcpContextExtractor.SESSION_ID)),
-          tool.name(),
-          outcome.result());
+          authorizer, securityContext, caller, tool.name(), outcome.result());
     } finally {
       recordUsage(tool.name(), userName, clientName, outcome);
     }
@@ -525,6 +529,27 @@ public class McpServer implements McpServerProvider {
     Object clientName = context.get(AuthEnrichedMcpContextExtractor.CLIENT_NAME);
     if (clientName != null) {
       arguments.put(HarnessHookTool.CLIENT_NAME_PARAM, clientName);
+    }
+    return new McpSchema.CallToolRequest(req.name(), arguments, req.meta());
+  }
+
+  /**
+   * The remember tool links a memory to what the conversation read, and only the transport knows
+   * which conversation and client call. Both are set here, replacing any the caller sent.
+   */
+  private static McpSchema.CallToolRequest withConversation(
+      McpSchema.Tool tool, DeliveryLedger.Caller caller, McpSchema.CallToolRequest req) {
+    if (!"remember".equals(tool.name())) {
+      return req;
+    }
+    Map<String, Object> arguments = new HashMap<>();
+    if (req.arguments() != null) {
+      arguments.putAll(req.arguments());
+    }
+    arguments.put(RememberTool.CONVERSATION_PARAM, caller.conversationKey());
+    arguments.remove(RememberTool.CLIENT_PARAM);
+    if (caller.client() != null) {
+      arguments.put(RememberTool.CLIENT_PARAM, caller.client());
     }
     return new McpSchema.CallToolRequest(req.name(), arguments, req.meta());
   }

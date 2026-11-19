@@ -52,6 +52,7 @@ public record ContextItem(
   public static final String PROMPT = "Prompt";
   public static final String SEARCH_SCOPE = "Search scope";
   public static final String SKILLS = "Skills";
+  public static final String MEMORY = "Memory";
   public static final String GLOSSARY = "Glossary";
   public static final String METRICS = "Metrics";
   public static final String ARTICLES = "Articles";

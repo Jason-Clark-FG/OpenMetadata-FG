@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
+import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.type.AIContext;
 import org.openmetadata.schema.type.PersonaContext;
 import org.openmetadata.schema.type.PersonaContextDefinition;
@@ -122,6 +123,35 @@ class HarnessDocumentsTest {
                 new PersonaContext()));
 
     assertTrue(document.fixed().isEmpty());
+  }
+
+  @Test
+  void theRememberInstructionIsSentOnlyWhenCaptureIsOn() {
+    final String instruction =
+        "## Remembering\n\nWhen the user corrects you or states a lasting fact about the data (a"
+            + " definition, which table to use, a caveat), call remember with the fact and the"
+            + " assets it is about.";
+    final AgentHarnessSpec capturing =
+        new AgentHarnessSpec().withMemory(new AgentHarnessMemory().withCapture(true));
+    final AgentHarnessSpec silent =
+        new AgentHarnessSpec().withMemory(new AgentHarnessMemory().withCapture(false));
+    final PersonaContextDefinition definition = new PersonaContextDefinition().withEnabled(true);
+
+    final List<String> on =
+        HarnessDocuments.from(new Sources(capturing, capturing, definition, new PersonaContext()))
+            .fixed()
+            .stream()
+            .map(ContextItem::text)
+            .toList();
+    final List<String> off =
+        HarnessDocuments.from(new Sources(silent, silent, definition, new PersonaContext()))
+            .fixed()
+            .stream()
+            .map(ContextItem::text)
+            .toList();
+
+    assertEquals(List.of(instruction), on);
+    assertEquals(List.of(), off);
   }
 
   private static Sources sources(

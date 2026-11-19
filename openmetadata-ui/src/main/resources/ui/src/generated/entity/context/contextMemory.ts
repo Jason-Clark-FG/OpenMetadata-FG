@@ -572,8 +572,11 @@ export enum ShareVisibility {
 /**
  * How the memory was created. ConversationExtraction is captured automatically at the end
  * of a chat turn; it is ground truth, not regenerable like a file or page pill.
+ * AgentCapture is written by an agent through the remember tool, under the memory settings
+ * of the agent harness its caller is served by.
  */
 export enum SourceType {
+    AgentCapture = "AgentCapture",
     ChatPromotion = "ChatPromotion",
     ConversationExtraction = "ConversationExtraction",
     FileExtraction = "FileExtraction",

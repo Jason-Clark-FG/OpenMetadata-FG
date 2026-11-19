@@ -238,6 +238,12 @@ public class SearchListFilter extends Filter<SearchListFilter> {
       conditions.add(String.format("{\"term\": {\"%s\": %s}}", FIELD_PINNED, pinned));
     }
 
+    String sourceType = getQueryParam("sourceType");
+    if (!nullOrEmpty(sourceType)) {
+      conditions.add(
+          String.format("{\"term\": {\"sourceType\": \"%s\"}}", escapeJsonString(sourceType)));
+    }
+
     String assets = getQueryParam("assets");
     if (!nullOrEmpty(assets)) {
       String assetIds =
