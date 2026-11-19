@@ -141,6 +141,8 @@
   }
 
   function render(data, now) {
+    // find_context with no single clear concept: a list of hits, which has no card.
+    if (Array.isArray(data.hits)) { return h("div", null); }
     var entities = Array.isArray(data.entities) ? data.entities.filter(function (entity) { return entity && entity.name; }) : [data];
     if (!entities.length || !entities[0].name) { return h("div", "om-text", "No asset to show"); }
     var wrapper = h("div", null);

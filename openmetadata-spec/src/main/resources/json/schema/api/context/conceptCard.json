@@ -1,0 +1,115 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/conceptCard.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConceptCard",
+  "description": "A glossary term or metric as the caller may see it. It is the `structuredContent` of `get_concept_context` and of `find_context` when the top hit is one clear concept, and the data of the concept card an MCP Apps host shows. Every list is bounded, and nothing in it names an asset the caller may not view.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.ConceptCard",
+  "definitions": {
+    "kind": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardKind",
+      "description": "What the card describes.",
+      "type": "string",
+      "enum": ["glossaryTerm", "metric"],
+      "javaEnums": [
+        { "name": "GLOSSARY_TERM" },
+        { "name": "METRIC" }
+      ]
+    },
+    "link": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardLink",
+      "description": "A named thing with a page in OpenMetadata.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "fqn": { "type": "string" },
+        "url": { "description": "Absolute URL of its page in OpenMetadata.", "type": "string" },
+        "relationType": { "description": "How the concept relates to it, as the relation type names it.", "type": "string" },
+        "note": { "description": "The first sentence of its definition.", "type": "string" }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "container": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardContainer",
+      "description": "The glossary a term lives in, or the domain of a metric.",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "metric": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardMetric",
+      "description": "What defines a metric and changes its number.",
+      "type": "object",
+      "properties": {
+        "expression": { "type": "string" },
+        "language": { "type": "string" },
+        "filters": { "type": "array", "items": { "type": "string" } },
+        "granularity": { "type": "string" },
+        "unit": { "type": "string" },
+        "metricType": { "type": "string" },
+        "relatedMetrics": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "appliedItem": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardApplied",
+      "description": "One column or asset the concept is applied to.",
+      "type": "object",
+      "properties": {
+        "kind": { "description": "Column, or the asset type: Table, Dashboard, and so on.", "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "detail": { "type": "string" }
+      },
+      "required": ["kind", "name"],
+      "additionalProperties": false
+    },
+    "appliedTo": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptCardAppliedTo",
+      "description": "Where the concept is applied, counting only assets the caller may view.",
+      "type": "object",
+      "properties": {
+        "total": { "description": "Assets with a binding, a lower bound when the scan was capped.", "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean", "default": false },
+        "items": { "type": "array", "maxItems": 10, "items": { "$ref": "#/definitions/appliedItem" } }
+      },
+      "required": ["total", "items"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "kind": { "$ref": "#/definitions/kind" },
+    "name": { "type": "string" },
+    "displayName": { "type": "string" },
+    "fqn": { "type": "string" },
+    "description": { "type": "string" },
+    "url": { "type": "string" },
+    "container": { "$ref": "#/definitions/container" },
+    "parentPath": {
+      "description": "Display names of the terms above this one, outermost first.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "status": { "type": "string" },
+    "certified": { "type": "boolean" },
+    "owners": { "type": "array", "items": { "type": "string" } },
+    "reviewers": { "type": "array", "items": { "type": "string" } },
+    "updatedAt": { "$ref": "../../type/basic.json#/definitions/timestamp" },
+    "synonyms": { "type": "array", "items": { "type": "string" } },
+    "related": { "type": "array", "maxItems": 20, "items": { "$ref": "#/definitions/link" } },
+    "confusedWith": {
+      "description": "Concepts the author marked as easily mistaken for this one, through a relation type named for it. Absent when no such relation exists.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/link" }
+    },
+    "metric": { "$ref": "#/definitions/metric" },
+    "appliedTo": { "$ref": "#/definitions/appliedTo" }
+  },
+  "required": ["kind", "name", "fqn"],
+  "additionalProperties": false
+}

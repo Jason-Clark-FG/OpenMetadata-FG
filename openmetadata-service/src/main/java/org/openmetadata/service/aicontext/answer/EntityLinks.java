@@ -38,6 +38,21 @@ public final class EntityLinks {
     return new EntityLinks(urls == null ? null : urls.getOpenMetadataUrl());
   }
 
+  /**
+   * For an entity known only by name, such as a node of a lineage graph. Types whose page is not
+   * under their own name get the prefix the UI routes use.
+   */
+  public String ofFqn(final String entityType, final String fqn) {
+    final String prefix =
+        switch (entityType) {
+          case "glossaryTerm" -> "glossary";
+          case "user" -> "users";
+          case "team" -> "settings/members/teams";
+          default -> entityType;
+        };
+    return baseUrl + "/" + prefix + "/" + EntityUtil.encodeEntityFqnSafe(fqn);
+  }
+
   public String of(final String entityType, final EntityInterface<?> entity) {
     return EntityUrls.buildEntityUrl(
         entityType,

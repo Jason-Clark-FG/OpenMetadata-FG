@@ -51,6 +51,14 @@ public class CommonUtils {
    * REST resource masks come back masked here too ({@link McpResponseUtils#maskSecrets}). A tool
    * that answers with the entity also passes it through {@link #withVisibleEvidence}.
    */
+  /** Those of {@code wanted} the entity type can load, as a field list. */
+  static String allowedFields(String entityType, java.util.Set<String> wanted) {
+    return Entity.getEntityRepository(entityType).getAllowedFieldsCopy().stream()
+        .filter(wanted::contains)
+        .sorted()
+        .collect(java.util.stream.Collectors.joining(","));
+  }
+
   public static EntityInterface<?> readEntityForCaller(
       String entityType,
       String fqn,

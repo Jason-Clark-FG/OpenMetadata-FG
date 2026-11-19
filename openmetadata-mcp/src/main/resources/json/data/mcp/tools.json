@@ -634,6 +634,11 @@
     {
       "name": "find_context",
       "title": "Find Context",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/entity-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -671,12 +676,17 @@
     {
       "name": "get_concept_context",
       "title": "Get Concept Context",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/entity-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
       },
-      "description": "Resolve a glossary term or metric to its definition, typed ontology attributes, exact asset and column bindings, permission-masked profiles and sample values, related metrics and saved-query evidence. Use the concept's fullyQualifiedName from find_context. Returns the same AIContext as GET /v1/glossaryTerms/name/{fqn}/context or /v1/metrics/name/{fqn}/context. Bindings are capped at ten visible assets and 25 bindings per asset; totalAssets, totalBindings and truncated report overflow. Counting stops after 500 candidate assets, so totals are lower bounds when that cap sets truncated. Attached articles and memories share the existing knowledge budget.",
+      "description": "Resolve a glossary term or metric to its definition, typed ontology attributes, exact asset and column bindings, permission-masked profiles and sample values, related metrics and saved-query evidence. Use the concept's fullyQualifiedName from find_context. Returns the same AIContext as GET /v1/glossaryTerms/name/{fqn}/context or /v1/metrics/name/{fqn}/context. Bindings are capped at ten visible assets and 25 bindings per asset; totalAssets, totalBindings and truncated report overflow. Counting stops after 500 candidate assets, so totals are lower bounds when that cap sets truncated. Attached articles and memories share the existing knowledge budget. To see how a term connects to other terms and their tables, use get_concept_relations.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -699,6 +709,37 @@
           }
         },
         "required": ["entityType", "fqn"]
+      }
+    },
+    {
+      "name": "get_concept_relations",
+      "title": "Get Concept Relations",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/ontology-v1.html"
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "description": "How a glossary term connects to the other terms it is related to, and which table stands for each of them: the certified table the term is applied to, else the first one. Use it for questions such as 'how does customer connect to revenue?' or 'what is related to active customer?'. Pass 'to' with a second term's fullyQualifiedName to also get the join path, the foreign keys declared between the two terms' tables (up to three hops). The path is absent when no declared foreign key joins them, so say so rather than guessing a join. Terms and tables you cannot view are left out. Use the fullyQualifiedName from find_context. For the definition, status and assets of one term use get_concept_context.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fqn": {
+            "type": "string",
+            "description": "Fully qualified name of the glossary term to start from."
+          },
+          "to": {
+            "type": "string",
+            "description": "Optional. Fully qualified name of a second glossary term; adds the join path from the first term's table to this one's."
+          }
+        },
+        "required": [
+          "fqn"
+        ]
       }
     },
     {
@@ -832,6 +873,11 @@
     {
       "name": "get_entity_lineage",
       "title": "Get Entity Lineage",
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://openmetadata/lineage-v1.html"
+        }
+      },
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

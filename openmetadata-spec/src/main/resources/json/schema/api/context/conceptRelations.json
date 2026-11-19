@@ -1,0 +1,74 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/conceptRelations.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConceptRelations",
+  "description": "How a glossary term connects to other terms, and which table represents each one. It is the `structuredContent` of `get_concept_relations`, and the data of the ontology card an MCP Apps host shows.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.ConceptRelations",
+  "definitions": {
+    "term": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptRelationsTerm",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "fqn": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "required": ["name", "fqn"],
+      "additionalProperties": false
+    },
+    "table": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptRelationsTable",
+      "description": "The table that represents a term: the certified table the term is applied to, else the first table it is applied to.",
+      "type": "object",
+      "properties": {
+        "fqn": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "certified": { "type": "boolean" }
+      },
+      "required": ["fqn", "name"],
+      "additionalProperties": false
+    },
+    "relation": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptRelation",
+      "type": "object",
+      "properties": {
+        "relation": { "description": "How the term relates to the other, in words, such as related to.", "type": "string" },
+        "term": { "$ref": "#/definitions/term" },
+        "table": { "$ref": "#/definitions/table" }
+      },
+      "required": ["relation", "term"],
+      "additionalProperties": false
+    },
+    "joinStep": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptJoinStep",
+      "description": "A table and the column the next step joins on.",
+      "type": "object",
+      "properties": {
+        "table": { "type": "string" },
+        "column": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "required": ["table", "column"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "concept": { "$ref": "#/definitions/term" },
+    "glossary": { "description": "Name of the glossary the term lives in.", "type": "string" },
+    "description": { "type": "string" },
+    "url": { "type": "string" },
+    "relations": { "type": "array", "maxItems": 8, "items": { "$ref": "#/definitions/relation" } },
+    "totalRelations": { "description": "Relations the caller may view, shown or not.", "type": "integer", "minimum": 0 },
+    "target": { "description": "The term the join path leads to, when the caller asked for one.", "$ref": "#/definitions/term" },
+    "joinPath": {
+      "description": "Foreign keys that join the table of the term to the table of the target, in order. Empty when no foreign key joins them within three hops, or when no target was asked for.",
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/definitions/joinStep" }
+    }
+  },
+  "required": ["concept", "relations"],
+  "additionalProperties": false
+}

@@ -17,6 +17,8 @@ import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 import static org.openmetadata.service.jdbi3.TimeSeriesDAOs.ProfilerDataTimeSeriesDAO.TABLE_PROFILE_EXTENSION;
 
 import jakarta.ws.rs.core.SecurityContext;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -118,6 +120,35 @@ public final class LiveTrustReader {
     final Map<String, TestCaseResult> results = latestResults(byHash);
     return new TestTrust(
         failingTests(byHash, results), openIncidents(byHash), freshnessTestAt(byHash, results));
+  }
+
+  /**
+   * The failing test cases of each entity, for many entities at once: one listing per entity, then
+   * a single batched read of the latest results of all of them.
+   */
+  public Map<String, List<TestCase>> failingByEntity(final Collection<String> entityFqns) {
+    final Map<String, TestCase> byHash = new HashMap<>();
+    final Map<String, String> entityOfTest = new HashMap<>();
+    for (final String entityFqn : entityFqns) {
+      testCases(entityFqn)
+          .forEach(
+              testCase -> {
+                final String hash = FullyQualifiedName.buildHash(testCase.getFullyQualifiedName());
+                byHash.put(hash, testCase);
+                entityOfTest.put(hash, entityFqn);
+              });
+    }
+    final Map<String, List<TestCase>> failing = new HashMap<>();
+    failingTests(byHash, latestResults(byHash))
+        .forEach(
+            testCase ->
+                failing
+                    .computeIfAbsent(
+                        entityOfTest.get(
+                            FullyQualifiedName.buildHash(testCase.getFullyQualifiedName())),
+                        key -> new ArrayList<>())
+                    .add(testCase));
+    return failing;
   }
 
   public Optional<Long> profiledAt(final String tableFqn) {
@@ -259,7 +290,7 @@ public final class LiveTrustReader {
         .max(Comparator.naturalOrder());
   }
 
-  private static boolean isFreshnessTest(final TestCase testCase) {
+  public static boolean isFreshnessTest(final TestCase testCase) {
     return testCase != null
         && testCase.getTestDefinition() != null
         && testCase.getTestDefinition().getName() != null

@@ -477,6 +477,57 @@ public class McpIntegrationIT extends McpTestBase {
   }
 
   /**
+   * The lineage card is cut from the same filtered graph as the text, so what the caller may not
+   * view is absent from it as well, and the text content is still the graph.
+   */
+  @Test
+  void lineageCardCarriesTheGraphTheCallerMayViewAndNothingElse() throws Exception {
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+    String tagFqn = createRestrictedTag(suffix);
+    Table far = createServiceDatabaseSchemaTable("mcp_card_far_" + suffix);
+    Table upstream = createServiceDatabaseSchemaTable("mcp_card_up_" + suffix);
+    Table root = createServiceDatabaseSchemaTable("mcp_card_root_" + suffix);
+    Table downstream = createServiceDatabaseSchemaTable("mcp_card_down_" + suffix);
+    tagTable(root.getId().toString(), tagFqn);
+    addLineageEdge(far, upstream);
+    addLineageEdge(upstream, root);
+    addLineageEdge(root, downstream);
+    String token = createUserDeniedByCondition(suffix, String.format("!matchAnyTag('%s')", tagFqn));
+    Map<String, Object> call =
+        McpTestUtils.createGetLineageToolCall(Entity.TABLE, root.getFullyQualifiedName(), 3, 3);
+
+    JsonNode admin = executeMcpRequest(call);
+    JsonNode card = admin.at("/result/structuredContent");
+
+    assertThat(card.at("/root/name").asText()).isEqualTo(root.getName());
+    assertThat(card.at("/root/entityType").asText()).isEqualTo("table");
+    assertThat(card.at("/root/url").asText())
+        .startsWith("http")
+        .endsWith("/table/" + root.getFullyQualifiedName());
+    assertThat(card.path("upstream"))
+        .extracting(node -> node.path("name").asText() + "@" + node.path("hop").asInt())
+        .containsExactly(upstream.getName() + "@1", far.getName() + "@2");
+    assertThat(card.path("downstream"))
+        .extracting(node -> node.path("name").asText())
+        .containsExactly(downstream.getName());
+    assertThat(card.path("upstreamHops").asInt()).isEqualTo(2);
+    assertThat(card.path("downstreamHops").asInt()).isEqualTo(1);
+    assertThat(card.path("hiddenNodes").asInt()).isZero();
+    assertThat(toolPayload(admin).path("upstream").size())
+        .as("the text content is still the full graph")
+        .isEqualTo(2);
+
+    JsonNode restricted = executeMcpRequest(call, token);
+    JsonNode restrictedCard = restricted.at("/result/structuredContent");
+    assertThat(restrictedCard.at("/root/name").asText()).isEqualTo(root.getName());
+    assertThat(restrictedCard.path("upstream")).isEmpty();
+    assertThat(restrictedCard.path("downstream")).isEmpty();
+    assertThat(restrictedCard.path("hiddenNodes").asInt()).isGreaterThanOrEqualTo(1);
+    assertThat(restrictedCard.toString())
+        .doesNotContain(upstream.getFullyQualifiedName(), downstream.getFullyQualifiedName());
+  }
+
+  /**
    * A pipeline is edge metadata, not a graph node, so the node filter never sees it. Both endpoint
    * tables are readable here and the edge survives; what must not survive is the denied pipeline's
    * identity. The relationship itself stays, so the caller still learns a pipeline joins these two.
@@ -514,7 +565,7 @@ public class McpIntegrationIT extends McpTestBase {
         .as("the restricted caller must not be able to read the pipeline directly")
         .contains("Authorization error");
 
-    String restricted = executeMcpRequest(call, token).toString();
+    String restricted = toolPayload(executeMcpRequest(call, token)).toString();
     assertThat(restricted)
         .as("both tables are tagged, so the edge itself must be returned")
         .contains(root.getFullyQualifiedName())
@@ -546,9 +597,10 @@ public class McpIntegrationIT extends McpTestBase {
     addLineageEdge(root, unmapped);
 
     String lineage =
-        executeMcpRequest(
-                McpTestUtils.createGetColumnLineageToolCall(
-                    Entity.TABLE, root.getFullyQualifiedName(), columnFqn(root, "id"), 0, 3))
+        toolPayload(
+                executeMcpRequest(
+                    McpTestUtils.createGetColumnLineageToolCall(
+                        Entity.TABLE, root.getFullyQualifiedName(), columnFqn(root, "id"), 0, 3)))
             .toString();
 
     assertThat(lineage)

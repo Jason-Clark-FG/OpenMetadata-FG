@@ -41,6 +41,10 @@ public final class McpAppsResources {
 
   public static final String ENTITY_URI = "ui://openmetadata/entity-v1.html";
 
+  public static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
+
+  public static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
+
   private static final String VIEWS_DIR = "mcp-apps/";
   private static final Pattern STYLESHEET =
       Pattern.compile("<link rel=\"stylesheet\" href=\"([^\"]+)\">");
@@ -82,6 +86,24 @@ public final class McpAppsResources {
             "Card for an entity returned by get_entity_details: a data asset, metric or glossary term,"
                 + " chosen by the entity type in the result",
             "entity-v1.html",
+            fontBase,
+            meta),
+        view(
+            LINEAGE_URI,
+            "lineage",
+            "Lineage",
+            "Card for the lineage returned by get_entity_lineage: what feeds an asset, what depends on"
+                + " it and which upstream checks fail",
+            "lineage-v1.html",
+            fontBase,
+            meta),
+        view(
+            ONTOLOGY_URI,
+            "ontology",
+            "Concept relations",
+            "Card for get_concept_relations: the terms related to a glossary term, the table for each"
+                + " and the join path to a target term",
+            "ontology-v1.html",
             fontBase,
             meta));
   }

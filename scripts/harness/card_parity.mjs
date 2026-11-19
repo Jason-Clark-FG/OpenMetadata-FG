@@ -36,6 +36,8 @@ const fixtures = JSON.parse(fs.readFileSync(path.join(here, "card_fixtures.json"
 const VARIANTS = {
   "1a": { page: "answer-citation-v1.html", fixture: "answer", theme: "light", width: 640, protoSelector: '#\\31 a .sc-host > div' },
   "1b": { page: "answer-citation-v1.html", fixture: "answer", theme: "dark", width: 640, open: true, protoSelector: '#\\31 b .sc-host > div' },
+  "2a": { page: "lineage-v1.html", fixture: "lineage", theme: "light", width: 640, protoSelector: "#\\32 a .sc-host > div" },
+  "2d": { page: "ontology-v1.html", fixture: "ontology", theme: "dark", width: 640, protoSelector: "#\\32 d .sc-host > div" },
   "2b": { page: "entity-v1.html", fixture: "term", theme: "light", width: 640, protoSelector: "#\\32 b .sc-host > div" },
   "2c": { page: "entity-v1.html", fixture: "metric", theme: "light", width: 640, protoSelector: "#\\32 c .sc-host > div" },
   "2e": { page: "entity-v1.html", fixture: "table", theme: "dark", width: 640, protoSelector: "#\\32 e .sc-host > div" },

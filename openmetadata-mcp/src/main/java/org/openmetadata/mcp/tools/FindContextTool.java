@@ -4,15 +4,20 @@ import jakarta.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.mcp.util.McpParams;
 import org.openmetadata.mcp.util.McpResponseTrim;
+import org.openmetadata.schema.api.context.ConceptHit;
+import org.openmetadata.schema.api.context.ConceptHits;
+import org.openmetadata.schema.type.aicontext.KnowledgeItem;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
 import org.openmetadata.service.aicontext.AIContextFinder;
 import org.openmetadata.service.aicontext.AIContextFinder.FoundContext;
 import org.openmetadata.service.aicontext.AIContextFinderAccess;
 import org.openmetadata.service.aicontext.AIContextMarkdown;
+import org.openmetadata.service.aicontext.answer.EntityLinks;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.security.Authorizer;
 import org.openmetadata.service.security.DefaultAuthorizer;
@@ -41,8 +46,26 @@ public class FindContextTool implements McpTool {
   public Map<String, Object> execute(
       Authorizer authorizer, CatalogSecurityContext securityContext, Map<String, Object> params)
       throws IOException {
+    Object result = executeWithCard(authorizer, securityContext, params);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> payload =
+        result instanceof CardResult card
+            ? (Map<String, Object>) card.payload()
+            : (Map<String, Object>) result;
+    return payload;
+  }
+
+  /**
+   * The text is the markdown or JSON it always was. The structured content is the card of the
+   * top hit when it is one clear concept, otherwise the list of hits, which draws no card.
+   */
+  Object executeWithCard(
+      Authorizer authorizer, CatalogSecurityContext securityContext, Map<String, Object> params)
+      throws IOException {
     String query = (String) params.get("query");
+    Object outcome;
     Map<String, Object> result;
+    FoundContext visible = null;
     if (query == null || query.isBlank()) {
       result =
           Map.of(
@@ -67,11 +90,91 @@ public class FindContextTool implements McpTool {
                   AIContextFinderAccess.knowledgeViewer(authorizer, securityContext))
               .find(query, size);
       AIContextFinder.attachMetricHierarchy(found.items());
-      result =
-          render(
-              AIContextFinderAccess.filterCandidates(found, authorizer, securityContext), format);
+      visible = AIContextFinderAccess.filterCandidates(found, authorizer, securityContext);
+      result = render(visible, format);
     }
-    return result;
+    outcome =
+        visible == null
+            ? result
+            : new CardResult(result, card(authorizer, securityContext, query, visible));
+    return outcome;
+  }
+
+  private static Object card(
+      Authorizer authorizer,
+      CatalogSecurityContext securityContext,
+      String query,
+      FoundContext found) {
+    Object card = null;
+    Optional<KnowledgeItem> clear = clearConcept(found.items(), query);
+    if (clear.isPresent()) {
+      try {
+        card =
+            GetConceptContextTool.cardFor(
+                authorizer,
+                securityContext,
+                clear.get().getType().value(),
+                clear.get().getFullyQualifiedName(),
+                query);
+      } catch (RuntimeException exception) {
+        LOG.warn(
+            "No concept card for {}: {}",
+            clear.get().getFullyQualifiedName(),
+            exception.getMessage());
+      }
+    }
+    return card != null ? card : hits(query, found);
+  }
+
+  /**
+   * One concept among the hits, or a top hit named as the question names it. Anything more
+   * ambiguous gets no card, because a card for the wrong concept is worse than none.
+   */
+  static Optional<KnowledgeItem> clearConcept(List<KnowledgeItem> items, String query) {
+    List<KnowledgeItem> concepts = items.stream().filter(FindContextTool::isConcept).toList();
+    Optional<KnowledgeItem> clear = Optional.empty();
+    if (concepts.size() == 1) {
+      clear = Optional.of(concepts.get(0));
+    } else if (!items.isEmpty() && isConcept(items.get(0)) && namedBy(items.get(0), query)) {
+      clear = Optional.of(items.get(0));
+    }
+    return clear;
+  }
+
+  private static boolean isConcept(KnowledgeItem item) {
+    return item.getType() == KnowledgeItem.Type.GLOSSARY_TERM
+        || item.getType() == KnowledgeItem.Type.METRIC;
+  }
+
+  private static boolean namedBy(KnowledgeItem item, String query) {
+    String asked = query.strip();
+    return asked.equalsIgnoreCase(item.getName()) || asked.equalsIgnoreCase(item.getDisplayName());
+  }
+
+  static ConceptHits hits(String query, FoundContext found) {
+    EntityLinks links = EntityLinks.fromSettings();
+    return new ConceptHits()
+        .withQuery(query)
+        .withHits(
+            found.items().stream()
+                .limit(MAX_SIZE)
+                .map(
+                    item ->
+                        new ConceptHit()
+                            .withEntityType(item.getType().value())
+                            .withName(item.getName())
+                            .withDisplayName(item.getDisplayName())
+                            .withFqn(item.getFullyQualifiedName())
+                            .withUrl(
+                                isConcept(item)
+                                    ? links.ofFqn(
+                                        item.getType().value(), item.getFullyQualifiedName())
+                                    : null))
+                .toList())
+        .withCandidateAssets(
+            found.candidateAssets().stream()
+                .map(AIContextFinder.CandidateAsset::fullyQualifiedName)
+                .toList());
   }
 
   private Map<String, Object> render(FoundContext found, String format) {
