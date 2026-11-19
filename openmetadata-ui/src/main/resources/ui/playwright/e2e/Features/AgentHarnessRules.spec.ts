@@ -83,6 +83,15 @@ const draftRuleNames = (response: Response) =>
 const ruleCard = (page: Page, name: string) =>
   page.getByTestId('context-rule-card').filter({ hasText: name });
 
+const openRuleAction = async (
+  page: Page,
+  name: string,
+  action: 'edit' | 'delete'
+) => {
+  await ruleCard(page, name).getByTestId('context-rule-actions').click();
+  await page.getByTestId(`${action}-context-rule`).click();
+};
+
 const addEmptyCondition = async (page: Page) => {
   await page.getByTestId('add-context-condition').click();
   await expect(
@@ -158,7 +167,7 @@ test.describe.serial(
       });
 
       await test.step('editing renames the rule in the draft', async () => {
-        await ruleCard(page, ruleName).getByTestId('edit-context-rule').click();
+        await openRuleAction(page, ruleName, 'edit');
         await expect(page.getByTestId('form-heading')).toContainText(
           'Edit Rule'
         );
@@ -170,9 +179,7 @@ test.describe.serial(
       });
 
       await test.step('deleting removes it from the draft', async () => {
-        await ruleCard(page, editedName)
-          .getByTestId('delete-context-rule')
-          .click();
+        await openRuleAction(page, editedName, 'delete');
         await expect(page.getByTestId('delete-modal')).toBeVisible();
         const saved = waitForHarnessDraftSave(page);
         await page.getByTestId('confirm-button').click();
@@ -350,7 +357,7 @@ test.describe.serial(
       await page.keyboard.press('Escape');
     });
 
-    test('rule cards summarize a rule with no filter and one with two conditions', async ({
+    test('rule cards show a rule with no filter and the conditions of a filtered one', async ({
       adminPage: page,
       browser,
     }) => {
@@ -371,11 +378,15 @@ test.describe.serial(
           exact: true,
         })
       ).toBeVisible();
-      await expect(
-        ruleCard(page, 'Tagged and owned').getByText('2 conditions', {
-          exact: true,
-        })
-      ).toBeVisible();
+      const tagged = ruleCard(page, 'Tagged and owned');
+      await expect(tagged.getByTestId('rule-query-field')).toHaveText([
+        'Tags',
+        'Owners',
+      ]);
+      await expect(tagged.getByTestId('rule-query-value')).toHaveText([
+        'PII.Sensitive',
+        'alice',
+      ]);
     });
   }
 );
