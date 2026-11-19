@@ -13,6 +13,7 @@ import jakarta.servlet.DispatcherType;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -180,9 +181,10 @@ public class McpServer implements McpServerProvider {
   }
 
   static final String INSTRUCTIONS =
-      "OpenMetadata is this organization's context platform: its data assets, glossary terms,"
-          + " metrics and memories, and the context agents use when they work with its data. Call"
-          + " it OpenMetadata, and what remember saves an OpenMetadata memory. At the start of every"
+      "OpenMetadata, the Open Context Platform for Organizations, holds this organization's data"
+          + " assets, glossary terms, metrics and memories, and the context agents use when they"
+          + " work with its data. Call it OpenMetadata, and what remember saves an OpenMetadata"
+          + " memory. At the start of every"
           + " task, call get_context: it returns the company's instructions for agents, guidance"
           + " for the signed-in user's persona, the skills you may use and the knowledge to keep"
           + " in context. Use search_metadata and get_entity_details before you write SQL or"
@@ -543,7 +545,14 @@ public class McpServer implements McpServerProvider {
    * The remember tool links a memory to what the conversation read, and only the transport knows
    * which conversation and client call. Both are set here, replacing any the caller sent.
    */
-  private static McpSchema.CallToolRequest withConversation(
+  /**
+   * A bridge such as mcp-remote sends its runtime's name as the user agent, so a memory would say
+   * it was recorded by "Node" rather than by the app; such names are left out instead.
+   */
+  private static final Set<String> RUNTIME_CLIENT_NAMES =
+      Set.of("node", "deno", "bun", "python", "python-httpx", "undici", "axios", "java", "curl");
+
+  static McpSchema.CallToolRequest withConversation(
       McpSchema.Tool tool, DeliveryLedger.Caller caller, McpSchema.CallToolRequest req) {
     if (!"remember".equals(tool.name()) && !"harness_hook".equals(tool.name())) {
       return req;
@@ -554,7 +563,8 @@ public class McpServer implements McpServerProvider {
     }
     arguments.put(RememberTool.CONVERSATION_PARAM, caller.conversationKey());
     arguments.remove(RememberTool.CLIENT_PARAM);
-    if (caller.client() != null) {
+    if (caller.client() != null
+        && !RUNTIME_CLIENT_NAMES.contains(caller.client().toLowerCase(Locale.ROOT))) {
       arguments.put(RememberTool.CLIENT_PARAM, caller.client());
     }
     return new McpSchema.CallToolRequest(req.name(), arguments, req.meta());
