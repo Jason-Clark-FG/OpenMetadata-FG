@@ -10,11 +10,23 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {
   AgentHarnessSpec,
   HarnessKind,
 } from '../../../../generated/api/context/agentHarnessState';
+import agentHarnessConnectionsClassBase, {
+  ConnectionManagementProps,
+  ConnectionRowActionProps,
+  PendingConnectionsProps,
+} from '../../../../utils/AgentHarnessConnectionsClassBase';
 import KnowledgeGraphTab from './KnowledgeGraphTab';
 
 const SUB_AGENTS = [
@@ -200,5 +212,129 @@ describe('KnowledgeGraphTab', () => {
     expect(
       applied({ knowledgeGraph: { entry: true } }).knowledgeGraph
     ).toBeUndefined();
+  });
+
+  describe('with a distribution that manages connections', () => {
+    let reportChange: ConnectionManagementProps['onConnectionsChange'];
+
+    const AddAction = ({
+      canEdit,
+      onConnectionsChange,
+    }: ConnectionManagementProps) => {
+      reportChange = onConnectionsChange;
+
+      return (
+        <button
+          aria-label="add"
+          data-testid="fake-add-connection"
+          disabled={!canEdit}
+        />
+      );
+    };
+    const RowAction = ({ connectionName }: ConnectionRowActionProps) => (
+      <button
+        aria-label="manage"
+        data-testid={`fake-manage-${connectionName}`}
+      />
+    );
+    const Pending = ({ connections }: PendingConnectionsProps) => (
+      <div data-testid="fake-pending">{connections.length}</div>
+    );
+
+    beforeEach(() => {
+      jest
+        .spyOn(agentHarnessConnectionsClassBase, 'getAddConnectionAction')
+        .mockReturnValue(AddAction);
+      jest
+        .spyOn(agentHarnessConnectionsClassBase, 'getConnectionRowAction')
+        .mockReturnValue(RowAction);
+      jest
+        .spyOn(agentHarnessConnectionsClassBase, 'getPendingConnections')
+        .mockReturnValue(Pending);
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('renders the header action, a manage action per registered row and the pending block', () => {
+      renderTab({
+        kind: HarnessKind.Default,
+        spec: {
+          knowledgeGraph: { connections: [{ enabled: true, name: 'jira' }] },
+        },
+      });
+
+      expect(screen.getByTestId('fake-add-connection')).toBeEnabled();
+      expect(
+        within(
+          screen.getByTestId('knowledge-graph-connection-row-github')
+        ).getByTestId('fake-manage-github')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('fake-manage-notion')).toBeInTheDocument();
+      expect(screen.queryByTestId('fake-manage-jira')).not.toBeInTheDocument();
+      expect(screen.getByTestId('fake-pending')).toHaveTextContent('2');
+    });
+
+    it('reloads and switches on a connection reported as just added', async () => {
+      const onConnectionsChange = jest.fn().mockResolvedValue(undefined);
+      const { applied } = renderTab({
+        kind: HarnessKind.Default,
+        onConnectionsChange,
+      });
+
+      await act(async () => {
+        reportChange('hubspot');
+      });
+
+      expect(onConnectionsChange).toHaveBeenCalledTimes(1);
+
+      await waitFor(() =>
+        expect(
+          applied({
+            knowledgeGraph: {
+              connections: [{ enabled: true, name: 'github' }],
+            },
+          }).knowledgeGraph?.connections
+        ).toEqual([
+          { enabled: true, name: 'github' },
+          { enabled: true, name: 'hubspot' },
+        ])
+      );
+    });
+
+    it('only reloads when a change names no connection', async () => {
+      const onChange = jest.fn();
+      const onConnectionsChange = jest.fn();
+      render(
+        <KnowledgeGraphTab
+          canEdit
+          connections={CONNECTIONS}
+          kind={HarnessKind.Default}
+          spec={{}}
+          subAgents={SUB_AGENTS}
+          onChange={onChange}
+          onConnectionsChange={onConnectionsChange}
+        />
+      );
+
+      await act(async () => {
+        reportChange();
+      });
+
+      expect(onConnectionsChange).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders no management pieces when the distribution supplies none', () => {
+    renderTab({ kind: HarnessKind.Default });
+
+    expect(screen.queryByTestId('fake-add-connection')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('fake-manage-github')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('fake-pending')).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByTestId('knowledge-graph-connections')
+        .querySelectorAll('button')
+    ).toHaveLength(0);
   });
 });

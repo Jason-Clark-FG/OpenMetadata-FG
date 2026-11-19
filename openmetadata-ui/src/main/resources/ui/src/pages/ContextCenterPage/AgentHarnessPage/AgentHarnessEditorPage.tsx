@@ -19,7 +19,7 @@ import {
 } from '@openmetadata/ui-core-components';
 import { AxiosError } from 'axios';
 import classNames from 'classnames';
-import { Key, useEffect, useMemo, useState } from 'react';
+import { Key, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import DocumentTitle from '../../../components/common/DocumentTitle/DocumentTitle';
@@ -124,6 +124,15 @@ const AgentHarnessEditorPage = () => {
       .catch(() => setDefaultState(undefined));
   }, [fqn, canEdit]);
 
+  // Read again when a distribution's piece in the Knowledge Graph tab adds or edits a connection.
+  const loadConnections = useCallback(
+    () =>
+      getAgentHarnessConnections()
+        .then(setConnections)
+        .catch((error) => showErrorToast(error as AxiosError)),
+    []
+  );
+
   useEffect(() => {
     if (!canEdit) {
       return;
@@ -137,10 +146,8 @@ const AgentHarnessEditorPage = () => {
     getAgentHarnessSubAgents()
       .then(setSubAgents)
       .catch((error) => showErrorToast(error as AxiosError));
-    getAgentHarnessConnections()
-      .then(setConnections)
-      .catch((error) => showErrorToast(error as AxiosError));
-  }, [canEdit]);
+    loadConnections();
+  }, [canEdit, loadConnections]);
 
   const tabParam = searchParams.get('tab');
   const activeTab = isHarnessTab(tabParam) ? tabParam : HarnessTab.Context;
@@ -301,6 +308,7 @@ const AgentHarnessEditorPage = () => {
             spec={spec}
             subAgents={subAgents}
             onChange={draft.update}
+            onConnectionsChange={loadConnections}
           />
         );
       case HarnessTab.Surfaces:

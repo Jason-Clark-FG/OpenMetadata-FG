@@ -30,6 +30,7 @@ import {
   McpConnection,
   SubAgentDefinition,
 } from '../../../../interface/discovery/agentHarness.interface';
+import agentHarnessConnectionsClassBase from '../../../../utils/AgentHarnessConnectionsClassBase';
 
 export interface KnowledgeGraphTabProps {
   kind: HarnessKind;
@@ -41,6 +42,8 @@ export interface KnowledgeGraphTabProps {
   connections?: McpConnection[];
   canEdit: boolean;
   onChange: (change: (spec: AgentHarnessSpec) => AgentHarnessSpec) => void;
+  /** Reads the registered connections again, after a distribution's piece changed them. */
+  onConnectionsChange?: () => Promise<void> | void;
 }
 
 type KnowledgeGraphToggle = 'entry' | 'rawQueries' | 'learn';
@@ -84,6 +87,9 @@ const TOGGLES: {
   },
 ];
 
+// One stable empty list, so a piece that re-reads on a new list does not re-read every render.
+const NO_CONNECTIONS: McpConnection[] = [];
+
 const ROW_CLASS =
   'tw:border-t tw:border-secondary tw:px-4 tw:py-4 tw:first:border-t-0';
 
@@ -92,11 +98,18 @@ const KnowledgeGraphTab = ({
   spec,
   inheritedKnowledgeGraph,
   subAgents,
-  connections = [],
+  connections = NO_CONNECTIONS,
   canEdit,
   onChange,
+  onConnectionsChange,
 }: KnowledgeGraphTabProps) => {
   const { t } = useTranslation();
+  const AddConnectionAction =
+    agentHarnessConnectionsClassBase.getAddConnectionAction();
+  const ConnectionRowAction =
+    agentHarnessConnectionsClassBase.getConnectionRowAction();
+  const PendingConnections =
+    agentHarnessConnectionsClassBase.getPendingConnections();
   const isPersona = kind === HarnessKind.Persona;
   // A persona harness lists only the connections it adds; the default's stay on and are locked.
   const ownConnections: ConnectionSetting[] =
@@ -134,6 +147,47 @@ const KnowledgeGraphTab = ({
         ...(enabled || row.registered ? [{ enabled, name: row.name }] : []),
       ],
     });
+
+  // Built from the draft as it is when the reload lands, not as it was when the piece was opened.
+  const switchConnectionOn = (name: string) =>
+    onChange((current) => ({
+      ...current,
+      knowledgeGraph: {
+        ...KNOWLEDGE_GRAPH_DEFAULTS,
+        ...inheritedKnowledgeGraph,
+        ...current.knowledgeGraph,
+        connections: [
+          ...(current.knowledgeGraph?.connections ?? []).filter(
+            (connection) => connection.name !== name
+          ),
+          { enabled: true, name },
+        ],
+      },
+    }));
+
+  const handleConnectionsChange = async (addedName?: string) => {
+    await onConnectionsChange?.();
+    if (addedName && canEdit && !isOn(inheritedConnections, addedName)) {
+      switchConnectionOn(addedName);
+    }
+  };
+
+  const renderAddConnection = () =>
+    AddConnectionAction && (
+      <AddConnectionAction
+        canEdit={canEdit}
+        onConnectionsChange={handleConnectionsChange}
+      />
+    );
+
+  const renderPendingConnections = () =>
+    PendingConnections && (
+      <PendingConnections
+        canEdit={canEdit}
+        connections={connections}
+        onConnectionsChange={handleConnectionsChange}
+      />
+    );
 
   const registeredNames = new Set(connections.map(({ name }) => name));
   const connectionRows: ConnectionRow[] = [
@@ -209,6 +263,13 @@ const KnowledgeGraphTab = ({
             </Typography>
           )}
         </Box>
+        {row.registered && ConnectionRowAction && (
+          <ConnectionRowAction
+            canEdit={canEdit}
+            connectionName={row.name}
+            onConnectionsChange={handleConnectionsChange}
+          />
+        )}
         <Toggle
           aria-label={row.displayName}
           data-testid={`knowledge-graph-connection-${row.name}`}
@@ -313,13 +374,16 @@ const KnowledgeGraphTab = ({
           ))
         )}
       </Card>
-      <Box direction="col" gap={1}>
-        <Typography size="text-sm" weight="semibold">
-          {t('label.connection-plural')}
-        </Typography>
-        <Typography className="tw:text-tertiary" size="text-sm">
-          {t('message.agent-harness-kg-connections-hint')}
-        </Typography>
+      <Box align="center" gap={4}>
+        <Box className="tw:flex-1" direction="col" gap={1}>
+          <Typography size="text-sm" weight="semibold">
+            {t('label.connection-plural')}
+          </Typography>
+          <Typography className="tw:text-tertiary" size="text-sm">
+            {t('message.agent-harness-kg-connections-hint')}
+          </Typography>
+        </Box>
+        {renderAddConnection()}
       </Box>
       <Card data-testid="knowledge-graph-connections">
         {connectionRows.length === 0 ? (
@@ -335,6 +399,7 @@ const KnowledgeGraphTab = ({
           connectionRows.map(renderConnection)
         )}
       </Card>
+      {renderPendingConnections()}
     </Box>
   );
 };
