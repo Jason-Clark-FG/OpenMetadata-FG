@@ -138,6 +138,14 @@ jest.mock(
 );
 
 // Boundary: the domain picker owns its own store, API and lazy chunk.
+jest.mock(
+  '../../../ContextCenter/AgentHarness/ConnectAiToolsModal/ConnectAiToolsModal',
+  () => ({
+    __esModule: true,
+    default: () => <div data-testid="connect-ai-tools-modal" />,
+  })
+);
+
 jest.mock('../../../common/DomainScopeControl/DomainScopeControl', () => ({
   __esModule: true,
   default: ({ children }: React.PropsWithChildren) => (
@@ -366,6 +374,18 @@ describe('AIUserMenu', () => {
     fireEvent.click(screen.getByTestId('ai-user-menu-my-data'));
 
     expect(mockOpenPanel).toHaveBeenCalledWith('my-data');
+  });
+
+  it('opens the Connect your AI tools dialog from its menu item', () => {
+    renderMenu();
+
+    expect(
+      screen.queryByTestId('connect-ai-tools-modal')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('ai-user-menu-connect-ai-tools'));
+
+    expect(screen.getByTestId('connect-ai-tools-modal')).toBeInTheDocument();
   });
 
   it('renders the domain scope row with the active domain', () => {

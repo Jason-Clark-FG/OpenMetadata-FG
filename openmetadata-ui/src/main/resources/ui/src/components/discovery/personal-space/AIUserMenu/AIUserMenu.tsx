@@ -26,6 +26,7 @@ import {
   Assets,
   Check,
   ChevronRight,
+  ConnectionPlug,
   ChevronSelectorVertical,
   Docs,
   Globe01,
@@ -72,6 +73,7 @@ import i18n from '../../../../utils/i18next/LocalUtil';
 import localUtilClassBase from '../../../../utils/i18next/LocalUtilClassBase';
 import navbarUtilClassBase from '../../../../utils/NavbarUtilClassBase';
 import DomainScopeControl from '../../../common/DomainScopeControl/DomainScopeControl';
+import ConnectAiToolsModal from '../../../ContextCenter/AgentHarness/ConnectAiToolsModal/ConnectAiToolsModal';
 import { AIUserMenuProps } from './AIUserMenu.interface';
 import { getLanguageName, getUserPersonas } from './AIUserMenu.utils';
 
@@ -321,6 +323,7 @@ const AIUserMenu: React.FC<AIUserMenuProps> = ({ collapsed = false }) => {
   const nameRef = useRef<HTMLElement>(null);
   const domainRef = useRef<HTMLElement>(null);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
   const selectedPersonaName = selectedPersona
     ? getEntityName(selectedPersona)
     : t('label.default');
@@ -360,315 +363,337 @@ const AIUserMenu: React.FC<AIUserMenuProps> = ({ collapsed = false }) => {
   );
 
   return (
-    <Dropdown.Root>
-      <Tooltip
-        arrow
-        isOpen={isTooltipOpen}
-        placement="right"
-        title={
-          // Wraps rather than truncates: this is where a long name is read in full.
-          <span className="tw:flex tw:flex-wrap tw:items-center tw:gap-x-2 tw:leading-5 tw:break-normal">
-            <Typography className="tw:text-[13px]" weight="medium">
-              {displayName}
-            </Typography>
-            <Typography
-              className="tw:text-tooltip-supporting-text"
-              weight="regular">
-              {domainDisplayName}
-            </Typography>
-          </span>
-        }
-        onOpenChange={(isOpen) =>
-          // Expanded, the card already shows both unless one is cut off.
-          setIsTooltipOpen(
-            isOpen &&
-              (collapsed ||
-                isTextTruncated(nameRef.current) ||
-                isTextTruncated(domainRef.current))
-          )
-        }>
-        <Button
-          aria-label={displayName}
-          className={classNames(
-            'tw:relative tw:flex tw:cursor-pointer tw:items-center tw:text-left tw:outline-focus-ring tw:focus-visible:outline-2 tw:focus-visible:outline-offset-2',
-            collapsed
-              ? 'tw:size-11 tw:justify-center tw:rounded-xl tw:aria-expanded:bg-brand-secondary'
-              : 'tw:min-h-11 tw:min-w-0 tw:flex-1 tw:gap-2.5 tw:rounded-md'
-          )}
-          data-testid="ask-ai-user-menu-trigger">
-          <TriggerContent
-            collapsed={collapsed}
-            domainName={domainDisplayName}
-            domainRef={domainRef}
-            isDomainScoped={isDomainScoped}
-            name={displayName}
-            nameRef={nameRef}
-            userName={userName}
-          />
-        </Button>
-      </Tooltip>
-
-      <Dropdown.Popover
-        className={classNames(POPOVER_CLASS, 'tw:w-75')}
-        placement="right bottom">
-        <Dropdown.Menu selectionMode="none">
-          <Dropdown.Item
-            className="tw:*:rounded-xl tw:*:px-2 tw:*:py-[11px]"
-            data-testid="ai-user-menu-profile"
-            id="profile"
-            textValue={displayName}
-            onAction={() =>
-              setHash('profile', undefined, undefined, { push: true })
-            }>
-            <Box align="center" gap={3}>
-              <ProfilePicture
-                className="tw:*:font-medium"
-                displayName={displayName}
-                name={userName}
-                width="40"
-              />
-              <Box className="tw:min-w-0 tw:flex-1 tw:gap-0.5" direction="col">
-                <Typography
-                  className="tw:line-clamp-2 tw:text-[15px] tw:leading-5 tw:whitespace-normal tw:break-words tw:text-primary"
-                  weight="medium">
-                  {displayName}
-                </Typography>
-                {userRole && (
-                  <Typography
-                    className="tw:truncate tw:text-tertiary"
-                    size="text-xs">
-                    {userRole}
-                  </Typography>
-                )}
-              </Box>
-              <ArrowUpRight aria-hidden className={MUTED_ICON_CLASS} />
-            </Box>
-          </Dropdown.Item>
-
-          <Dropdown.Separator />
-
-          <DomainScopeControl>
-            <ContextRow
-              caption={t('label.domain-scope')}
-              icon={Globe01}
-              value={domainDisplayName}
+    <>
+      <Dropdown.Root>
+        <Tooltip
+          arrow
+          isOpen={isTooltipOpen}
+          placement="right"
+          title={
+            // Wraps rather than truncates: this is where a long name is read in full.
+            <span className="tw:flex tw:flex-wrap tw:items-center tw:gap-x-2 tw:leading-5 tw:break-normal">
+              <Typography className="tw:text-[13px]" weight="medium">
+                {displayName}
+              </Typography>
+              <Typography
+                className="tw:text-tooltip-supporting-text"
+                weight="regular">
+                {domainDisplayName}
+              </Typography>
+            </span>
+          }
+          onOpenChange={(isOpen) =>
+            // Expanded, the card already shows both unless one is cut off.
+            setIsTooltipOpen(
+              isOpen &&
+                (collapsed ||
+                  isTextTruncated(nameRef.current) ||
+                  isTextTruncated(domainRef.current))
+            )
+          }>
+          <Button
+            aria-label={displayName}
+            className={classNames(
+              'tw:relative tw:flex tw:cursor-pointer tw:items-center tw:text-left tw:outline-focus-ring tw:focus-visible:outline-2 tw:focus-visible:outline-offset-2',
+              collapsed
+                ? 'tw:size-11 tw:justify-center tw:rounded-xl tw:aria-expanded:bg-brand-secondary'
+                : 'tw:min-h-11 tw:min-w-0 tw:flex-1 tw:gap-2.5 tw:rounded-md'
+            )}
+            data-testid="ask-ai-user-menu-trigger">
+            <TriggerContent
+              collapsed={collapsed}
+              domainName={domainDisplayName}
+              domainRef={domainRef}
+              isDomainScoped={isDomainScoped}
+              name={displayName}
+              nameRef={nameRef}
+              userName={userName}
             />
-          </DomainScopeControl>
+          </Button>
+        </Tooltip>
 
-          <SubmenuTrigger>
+        <Dropdown.Popover
+          className={classNames(POPOVER_CLASS, 'tw:w-75')}
+          placement="right bottom">
+          <Dropdown.Menu selectionMode="none">
+            <Dropdown.Item
+              className="tw:*:rounded-xl tw:*:px-2 tw:*:py-[11px]"
+              data-testid="ai-user-menu-profile"
+              id="profile"
+              textValue={displayName}
+              onAction={() =>
+                setHash('profile', undefined, undefined, { push: true })
+              }>
+              <Box align="center" gap={3}>
+                <ProfilePicture
+                  className="tw:*:font-medium"
+                  displayName={displayName}
+                  name={userName}
+                  width="40"
+                />
+                <Box
+                  className="tw:min-w-0 tw:flex-1 tw:gap-0.5"
+                  direction="col">
+                  <Typography
+                    className="tw:line-clamp-2 tw:text-[15px] tw:leading-5 tw:whitespace-normal tw:break-words tw:text-primary"
+                    weight="medium">
+                    {displayName}
+                  </Typography>
+                  {userRole && (
+                    <Typography
+                      className="tw:truncate tw:text-tertiary"
+                      size="text-xs">
+                      {userRole}
+                    </Typography>
+                  )}
+                </Box>
+                <ArrowUpRight aria-hidden className={MUTED_ICON_CLASS} />
+              </Box>
+            </Dropdown.Item>
+
+            <Dropdown.Separator />
+
+            <DomainScopeControl>
+              <ContextRow
+                caption={t('label.domain-scope')}
+                icon={Globe01}
+                value={domainDisplayName}
+              />
+            </DomainScopeControl>
+
+            <SubmenuTrigger>
+              <Dropdown.Item
+                className={ROW_CLASS}
+                data-testid="ai-user-menu-persona"
+                id="persona"
+                textValue={t('label.active-persona')}>
+                <ContextRow
+                  caption={t('label.active-persona')}
+                  icon={User01}
+                  value={selectedPersonaName}
+                />
+              </Dropdown.Item>
+              <Dropdown.Popover
+                className={classNames(POPOVER_CLASS, 'tw:w-70')}
+                placement="right top">
+                <Dropdown.Menu
+                  className={SUBMENU_LIST_CLASS}
+                  selectedKeys={selectedPersona ? [selectedPersona.id] : []}>
+                  <Dropdown.Section>
+                    <Dropdown.SectionHeader className="tw:flex tw:flex-col tw:gap-0.5 tw:px-3.5 tw:pt-2.5 tw:pb-2">
+                      <Typography className="tw:text-primary" weight="medium">
+                        {t('label.switch-persona')}
+                      </Typography>
+                      <Typography className="tw:text-tertiary" size="text-xs">
+                        {t('message.persona-switch-description')}
+                      </Typography>
+                    </Dropdown.SectionHeader>
+                    {allPersonas.map((persona) => {
+                      const personaName = getEntityName(persona);
+
+                      return (
+                        <Dropdown.Item
+                          // 7px around the 26px tile keeps the row at 40px.
+                          className={classNames(ROW_CLASS, 'tw:*:py-[7px]')}
+                          data-testid={`ai-user-menu-persona-${persona.name}`}
+                          id={persona.id}
+                          key={persona.id}
+                          textValue={personaName}
+                          onAction={() => setSelectedPersona(persona)}>
+                          {({ isSelected }) => (
+                            <OptionRow
+                              isSelected={isSelected}
+                              label={personaName}
+                              leading={
+                                <Avatar
+                                  className={classNames(
+                                    'tw:size-6.5 tw:rounded-xl tw:*:text-xs tw:*:font-medium',
+                                    isSelected
+                                      ? 'tw:bg-brand-solid tw:text-primary_on-brand'
+                                      : 'tw:text-tertiary'
+                                  )}
+                                  colorVariant="neutral"
+                                  contrastBorder={false}
+                                  initials={personaName.charAt(0).toUpperCase()}
+                                  size="xs"
+                                />
+                              }
+                            />
+                          )}
+                        </Dropdown.Item>
+                      );
+                    })}
+                  </Dropdown.Section>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </SubmenuTrigger>
+
+            <Dropdown.Separator />
+
             <Dropdown.Item
               className={ROW_CLASS}
-              data-testid="ai-user-menu-persona"
-              id="persona"
-              textValue={t('label.active-persona')}>
-              <ContextRow
-                caption={t('label.active-persona')}
-                icon={User01}
-                value={selectedPersonaName}
+              data-testid="ai-user-menu-my-data"
+              id="my-data"
+              textValue={t('label.my-data-and-following')}
+              onAction={() => openPanel('my-data')}>
+              <MenuRow icon={Assets} label={t('label.my-data-and-following')} />
+            </Dropdown.Item>
+
+            <Dropdown.Item
+              className={ROW_CLASS}
+              data-testid="ai-user-menu-connect-ai-tools"
+              id="connect-ai-tools"
+              textValue={t('label.connect-your-ai-tools')}
+              onAction={() => setIsConnectOpen(true)}>
+              <MenuRow
+                icon={ConnectionPlug}
+                label={t('label.connect-your-ai-tools')}
               />
             </Dropdown.Item>
-            <Dropdown.Popover
-              className={classNames(POPOVER_CLASS, 'tw:w-70')}
-              placement="right top">
-              <Dropdown.Menu
-                className={SUBMENU_LIST_CLASS}
-                selectedKeys={selectedPersona ? [selectedPersona.id] : []}>
-                <Dropdown.Section>
-                  <Dropdown.SectionHeader className="tw:flex tw:flex-col tw:gap-0.5 tw:px-3.5 tw:pt-2.5 tw:pb-2">
-                    <Typography className="tw:text-primary" weight="medium">
-                      {t('label.switch-persona')}
-                    </Typography>
-                    <Typography className="tw:text-tertiary" size="text-xs">
-                      {t('message.persona-switch-description')}
-                    </Typography>
-                  </Dropdown.SectionHeader>
-                  {allPersonas.map((persona) => {
-                    const personaName = getEntityName(persona);
+
+            <SubmenuTrigger>
+              <Dropdown.Item
+                className={ROW_CLASS}
+                id="help"
+                textValue={t('label.help')}>
+                <MenuRow hasSubmenu icon={Help} label={t('label.help')} />
+              </Dropdown.Item>
+              <Dropdown.Popover className={POPOVER_CLASS} placement="right top">
+                <Dropdown.Menu
+                  className={SUBMENU_LIST_CLASS}
+                  selectionMode="none">
+                  {navbarUtilClassBase.getHelpItems().map((item) => {
+                    const label =
+                      item.key === HELP_ITEMS_ENUM.VERSION && appVersion
+                        ? t('label.version-number', { version: appVersion })
+                        : t(item.label);
 
                     return (
                       <Dropdown.Item
-                        // 7px around the 26px tile keeps the row at 40px.
-                        className={classNames(ROW_CLASS, 'tw:*:py-[7px]')}
-                        data-testid={`ai-user-menu-persona-${persona.name}`}
-                        id={persona.id}
-                        key={persona.id}
-                        textValue={personaName}
-                        onAction={() => setSelectedPersona(persona)}>
-                        {({ isSelected }) => (
-                          <OptionRow
-                            isSelected={isSelected}
-                            label={personaName}
-                            leading={
-                              <Avatar
-                                className={classNames(
-                                  'tw:size-6.5 tw:rounded-xl tw:*:text-xs tw:*:font-medium',
-                                  isSelected
-                                    ? 'tw:bg-brand-solid tw:text-primary_on-brand'
-                                    : 'tw:text-tertiary'
-                                )}
-                                colorVariant="neutral"
-                                contrastBorder={false}
-                                initials={personaName.charAt(0).toUpperCase()}
-                                size="xs"
-                              />
-                            }
-                          />
-                        )}
+                        className={ROW_CLASS}
+                        id={item.key}
+                        key={item.key}
+                        textValue={label}
+                        onAction={() => handleHelpItemAction(item)}>
+                        <MenuRow
+                          icon={HELP_ITEM_ICONS[item.key] ?? item.icon}
+                          label={label}
+                        />
                       </Dropdown.Item>
                     );
                   })}
-                </Dropdown.Section>
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </SubmenuTrigger>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </SubmenuTrigger>
 
-          <Dropdown.Separator />
-
-          <Dropdown.Item
-            className={ROW_CLASS}
-            data-testid="ai-user-menu-my-data"
-            id="my-data"
-            textValue={t('label.my-data-and-following')}
-            onAction={() => openPanel('my-data')}>
-            <MenuRow icon={Assets} label={t('label.my-data-and-following')} />
-          </Dropdown.Item>
-
-          <SubmenuTrigger>
-            <Dropdown.Item
-              className={ROW_CLASS}
-              id="help"
-              textValue={t('label.help')}>
-              <MenuRow hasSubmenu icon={Help} label={t('label.help')} />
-            </Dropdown.Item>
-            <Dropdown.Popover className={POPOVER_CLASS} placement="right top">
-              <Dropdown.Menu
-                className={SUBMENU_LIST_CLASS}
-                selectionMode="none">
-                {navbarUtilClassBase.getHelpItems().map((item) => {
-                  const label =
-                    item.key === HELP_ITEMS_ENUM.VERSION && appVersion
-                      ? t('label.version-number', { version: appVersion })
-                      : t(item.label);
-
-                  return (
+            <SubmenuTrigger>
+              <Dropdown.Item
+                className={ROW_CLASS}
+                id="language"
+                textValue={t('label.language')}>
+                <MenuRow
+                  hasSubmenu
+                  icon={Language}
+                  label={t('label.language')}
+                  value={getLanguageName(currentLocale)}
+                />
+              </Dropdown.Item>
+              <Dropdown.Popover className={POPOVER_CLASS} placement="right top">
+                <Dropdown.Menu
+                  className={SUBMENU_LIST_CLASS}
+                  selectedKeys={[currentLocale]}>
+                  {languageSelectOptions.map((option) => (
                     <Dropdown.Item
                       className={ROW_CLASS}
-                      id={item.key}
-                      key={item.key}
-                      textValue={label}
-                      onAction={() => handleHelpItemAction(item)}>
-                      <MenuRow
-                        icon={HELP_ITEM_ICONS[item.key] ?? item.icon}
-                        label={label}
-                      />
+                      id={option.key}
+                      key={option.key}
+                      textValue={option.label}
+                      onAction={() => handleLanguageChange(option.key)}>
+                      {({ isSelected }) => (
+                        <OptionRow
+                          isSelected={isSelected}
+                          label={option.label}
+                        />
+                      )}
                     </Dropdown.Item>
-                  );
-                })}
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </SubmenuTrigger>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </SubmenuTrigger>
 
-          <SubmenuTrigger>
             <Dropdown.Item
               className={ROW_CLASS}
-              id="language"
-              textValue={t('label.language')}>
-              <MenuRow
-                hasSubmenu
-                icon={Language}
-                label={t('label.language')}
-                value={getLanguageName(currentLocale)}
-              />
+              data-testid="ask-user-menu-settings"
+              id="settings"
+              textValue={t('label.setting-plural')}
+              onAction={() =>
+                setHash('preferences', undefined, undefined, { push: true })
+              }>
+              <MenuRow icon={Settings} label={t('label.setting-plural')} />
             </Dropdown.Item>
-            <Dropdown.Popover className={POPOVER_CLASS} placement="right top">
-              <Dropdown.Menu
-                className={SUBMENU_LIST_CLASS}
-                selectedKeys={[currentLocale]}>
-                {languageSelectOptions.map((option) => (
+
+            <SubmenuTrigger>
+              <Dropdown.Item
+                className={ROW_CLASS}
+                data-testid="ai-user-menu-appearance"
+                id="appearance"
+                textValue={t('label.appearance')}>
+                <MenuRow
+                  hasSubmenu
+                  icon={Appearance}
+                  label={t('label.appearance')}
+                  value={theme === 'dark' ? t('label.dark') : t('label.light')}
+                />
+              </Dropdown.Item>
+              <Dropdown.Popover
+                className={classNames(POPOVER_CLASS, 'tw:w-55')}
+                placement="right top">
+                <Dropdown.Menu selectedKeys={[theme]}>
                   <Dropdown.Item
                     className={ROW_CLASS}
-                    id={option.key}
-                    key={option.key}
-                    textValue={option.label}
-                    onAction={() => handleLanguageChange(option.key)}>
+                    data-testid="ai-user-menu-theme-light"
+                    id="light"
+                    textValue={t('label.light')}
+                    onAction={() => setTheme('light')}>
                     {({ isSelected }) => (
-                      <OptionRow isSelected={isSelected} label={option.label} />
+                      <OptionRow
+                        isSelected={isSelected}
+                        label={t('label.light')}
+                      />
                     )}
                   </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </SubmenuTrigger>
+                  <Dropdown.Item
+                    className={ROW_CLASS}
+                    data-testid="ai-user-menu-theme-dark"
+                    id="dark"
+                    textValue={t('label.dark')}
+                    onAction={() => setTheme('dark')}>
+                    {({ isSelected }) => (
+                      <OptionRow
+                        isSelected={isSelected}
+                        label={t('label.dark')}
+                      />
+                    )}
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </SubmenuTrigger>
 
-          <Dropdown.Item
-            className={ROW_CLASS}
-            data-testid="ask-user-menu-settings"
-            id="settings"
-            textValue={t('label.setting-plural')}
-            onAction={() =>
-              setHash('preferences', undefined, undefined, { push: true })
-            }>
-            <MenuRow icon={Settings} label={t('label.setting-plural')} />
-          </Dropdown.Item>
-
-          <SubmenuTrigger>
             <Dropdown.Item
               className={ROW_CLASS}
-              data-testid="ai-user-menu-appearance"
-              id="appearance"
-              textValue={t('label.appearance')}>
-              <MenuRow
-                hasSubmenu
-                icon={Appearance}
-                label={t('label.appearance')}
-                value={theme === 'dark' ? t('label.dark') : t('label.light')}
-              />
+              data-testid="ai-user-menu-logout"
+              id="logout"
+              textValue={t('label.logout')}
+              onAction={onLogoutHandler}>
+              <MenuRow isDanger icon={LogOut} label={t('label.logout')} />
             </Dropdown.Item>
-            <Dropdown.Popover
-              className={classNames(POPOVER_CLASS, 'tw:w-55')}
-              placement="right top">
-              <Dropdown.Menu selectedKeys={[theme]}>
-                <Dropdown.Item
-                  className={ROW_CLASS}
-                  data-testid="ai-user-menu-theme-light"
-                  id="light"
-                  textValue={t('label.light')}
-                  onAction={() => setTheme('light')}>
-                  {({ isSelected }) => (
-                    <OptionRow
-                      isSelected={isSelected}
-                      label={t('label.light')}
-                    />
-                  )}
-                </Dropdown.Item>
-                <Dropdown.Item
-                  className={ROW_CLASS}
-                  data-testid="ai-user-menu-theme-dark"
-                  id="dark"
-                  textValue={t('label.dark')}
-                  onAction={() => setTheme('dark')}>
-                  {({ isSelected }) => (
-                    <OptionRow
-                      isSelected={isSelected}
-                      label={t('label.dark')}
-                    />
-                  )}
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </SubmenuTrigger>
-
-          <Dropdown.Item
-            className={ROW_CLASS}
-            data-testid="ai-user-menu-logout"
-            id="logout"
-            textValue={t('label.logout')}
-            onAction={onLogoutHandler}>
-            <MenuRow isDanger icon={LogOut} label={t('label.logout')} />
-          </Dropdown.Item>
-        </Dropdown.Menu>
-      </Dropdown.Popover>
-    </Dropdown.Root>
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown.Root>
+      {isConnectOpen && (
+        <ConnectAiToolsModal onClose={() => setIsConnectOpen(false)} />
+      )}
+    </>
   );
 };
 
