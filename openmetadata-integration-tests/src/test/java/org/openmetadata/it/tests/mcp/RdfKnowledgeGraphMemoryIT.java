@@ -53,7 +53,7 @@ public class RdfKnowledgeGraphMemoryIT extends McpTestBase {
   private static final String MEMORIES = "contextCenter/memories";
   private static final String BASE_URI = "https://open-metadata.org/";
   private static final Duration PROJECTION_WAIT = Duration.ofSeconds(90);
-  private static final Duration POLL = Duration.ofMillis(200);
+  private static final Duration POLL = Duration.ofSeconds(1);
 
   private static String adminId;
 

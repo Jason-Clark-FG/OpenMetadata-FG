@@ -481,7 +481,9 @@ card (`GraphMemories`).
 
 Measured on the RDF lane (MySQL, Elasticsearch, Fuseki, one live writer): a new memory reached its
 table's card about 10.6 s after its create returned (16.8 s in a run that also waited for the new
-table); a changed answer reached it in 0.8 to 1.0 s. On the unit fixture, an `orders` card grew
+table); a changed answer reached it in 0.8 to 1.0 s. Run beside the other seven RDF-lane classes,
+which load the same single writer, the same steps took 65 to 69 s and 19 to 27 s: the delay is the
+live-write queue's, and it grows with what else is queued. On the unit fixture, an `orders` card grew
 from 1,032 to 1,694 characters with two memories, plus the 482-character note once per answer.
 
 Known limits: memory nodes found through notes or preferences are not recorded as served nodes, so
