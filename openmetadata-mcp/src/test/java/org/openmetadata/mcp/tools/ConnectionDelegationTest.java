@@ -164,6 +164,12 @@ class ConnectionDelegationTest {
             new ConnectionDelegation.Argument(
                 "state", "string (one of open, closed)", false, null));
     assertThat(listing.rest()).isNull();
+    assertThat(listing.blocked()).isNull();
+    assertThat(listing.aboutBlocked()).isNull();
+    assertThat(JsonUtils.pojoToJson(listing)).doesNotContain("blocked");
+    assertThat(provider.calls).isEmpty();
+    assertThat(traces.steps(run.run()).getLast().input().form())
+        .isEqualTo(RunStep.ConnectionForm.TOOLS);
   }
 
   @Test
@@ -208,6 +214,10 @@ class ConnectionDelegationTest {
 
     assertThat(answer.status()).isEqualTo(ConnectionToolResult.Status.FAILED);
     assertThat(answer.error()).isEqualTo("upstream said: rate limited");
+    final RunStep.Input step = traces.steps(run.run()).getLast().input();
+    assertThat(step.form()).isEqualTo(RunStep.ConnectionForm.CALL);
+    assertThat(step.arguments()).isEqualTo(Map.of());
+    assertThat(step.status()).isEqualTo("FAILED");
   }
 
   @Test
@@ -323,6 +333,10 @@ class ConnectionDelegationTest {
     assertThat(listing.tools())
         .extracting(ConnectionDelegation.ListedTool::name)
         .containsExactly("search_issues", "broken");
+    assertThat(listing.blocked()).containsExactly("create_issue");
+    assertThat(listing.aboutBlocked())
+        .isEqualTo(ConnectionDelegation.BLOCKED_LISTING)
+        .contains("blocked by their organisation's rules, not that it does not exist");
     assertThatThrownBy(() -> delegate(access, "github", "create_issue", Map.of()))
         .hasMessageContaining("block the tool 'create_issue'")
         .hasMessageContaining("the default agent harness's MCP Access entry for server 'github'")

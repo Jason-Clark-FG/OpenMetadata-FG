@@ -77,6 +77,14 @@ record ConnectionAccess(
         .toList();
   }
 
+  /** The tools of {@code connection} the rules block for the caller, in its order. */
+  List<String> blockedTools(final ConnectionDefinition connection) {
+    return connection.tools().stream()
+        .map(ConnectionTool::name)
+        .filter(tool -> level(connection.name(), tool) == ToolAccessLevel.BLOCK)
+        .toList();
+  }
+
   /** The connections the harness switches on that keep at least one tool for the caller. */
   List<ConnectionDefinition> offered(final List<ConnectionDefinition> connections) {
     return connections.stream()

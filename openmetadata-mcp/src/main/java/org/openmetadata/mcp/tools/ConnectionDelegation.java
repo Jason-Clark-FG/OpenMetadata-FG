@@ -70,6 +70,11 @@ final class ConnectionDelegation {
       "The admin's MCP Access rules flag this tool (%s): say so to the person, and weigh its"
           + " result with care.";
 
+  static final String BLOCKED_LISTING =
+      "The tools under 'blocked' exist on this connection, but your organisation's MCP Access rules"
+          + " block them. If the person asks for one, say it is blocked by their organisation's"
+          + " rules, not that it does not exist.";
+
   private static final String NEXT =
       "Call delegate with this 'connection', 'tool' and 'arguments' (an object matching"
           + " inputSchema; {} when it takes none) to run it.";
@@ -103,6 +108,8 @@ final class ConnectionDelegation {
       String description,
       List<ListedTool> tools,
       String warning,
+      List<String> blocked,
+      String aboutBlocked,
       String rest)
       implements Answer {}
 
@@ -177,14 +184,18 @@ final class ConnectionDelegation {
     final ConnectionDefinition connection = registered.definition();
     final List<ConnectionTool> offered = access.offeredTools(connection);
     final Answer answer;
+    String status = null;
     if (call.tool() == null) {
       answer = listing(connection, offered, access, budget);
     } else {
       final ConnectionTool tool = permitted(connection, offered, access, call.tool());
-      answer =
-          call.arguments() == null
-              ? schema(connection, tool, access, budget)
-              : fitted(called(caller, registered, run, access, call), budget);
+      if (call.arguments() == null) {
+        answer = schema(connection, tool, access, budget);
+      } else {
+        final ToolCallAnswer result = fitted(called(caller, registered, run, access, call), budget);
+        status = result.status().name();
+        answer = result;
+      }
     }
     traces.append(
         run.run(),
@@ -192,7 +203,7 @@ final class ConnectionDelegation {
             Operation.DELEGATE,
             clock.millis(),
             run.principal(),
-            RunStep.Input.connection(call.connection(), call.tool(), call.arguments()),
+            RunStep.Input.connection(call.connection(), call.tool(), call.arguments(), status),
             List.of(),
             List.of()));
     return answer;
@@ -319,17 +330,19 @@ final class ConnectionDelegation {
     offered.forEach(tool -> tools.add(listed(connection, tool, access)));
     final String warning =
         tools.stream().anyMatch(tool -> tool.flagged() != null) ? FLAGGED_LISTING : null;
-    ToolListing candidate = listingOf(connection, tools, warning, null);
+    final List<String> blocked = access.blockedTools(connection);
+    final Hidden hidden = blocked.isEmpty() ? Hidden.NONE : new Hidden(blocked, BLOCKED_LISTING);
+    ToolListing candidate = listingOf(connection, tools, warning, hidden, null);
     int dropped = 0;
     while (!fits(candidate, budget) && dropped < tools.size()) {
       dropped++;
       final int last = tools.size() - dropped;
       tools.set(last, tools.get(last).withoutArguments());
-      candidate = listingOf(connection, tools, warning, argumentsLeftOut(dropped));
+      candidate = listingOf(connection, tools, warning, hidden, argumentsLeftOut(dropped));
     }
     if (!fits(candidate, budget)) {
       tools.replaceAll(ListedTool::shortened);
-      candidate = listingOf(connection, tools, warning, argumentsLeftOut(dropped));
+      candidate = listingOf(connection, tools, warning, hidden, argumentsLeftOut(dropped));
     }
     int removed = 0;
     while (!fits(candidate, budget) && tools.size() > 1) {
@@ -340,6 +353,7 @@ final class ConnectionDelegation {
               connection,
               tools,
               warning,
+              hidden,
               argumentsLeftOut(dropped)
                   + " The last %d tools were left out too; ask for one by its 'tool' name if you know it."
                       .formatted(removed));
@@ -347,10 +361,16 @@ final class ConnectionDelegation {
     return candidate;
   }
 
+  /** The tools the rules hide from a listing and the sentence that says so; both null if none. */
+  private record Hidden(List<String> names, String about) {
+    static final Hidden NONE = new Hidden(null, null);
+  }
+
   private static ToolListing listingOf(
       final ConnectionDefinition connection,
       final List<ListedTool> tools,
       final String warning,
+      final Hidden hidden,
       final String rest) {
     return new ToolListing(
         connection.name(),
@@ -358,6 +378,8 @@ final class ConnectionDelegation {
         cut(connection.description(), SUMMARY_CHARS),
         List.copyOf(tools),
         warning,
+        hidden.names(),
+        hidden.about(),
         rest);
   }
 

@@ -53,6 +53,7 @@ public final class KnowledgeGraphCards {
   private static final String RESULT_STATUS = "om:latestResultStatus";
   private static final String FAILED_VALUE = "Failed";
   private static final int LINE_CHARS = 80;
+  private static final String CALL_FAILED = "FAILED";
 
   private KnowledgeGraphCards() {}
 
@@ -368,20 +369,16 @@ public final class KnowledgeGraphCards {
 
   /** A delegate to a connection: its tools, a tool's schema, or the tool called as the caller. */
   private static String connectionStep(final RunStep.Input input) {
-    final String asked;
-    if (input.tool() == null) {
-      asked = input.connection() + ": its tools";
-    } else if (input.arguments() == null) {
-      asked = input.connection() + " " + input.tool() + ": its arguments";
-    } else {
-      asked =
-          input.connection()
-              + " "
-              + input.tool()
-              + ", called as the caller with "
-              + JsonUtils.pojoToJson(input.arguments());
-    }
-    return asked;
+    return switch (input.connectionForm()) {
+      case TOOLS -> input.connection() + ": its tools";
+      case SCHEMA -> input.connection() + " " + input.tool() + ": its arguments";
+      case CALL -> input.connection()
+          + " "
+          + input.tool()
+          + (CALL_FAILED.equals(input.status()) ? ", failed" : "")
+          + ", called as the caller with "
+          + JsonUtils.pojoToJson(input.arguments() == null ? Map.of() : input.arguments());
+    };
   }
 
   /** The card with the memories a cite's {@code learned} saved first among its memories. */

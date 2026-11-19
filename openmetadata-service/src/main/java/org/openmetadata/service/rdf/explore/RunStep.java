@@ -12,9 +12,12 @@
  */
 package org.openmetadata.service.rdf.explore;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -65,7 +68,9 @@ public record RunStep(
       String agent,
       String connection,
       String tool,
-      Map<String, Object> arguments) {
+      @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> arguments,
+      ConnectionForm form,
+      String status) {
     public Input {
       nodes = nodes == null ? List.of() : List.copyOf(nodes);
       relationships = relationships == null ? List.of() : List.copyOf(relationships);
@@ -91,6 +96,8 @@ public record RunStep(
           agent,
           null,
           null,
+          null,
+          null,
           null);
     }
 
@@ -112,12 +119,45 @@ public record RunStep(
 
     /**
      * A delegate to the connection {@code connection}: its tools when {@code tool} is null, the
-     * tool's schema when {@code arguments} is null, else the tool called with them.
+     * tool's schema when {@code arguments} is null, else the tool called with them ({@code {}} is
+     * a call too). A call keeps its {@code status}, the provider's COMPLETED or FAILED.
      */
     public static Input connection(
-        final String connection, final String tool, final Map<String, Object> arguments) {
+        final String connection,
+        final String tool,
+        final Map<String, Object> arguments,
+        final String status) {
+      final ConnectionForm form;
+      if (tool == null) {
+        form = ConnectionForm.TOOLS;
+      } else {
+        form = arguments == null ? ConnectionForm.SCHEMA : ConnectionForm.CALL;
+      }
       return new Input(
-          null, List.of(), List.of(), null, null, null, null, null, connection, tool, arguments);
+          null,
+          List.of(),
+          List.of(),
+          null,
+          null,
+          null,
+          null,
+          null,
+          connection,
+          tool,
+          arguments,
+          form,
+          form == ConnectionForm.CALL ? status : null);
+    }
+
+    /** Which form a connection step took; steps stored before it was recorded read back without. */
+    public ConnectionForm connectionForm() {
+      if (form != null || connection == null) {
+        return form;
+      }
+      if (tool == null) {
+        return ConnectionForm.TOOLS;
+      }
+      return arguments == null ? ConnectionForm.SCHEMA : ConnectionForm.CALL;
     }
 
     public static Input find(final String question) {
@@ -139,6 +179,23 @@ public record RunStep(
 
     public static Input cite(final List<String> nodes) {
       return new Input(null, nodes, List.of(), null, null, null, null);
+    }
+  }
+
+  /** The three forms of a delegate to a connection: its tools, one tool's schema, a call. */
+  public enum ConnectionForm {
+    TOOLS,
+    SCHEMA,
+    CALL;
+
+    @JsonValue
+    public String value() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+
+    @JsonCreator
+    public static ConnectionForm fromValue(final String value) {
+      return valueOf(value.toUpperCase(Locale.ROOT));
     }
   }
 
