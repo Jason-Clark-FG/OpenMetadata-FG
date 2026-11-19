@@ -21,18 +21,35 @@ import java.util.stream.Stream;
 /** Turns what a call served into the step the run records. */
 final class RunSteps {
 
+  static final String MEMORY_TYPE = "contextMemory";
+
   private RunSteps() {}
 
+  /** The cards served, each followed by the memories it showed. */
   static List<RunStep.Node> served(final List<NodeCard> cards) {
     return cards.stream()
-        .map(
+        .flatMap(
             card ->
-                new RunStep.Node(
-                    card.id(),
-                    card.label(),
-                    card.entityType(),
-                    card.fullyQualifiedName(),
-                    offersOf(card)))
+                Stream.concat(
+                    Stream.of(
+                        new RunStep.Node(
+                            card.id(),
+                            card.label(),
+                            card.entityType(),
+                            card.fullyQualifiedName(),
+                            offersOf(card))),
+                    memories(card.memories()).stream()))
+        .toList();
+  }
+
+  /** The memories a listing showed, as nodes of their kind, so a later call may name them. */
+  static List<RunStep.Node> memories(final MemoryListing listing) {
+    return listing == null ? List.of() : memories(listing.shown());
+  }
+
+  static List<RunStep.Node> memories(final List<MemoryEntry> shown) {
+    return shown.stream()
+        .map(memory -> new RunStep.Node(memory.id(), memory.title(), MEMORY_TYPE, null, List.of()))
         .toList();
   }
 

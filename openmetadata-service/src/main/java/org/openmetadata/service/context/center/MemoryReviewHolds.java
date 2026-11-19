@@ -113,6 +113,14 @@ public final class MemoryReviewHolds {
     return MemoryTextSimilarity.sameQuestion(a.getQuestion(), b.getQuestion());
   }
 
+  /**
+   * Whether {@code value} says what {@code memory} says, by the bar re-extraction uses: the pair
+   * clears the identity bar and no number of one answer replaces a number of the other.
+   */
+  public static boolean restates(ContextMemory memory, ContextMemory value) {
+    return agrees(memory, value);
+  }
+
   private static boolean agrees(ContextMemory pill, ContextMemory value) {
     return MemoryTextSimilarity.weighted(
                 pill.getQuestion(), pill.getAnswer(), value.getQuestion(), value.getAnswer())
