@@ -23,7 +23,8 @@ public enum Operation {
   EXPAND,
   QUERY,
   TRACE,
-  CITE;
+  CITE,
+  DELEGATE;
 
   @JsonValue
   public String value() {

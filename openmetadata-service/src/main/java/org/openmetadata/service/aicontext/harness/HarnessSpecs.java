@@ -43,6 +43,7 @@ public final class HarnessSpecs {
             .withGuardrails(harness.getGuardrails())
             .withToolAccess(harness.getToolAccess())
             .withMemory(harness.getMemory())
+            .withKnowledgeGraph(harness.getKnowledgeGraph())
             .withAnswerHarness(harness.getAnswerHarness()),
         AgentHarnessSpec.class);
   }
@@ -58,6 +59,7 @@ public final class HarnessSpecs {
         .withGuardrails(copy.getGuardrails())
         .withToolAccess(copy.getToolAccess())
         .withMemory(copy.getMemory())
+        .withKnowledgeGraph(copy.getKnowledgeGraph())
         .withAnswerHarness(copy.getAnswerHarness());
   }
 

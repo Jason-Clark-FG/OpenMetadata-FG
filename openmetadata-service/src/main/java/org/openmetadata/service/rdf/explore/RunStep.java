@@ -60,10 +60,27 @@ public record RunStep(
       String sparql,
       String direction,
       Integer limit,
-      Integer offset) {
+      Integer offset,
+      String agent) {
     public Input {
       nodes = nodes == null ? List.of() : List.copyOf(nodes);
       relationships = relationships == null ? List.of() : List.copyOf(relationships);
+    }
+
+    public Input(
+        final String question,
+        final List<String> nodes,
+        final List<String> relationships,
+        final String sparql,
+        final String direction,
+        final Integer limit,
+        final Integer offset) {
+      this(question, nodes, relationships, sparql, direction, limit, offset, null);
+    }
+
+    /** A task handed to the sub-agent {@code agent}, with the nodes it was given. */
+    public static Input delegate(final String agent, final String task, final List<String> nodes) {
+      return new Input(task, nodes, List.of(), null, null, null, null, agent);
     }
 
     public static Input find(final String question) {

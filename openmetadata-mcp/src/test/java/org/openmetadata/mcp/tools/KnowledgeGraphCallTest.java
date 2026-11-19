@@ -37,7 +37,8 @@ class KnowledgeGraphCallTest {
 
   static List<Arguments> corrections() {
     return List.of(
-        Arguments.of(Map.of(), List.of("'operation'", "find, expand, query, trace or cite")),
+        Arguments.of(
+            Map.of(), List.of("'operation'", "find, expand, query, trace, cite or delegate")),
         Arguments.of(Map.of("operation", "search"), List.of("'operation'", "'search'")),
         Arguments.of(Map.of("operation", "find"), List.of("'question'", "find")),
         Arguments.of(

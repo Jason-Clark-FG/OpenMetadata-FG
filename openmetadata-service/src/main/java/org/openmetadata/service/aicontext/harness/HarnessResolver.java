@@ -15,8 +15,11 @@ package org.openmetadata.service.aicontext.harness;
 import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.openmetadata.schema.api.context.AgentHarnessSpec;
 import org.openmetadata.schema.api.context.ResolvedAgentHarness;
 import org.openmetadata.schema.api.context.ResolvedContextRule;
@@ -27,7 +30,9 @@ import org.openmetadata.schema.entity.context.AgentHarness;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
 import org.openmetadata.schema.entity.context.AgentHarnessKind;
+import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
+import org.openmetadata.schema.entity.context.AgentHarnessSubAgent;
 import org.openmetadata.schema.entity.context.AgentHarnessToolAccess;
 import org.openmetadata.schema.entity.context.GuardrailLevel;
 import org.openmetadata.schema.entity.context.HookEvent;
@@ -92,7 +97,8 @@ public final class HarnessResolver {
         .withEvents(view.getEvents().stream().map(HarnessResolver::setting).toList())
         .withSkills(view.getSkills().stream().map(HarnessResolver::setting).toList())
         .withGuardrails(view.getGuardrails().stream().map(HarnessResolver::setting).toList())
-        .withMemory(view.getMemory());
+        .withMemory(view.getMemory())
+        .withKnowledgeGraph(view.getKnowledgeGraph());
   }
 
   private static PersonaContextDefinition mergedContext(
@@ -135,7 +141,8 @@ public final class HarnessResolver {
             .withGuardrails(guardrails(defaults, persona))
             .withToolAccess(defaults.getToolAccess())
             .withMemory(HarnessSpecs.defaultMemory(defaults))
-            .withMemoryInherited(false);
+            .withMemoryInherited(false)
+            .withKnowledgeGraph(knowledgeGraph(defaults, persona));
     if (persona != null) {
       overlayPersonaSettings(view, persona);
     }
@@ -246,6 +253,35 @@ public final class HarnessResolver {
       guardrail.withLevel(own.compareTo(base) > 0 ? own : base).withMinLevel(base);
     }
     return guardrail;
+  }
+
+  /**
+   * The knowledge_graph settings in effect: the persona's switches when it sets the block, else the
+   * default's; a sub-agent is enabled when the default or the persona enables it, as skills are.
+   */
+  private static AgentHarnessKnowledgeGraph knowledgeGraph(
+      final AgentHarnessSpec defaults, final AgentHarnessSpec persona) {
+    final AgentHarnessKnowledgeGraph base =
+        Optional.ofNullable(defaults.getKnowledgeGraph())
+            .orElseGet(AgentHarnessKnowledgeGraph::new);
+    final AgentHarnessKnowledgeGraph own = persona == null ? null : persona.getKnowledgeGraph();
+    final AgentHarnessKnowledgeGraph switches = own == null ? base : own;
+    final Set<String> enabled = new LinkedHashSet<>();
+    for (final AgentHarnessKnowledgeGraph layer : Arrays.asList(base, own)) {
+      if (layer != null) {
+        listOrEmpty(layer.getSubAgents()).stream()
+            .filter(agent -> Boolean.TRUE.equals(agent.getEnabled()))
+            .forEach(agent -> enabled.add(agent.getName()));
+      }
+    }
+    return new AgentHarnessKnowledgeGraph()
+        .withEntry(switches.getEntry())
+        .withRawQueries(switches.getRawQueries())
+        .withLearn(switches.getLearn())
+        .withSubAgents(
+            enabled.stream()
+                .map(name -> new AgentHarnessSubAgent().withName(name).withEnabled(true))
+                .toList());
   }
 
   private static boolean isOn(final AgentHarnessEvent event) {

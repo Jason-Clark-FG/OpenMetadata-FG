@@ -14,6 +14,7 @@
 package org.openmetadata.mcp.tools;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.List;
@@ -30,6 +31,9 @@ import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.entity.teams.User;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.agents.SubAgentDefinition;
+import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
+import org.openmetadata.service.aicontext.agents.SubAgentResult;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.rdf.RdfProjectionStateResolver;
 import org.openmetadata.service.rdf.RdfRepository;
@@ -100,6 +104,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   private final Supplier<RunTraceStore> traces;
   private final Clock clock;
   private final MemoryWriters writers;
+  private final Harnesses harnesses;
+  private final SubAgentDelegation delegation;
+
+  /** What the caller's effective agent harness lets this tool do. */
+  @FunctionalInterface
+  interface Harnesses {
+    KnowledgeGraphHarness forCaller(Authorizer authorizer, CatalogSecurityContext securityContext);
+  }
 
   /** The writer that keeps what a turn learnt, for one caller. */
   @FunctionalInterface
@@ -128,7 +140,20 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
         (authorizer, caller, baseUri) ->
             isReadOnly() || limits == null
                 ? MemoryWriter.refusing(READ_ONLY)
-                : new MemoryCapture(authorizer, limits, caller, baseUri));
+                : new MemoryCapture(authorizer, limits, caller, baseUri),
+        KnowledgeGraphTool::harnessOf);
+  }
+
+  /** The caller's harness settings; the defaults when no harness can be read. */
+  private static KnowledgeGraphHarness harnessOf(
+      final Authorizer authorizer, final CatalogSecurityContext caller) {
+    try {
+      return KnowledgeGraphHarness.of(
+          GetContextTool.compiler(authorizer).effectiveFor(caller), SubAgentRegistry.getInstance());
+    } catch (RuntimeException unreadable) {
+      LOG.warn("[KnowledgeGraph] answered with the default harness: {}", unreadable.getMessage());
+      return KnowledgeGraphHarness.DEFAULTS;
+    }
   }
 
   private static boolean isReadOnly() {
@@ -158,8 +183,29 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final Supplier<RunTraceStore> traces,
       final Clock clock,
       final MemoryWriters writers) {
+    this(
+        repositorySupplier,
+        projectionStateSupplier,
+        startingPoints,
+        traces,
+        clock,
+        writers,
+        (authorizer, caller) -> KnowledgeGraphHarness.DEFAULTS);
+  }
+
+  KnowledgeGraphTool(
+      final Supplier<RdfRepository> repositorySupplier,
+      final Supplier<RdfProjectionState> projectionStateSupplier,
+      final StartingPoints startingPoints,
+      final Supplier<RunTraceStore> traces,
+      final Clock clock,
+      final MemoryWriters writers,
+      final Harnesses harnesses) {
     super(repositorySupplier, projectionStateSupplier);
     this.writers = Objects.requireNonNull(writers);
+    this.harnesses = Objects.requireNonNull(harnesses);
+    this.delegation =
+        new SubAgentDelegation(SubAgentRegistry.getInstance(), SubAgentDelegation.WAIT, clock);
     this.sparqlQuery =
         new SparqlQueryTool(
             repositorySupplier,
@@ -172,7 +218,13 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
 
   /** Every response names its run, which the caller passes back on the next call. */
   public sealed interface Response
-      permits FindResponse, ExpandResponse, QueryResponse, TraceResponse, CiteResponse {
+      permits FindResponse,
+          ExpandResponse,
+          QueryResponse,
+          TraceResponse,
+          CiteResponse,
+          DelegateResponse,
+          Opening {
     UUID run();
 
     Operation operation();
@@ -246,6 +298,36 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       @JsonInclude(JsonInclude.Include.NON_EMPTY) List<LearnedOutcome> learned)
       implements Response {}
 
+  /** What a sub-agent answered, or that it is still running under {@code result.handle}. */
+  public record DelegateResponse(UUID run, Operation operation, SubAgentResult result)
+      implements Response {}
+
+  /**
+   * The first answer of a run, with the sub-agents the caller's harness enables: {@code delegate}
+   * hands one of them a task.
+   */
+  public record Opening(
+      @JsonUnwrapped Response answer, List<SubAgentDefinition> subAgents, String aboutSubAgents)
+      implements Response {
+    static final String ABOUT =
+        "delegate hands one of these a 'task' with optional card 'nodes'; it runs as you, with"
+            + " your access. A 'running' result carries a 'handle': call delegate with it later.";
+
+    Opening(final Response answer, final List<SubAgentDefinition> subAgents) {
+      this(answer, subAgents, ABOUT);
+    }
+
+    @Override
+    public UUID run() {
+      return answer.run();
+    }
+
+    @Override
+    public Operation operation() {
+      return answer.operation();
+    }
+  }
+
   public record TraceResponse(
       UUID run,
       Operation operation,
@@ -264,16 +346,26 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final RdfRepository repository = repository();
     final RunContext run = new RunContext(call.runOrNew(), principalOf(securityContext));
     final boolean firstCall = call.run() == null;
-    return switch (call.request()) {
-      case KnowledgeGraphCall.Find find -> find(
-          authorizer, securityContext, repository, new Turn(run, budget(), firstCall), find);
-      case KnowledgeGraphCall.Expand expand -> expand(
-          securityContext, repository, new Turn(run, budget(), firstCall), expand);
-      case KnowledgeGraphCall.Query query -> query(
-          securityContext, repository, new Turn(run, budget(), firstCall), query);
-      case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
-      case KnowledgeGraphCall.Cite cite -> cite(authorizer, securityContext, repository, run, cite);
-    };
+    final KnowledgeGraphHarness harness = harnesses.forCaller(authorizer, securityContext);
+    final Response answer =
+        switch (call.request()) {
+          case KnowledgeGraphCall.Find find -> find(
+              authorizer, securityContext, repository, new Turn(run, budget(), firstCall), find);
+          case KnowledgeGraphCall.Expand expand -> expand(
+              securityContext, repository, new Turn(run, budget(), firstCall), expand);
+          case KnowledgeGraphCall.Query query -> query(
+              securityContext, repository, new Turn(run, budget(), firstCall), harness, query);
+          case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
+          case KnowledgeGraphCall.Cite cite -> cite(
+              authorizer, securityContext, repository, run, harness, cite);
+          case KnowledgeGraphCall.Delegate delegate -> new DelegateResponse(
+              run.run(),
+              Operation.DELEGATE,
+              delegation.delegate(securityContext, harness, run, traces.get(), delegate));
+        };
+    return firstCall && !harness.agents().isEmpty()
+        ? new Opening(answer, harness.agents())
+        : answer;
   }
 
   @Override
@@ -458,8 +550,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
       final Turn turn,
+      final KnowledgeGraphHarness harness,
       final KnowledgeGraphCall.Query query)
       throws IOException {
+    if (!harness.rawQueries()) {
+      throw new IllegalArgumentException(KnowledgeGraphHarness.RAW_QUERIES_OFF);
+    }
     final RunContext run = turn.run();
     final QueryPrefixes.Completed sparql =
         OntologyVocabulary.canonical().completePrefixes(query.sparql());
@@ -534,14 +630,14 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
       final CatalogSecurityContext securityContext,
       final RdfRepository repository,
       final RunContext run,
+      final KnowledgeGraphHarness harness,
       final KnowledgeGraphCall.Cite cite) {
+    final MemoryWriter writer =
+        harness.learnRefusal() == null
+            ? writers.forCaller(authorizer, securityContext, repository.getBaseUri())
+            : MemoryWriter.refusing(harness.learnRefusal());
     final CiteOutcome result =
-        explorer(securityContext, repository)
-            .cite(
-                run,
-                cite.citation(),
-                cite.learned(),
-                writers.forCaller(authorizer, securityContext, repository.getBaseUri()));
+        explorer(securityContext, repository).cite(run, cite.citation(), cite.learned(), writer);
     return new CiteResponse(
         run.run(), Operation.CITE, result.cited(), result.refused(), result.learned());
   }

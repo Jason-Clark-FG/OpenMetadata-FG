@@ -156,6 +156,10 @@
       "description": "Agent memory settings in effect.",
       "$ref": "../../entity/context/agentHarness.json#/definitions/memorySettings"
     },
+    "knowledgeGraph": {
+      "description": "knowledge_graph settings in effect, sub-agents merged as skills are.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/knowledgeGraphSettings"
+    },
     "memoryInherited": {
       "description": "True when a persona harness sets no memory settings and the default's apply.",
       "type": "boolean"

@@ -59,13 +59,16 @@ record KnowledgeGraphCall(UUID run, Request request) {
   private static final String SPARQL = "sparql";
   private static final String EDGES = "edges";
   private static final String LEARNED = "learned";
+  private static final String AGENT = "agent";
+  private static final String TASK = "task";
+  private static final String HANDLE = "handle";
   private static final String EDGE_NODE = "node";
   private static final String EDGE_RELATIONSHIP = "relationship";
   private static final String EDGE_OTHER = "other";
   private static final String BOTH_DIRECTIONS = "both";
   private static final Set<Operation> RUN_REQUIRED = Set.of(Operation.TRACE, Operation.CITE);
 
-  sealed interface Request permits Find, Expand, Query, Trace, Cite {}
+  sealed interface Request permits Find, Expand, Query, Trace, Cite, Delegate {}
 
   /**
    * No {@code entityTypes} looks everywhere. Otherwise {@code ontologyConcept} and {@code
@@ -104,6 +107,10 @@ record KnowledgeGraphCall(UUID run, Request request) {
     }
   }
 
+  /** A task handed to a sub-agent, or the {@code handle} of one still running. */
+  record Delegate(String agent, String task, List<String> nodes, String handle)
+      implements Request {}
+
   static KnowledgeGraphCall parse(final Map<String, Object> values) {
     final McpToolParameters parameters = McpToolParameters.from(values);
     final Operation operation = operation(parameters.optionalString(OPERATION));
@@ -126,6 +133,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
       case QUERY -> new Query(required(parameters, SPARQL, "for query: the SELECT to run"));
       case TRACE -> new Trace();
       case CITE -> cite(values);
+      case DELEGATE -> delegate(values, parameters);
     };
   }
 
@@ -134,7 +142,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
         .orElseThrow(
             () ->
                 new IllegalArgumentException(
-                    "'operation' must be one of find, expand, query, trace or cite; got '%s'"
+                    "'operation' must be one of find, expand, query, trace, cite or delegate; got '%s'"
                         .formatted(value)));
   }
 
@@ -225,6 +233,21 @@ record KnowledgeGraphCall(UUID run, Request request) {
   }
 
   /** A cite names what the answer relied on, what the turn learnt, or both. */
+  private static Delegate delegate(
+      final Map<String, Object> values, final McpToolParameters parameters) {
+    final String handle = parameters.optionalString(HANDLE);
+    final String agent = required(parameters, AGENT, "for delegate: the sub-agent to hand to");
+    final List<String> nodes =
+        requireAtMost(McpParams.getStringList(values, NODES), NODES, MAX_NODES).stream()
+            .map(KnowledgeGraphCall::node)
+            .toList();
+    final String task =
+        handle == null
+            ? required(parameters, TASK, "for delegate: what the sub-agent should do")
+            : parameters.optionalString(TASK);
+    return new Delegate(agent, task, nodes, handle);
+  }
+
   private static Cite cite(final Map<String, Object> values) {
     final List<String> nodes = McpParams.getStringList(values, NODES);
     final List<LearnedCandidate> learned = LearnedCandidates.parse(values.get(LEARNED));

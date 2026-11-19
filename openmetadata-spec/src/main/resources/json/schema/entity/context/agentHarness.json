@@ -8,6 +8,54 @@
   "javaType": "org.openmetadata.schema.entity.context.AgentHarness",
   "javaInterfaces": ["org.openmetadata.schema.EntityInterface<org.openmetadata.schema.type.EntityStatus>"],
   "definitions": {
+    "subAgentSetting": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessSubAgent",
+      "description": "Whether one registered sub-agent is offered to the knowledge_graph tool.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of a sub-agent listed by `GET /v1/agentHarness/subAgents`.",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Whether the sub-agent is offered. On a persona harness, true adds it for the persona; one the default offers stays offered.",
+          "type": "boolean"
+        }
+      },
+      "required": ["name", "enabled"],
+      "additionalProperties": false
+    },
+    "knowledgeGraphSettings": {
+      "javaType": "org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph",
+      "description": "How agents use the knowledge_graph tool.",
+      "type": "object",
+      "properties": {
+        "entry": {
+          "description": "Whether agents answer data questions through knowledge_graph (find, expand, cite last) rather than the catalog tools.",
+          "type": "boolean",
+          "default": false
+        },
+        "rawQueries": {
+          "description": "Whether the tool's query operation runs SPARQL for agents.",
+          "type": "boolean",
+          "default": true
+        },
+        "learn": {
+          "description": "Whether what a turn learnt, sent with cite, is saved as the caller's memories.",
+          "type": "boolean",
+          "default": true
+        },
+        "subAgents": {
+          "description": "Sub-agents the tool may hand a task to. A persona harness lists only those it adds.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/subAgentSetting"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
     "harnessKind": {
       "javaType": "org.openmetadata.schema.entity.context.AgentHarnessKind",
       "description": "Default is the one company-wide harness that applies to every user. Persona is a harness for the members of one persona that extends the default.",
@@ -373,6 +421,10 @@
     "memory": {
       "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
       "$ref": "#/definitions/memorySettings"
+    },
+    "knowledgeGraph": {
+      "description": "How agents use the knowledge_graph tool. Absent on a persona harness that uses the default's.",
+      "$ref": "#/definitions/knowledgeGraphSettings"
     },
     "answerHarness": {
       "description": "How `finish_answer` writes its citation block. Read from the default harness only.",

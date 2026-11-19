@@ -1417,9 +1417,10 @@
               "expand",
               "query",
               "trace",
-            "cite"
+            "cite",
+              "delegate"
             ],
-            "description": "find, expand, query, trace or cite."
+            "description": "find, expand, query, trace, cite or delegate (to a sub-agent the first answer lists)."
           },
           "run": {
             "type": "string",
@@ -1441,7 +1442,7 @@
             "items": {
               "type": "string"
             },
-            "description": "expand: the 'id' of one or more cards, at most 20. cite: the 'id' of every card or memory your answer relies on, at most 50; may be empty when 'learned' is sent."
+            "description": "expand: the 'id' of one or more cards, at most 20. delegate: the cards the task is about, at most 20. cite: the 'id' of every card or memory your answer relies on, at most 50; may be empty when 'learned' is sent."
           },
           "edges": {
             "type": "array",
@@ -1545,6 +1546,18 @@
                 "evidence"
               ]
             }
+          },
+          "agent": {
+            "type": "string",
+            "description": "delegate: the 'name' of a sub-agent the first answer listed under 'subAgents'."
+          },
+          "task": {
+            "type": "string",
+            "description": "delegate: what the sub-agent should do, in plain words."
+          },
+          "handle": {
+            "type": "string",
+            "description": "delegate: the 'handle' of a task still running, to read its answer."
           },
           "sparql": {
             "type": "string",

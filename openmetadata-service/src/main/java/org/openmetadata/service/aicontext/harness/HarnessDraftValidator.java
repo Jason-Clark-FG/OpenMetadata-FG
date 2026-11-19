@@ -35,8 +35,10 @@ import org.openmetadata.schema.entity.context.AgentHarnessAnswer;
 import org.openmetadata.schema.entity.context.AgentHarnessCalendar;
 import org.openmetadata.schema.entity.context.AgentHarnessEvent;
 import org.openmetadata.schema.entity.context.AgentHarnessGuardrail;
+import org.openmetadata.schema.entity.context.AgentHarnessKnowledgeGraph;
 import org.openmetadata.schema.entity.context.AgentHarnessMemory;
 import org.openmetadata.schema.entity.context.AgentHarnessSkill;
+import org.openmetadata.schema.entity.context.AgentHarnessSubAgent;
 import org.openmetadata.schema.entity.context.AgentMemoryReview;
 import org.openmetadata.schema.entity.context.AgentMemoryVisibility;
 import org.openmetadata.schema.entity.context.GuardrailLevel;
@@ -45,6 +47,7 @@ import org.openmetadata.schema.type.PersonaContextDefinition;
 import org.openmetadata.schema.type.personaContext.ContextRule;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.aicontext.PersonaContextDefinitionValidation;
+import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
 
 /**
  * Checks the settings an administrator saves as a draft or publishes, and returns them normalized.
@@ -125,6 +128,22 @@ public final class HarnessDraftValidator {
     validateGuardrails(spec.getGuardrails());
     ToolAccessPolicy.requireValid(spec.getToolAccess());
     validateMemory(spec.getMemory());
+    validateKnowledgeGraph(spec.getKnowledgeGraph());
+  }
+
+  /** A sub-agent the harness enables must be one this installation registers. */
+  private static void validateKnowledgeGraph(final AgentHarnessKnowledgeGraph knowledgeGraph) {
+    if (knowledgeGraph == null) {
+      return;
+    }
+    for (final AgentHarnessSubAgent agent : listOrEmpty(knowledgeGraph.getSubAgents())) {
+      if (agent.getName() == null
+          || SubAgentRegistry.getInstance().agent(agent.getName()).isEmpty()) {
+        throw new IllegalArgumentException(
+            "knowledgeGraph.subAgents names '%s', which no provider registers. See GET /v1/agentHarness/subAgents"
+                .formatted(agent.getName()));
+      }
+    }
   }
 
   private static void validateEvents(final List<AgentHarnessEvent> events) {

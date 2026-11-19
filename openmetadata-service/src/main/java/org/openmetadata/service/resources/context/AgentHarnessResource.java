@@ -65,6 +65,8 @@ import org.openmetadata.service.Entity;
 import org.openmetadata.service.OpenMetadataApplicationConfig;
 import org.openmetadata.service.aicontext.PersonaContextBuilder;
 import org.openmetadata.service.aicontext.PersonaContextCache;
+import org.openmetadata.service.aicontext.agents.SubAgentDefinition;
+import org.openmetadata.service.aicontext.agents.SubAgentRegistry;
 import org.openmetadata.service.aicontext.harness.AgentHarnessCompiler;
 import org.openmetadata.service.aicontext.harness.AgentHarnessService;
 import org.openmetadata.service.aicontext.harness.GuardrailRegistry;
@@ -368,6 +370,16 @@ public class AgentHarnessResource extends EntityResource<AgentHarness, AgentHarn
   public List<SkillDefinition> listSkills(@Context final SecurityContext securityContext) {
     authorizer.authorizeAdmin(securityContext);
     return SkillRegistry.definitions();
+  }
+
+  @GET
+  @Path("/subAgents")
+  @Operation(
+      operationId = "listAgentHarnessSubAgents",
+      summary = "List the sub-agents knowledge_graph can delegate to")
+  public List<SubAgentDefinition> listSubAgents(@Context final SecurityContext securityContext) {
+    authorizer.authorizeAdmin(securityContext);
+    return SubAgentRegistry.getInstance().agents();
   }
 
   // EntityResource serves these to anyone with view access. A harness is for administrators.

@@ -52,6 +52,10 @@
       "description": "Agent memory settings. Absent on a persona harness that uses the default's.",
       "$ref": "../../entity/context/agentHarness.json#/definitions/memorySettings"
     },
+    "knowledgeGraph": {
+      "description": "How agents use the knowledge_graph tool. Absent on a persona harness that uses the default's.",
+      "$ref": "../../entity/context/agentHarness.json#/definitions/knowledgeGraphSettings"
+    },
     "answerHarness": {
       "description": "How `finish_answer` writes its citation block. Only on the default harness.",
       "$ref": "../../entity/context/agentHarness.json#/definitions/answerHarness"

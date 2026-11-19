@@ -146,6 +146,14 @@ public final class AgentHarnessCompiler {
         .toList();
   }
 
+  /**
+   * The settings that apply to the caller, merged from the default and the caller's persona
+   * harness; empty when the default harness is disabled. For tools that follow the harness.
+   */
+  public Optional<AgentHarnessSpec> effectiveFor(final SecurityContext securityContext) {
+    return effective(caller(securityContext));
+  }
+
   /** The memory settings that apply to the caller and the persona they are served under, if any. */
   public Optional<AppliedMemory> memory(final SecurityContext securityContext) {
     final Caller caller = caller(securityContext);

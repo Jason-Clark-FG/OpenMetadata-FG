@@ -65,6 +65,13 @@ final class HarnessDocuments {
           + " the word remember: call remember right away without asking, then tell the user in one"
           + " line that it was saved, with the link. Do not keep it only in your own memory.";
 
+  /** The rule when the harness makes knowledge_graph the way into the data (its entry switch). */
+  static final String KNOWLEDGE_GRAPH_RULE =
+      "Answer questions about data through knowledge_graph: find with the user's question in plain"
+          + " words, expand the relationships that matter, query only for what cards cannot give,"
+          + " and end every turn with cite, passing what the turn learnt. Use the other OpenMetadata"
+          + " tools only for what knowledge_graph cannot do.";
+
   private static final int MAX_DESCRIPTION_CHARS = 600;
   private static final int MAX_COLUMNS = 30;
   private static final Map<String, String> KNOWLEDGE_KINDS =
@@ -87,6 +94,11 @@ final class HarnessDocuments {
           + " and who sees it, and the user can review or remove it in OpenMetadata.";
 
   private HarnessDocuments() {}
+
+  private static boolean entersThroughKnowledgeGraph(final AgentHarnessSpec spec) {
+    return spec.getKnowledgeGraph() != null
+        && Boolean.TRUE.equals(spec.getKnowledgeGraph().getEntry());
+  }
 
   private static boolean captures(final AgentHarnessSpec spec) {
     return spec.getMemory() != null && Boolean.TRUE.equals(spec.getMemory().getCapture());
@@ -120,7 +132,11 @@ final class HarnessDocuments {
           ContextItem.fixed(Origin.PERSONA, ContextItem.SEARCH_SCOPE, "searchScope", searchScope));
     }
     items.add(
-        ContextItem.fixed(Origin.DEFAULT, ContextItem.INSTRUCTIONS, "answerCards", ANSWER_RULE));
+        entersThroughKnowledgeGraph(sources.effective())
+            ? ContextItem.fixed(
+                Origin.DEFAULT, ContextItem.INSTRUCTIONS, "knowledgeGraph", KNOWLEDGE_GRAPH_RULE)
+            : ContextItem.fixed(
+                Origin.DEFAULT, ContextItem.INSTRUCTIONS, "answerCards", ANSWER_RULE));
     items.addAll(skillItems(sources));
     if (captures(sources.effective())) {
       items.add(
