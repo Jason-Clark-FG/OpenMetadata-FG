@@ -43,7 +43,7 @@ import TableDetailsPageV1 from './TableDetailsPageV1';
 const mockNavigate = jest.fn();
 
 const COMMON_API_FIELDS =
-  'columns,followers,joins,tags,owners,dataModel,tableConstraints,schemaDefinition,domains,dataProducts,votes,extension';
+  'columns,followers,joins,tags,owners,dataModel,tableConstraints,schemaDefinition,domains,dataProducts,votes,extension,replacedBy';
 
 // The page now reads permissions via useEntityPermissions rather than the raw
 // PermissionProvider context, so mocking that hook (instead of the old

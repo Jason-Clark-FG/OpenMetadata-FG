@@ -173,6 +173,11 @@ export interface Table {
      */
     queries?: string[];
     /**
+     * The table that replaces this one. Meant for a deprecated table, so a reader knows where
+     * to go instead; it can be set before the table is deprecated.
+     */
+    replacedBy?: EntityReference;
+    /**
      * Retention period of the data in the table. Period is expressed as duration in ISO 8601
      * format in UTC. Example - `P23DT23H`. When not set, the retention period is inherited from
      * the parent database schema, if it exists.
@@ -776,6 +781,9 @@ export interface CustomMetric {
  * Reference to the Location that contains this table.
  *
  * Reference to the pipeline that processes this data asset.
+ *
+ * The table that replaces this one. Meant for a deprecated table, so a reader knows where
+ * to go instead; it can be set before the table is deprecated.
  *
  * Link to Database service this table is hosted in.
  *

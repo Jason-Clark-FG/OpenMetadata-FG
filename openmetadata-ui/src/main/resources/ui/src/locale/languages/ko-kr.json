@@ -3215,6 +3215,7 @@
     "replace": "교체",
     "replace-entire-contract": "전체 계약 교체",
     "replace-existing": "기존 대체",
+    "replaced-by": "대체 대상",
     "replica": "복제본",
     "replica-shards": "복제본 샤드",
     "replication-factor": "복제 계수",

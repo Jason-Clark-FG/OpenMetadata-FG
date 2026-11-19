@@ -89,6 +89,10 @@ export interface CreateTableRequest {
      */
     owners?: EntityReference[];
     /**
+     * Fully qualified name of the table that replaces this one.
+     */
+    replacedBy?: string;
+    /**
      * Retention period of the data in the database. Period is expressed as duration in ISO 8601
      * format in UTC. Example - `P23DT23H`.
      */

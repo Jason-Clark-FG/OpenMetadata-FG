@@ -3215,6 +3215,7 @@
     "replace": "استبدال",
     "replace-entire-contract": "استبدال العقد بالكامل",
     "replace-existing": "استبدال الموجود",
+    "replaced-by": "تم استبداله بـ",
     "replica": "نسخة طبق الأصل",
     "replica-shards": "شظايا النسخ المتماثل",
     "replication-factor": "عامل التكرار",

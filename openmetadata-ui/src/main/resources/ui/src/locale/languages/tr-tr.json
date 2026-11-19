@@ -3215,6 +3215,7 @@
     "replace": "Değiştir",
     "replace-entire-contract": "Tüm sözleşmeyi değiştir",
     "replace-existing": "Mevcut Olanı Değiştir",
+    "replaced-by": "Şununla değiştirildi",
     "replica": "Kopya",
     "replica-shards": "Replika Parçalar",
     "replication-factor": "Çoğaltma Faktörü",

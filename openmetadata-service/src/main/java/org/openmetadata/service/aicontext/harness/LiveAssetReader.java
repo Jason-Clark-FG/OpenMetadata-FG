@@ -45,7 +45,8 @@ import org.openmetadata.service.security.mask.PIIMasker;
 @Slf4j
 final class LiveAssetReader {
   static final int MAX_ASSETS = 20;
-  private static final Set<String> FIELDS = Set.of("owners", "tags", "columns", "certification");
+  private static final Set<String> FIELDS =
+      Set.of("owners", "tags", "columns", "certification", "replacedBy");
 
   private final Authorizer authorizer;
   private final SecurityContext securityContext;
@@ -85,7 +86,8 @@ final class LiveAssetReader {
         tests.failingTests().size(),
         certified,
         !certified && hasCertifiedAlternative(ref, entity),
-        LiveTrustReader.ownerNames(entity));
+        LiveTrustReader.ownerNames(entity),
+        trust.replacement(entity).orElse(null));
   }
 
   private static List<String> piiColumns(final EntityInterface entity) {

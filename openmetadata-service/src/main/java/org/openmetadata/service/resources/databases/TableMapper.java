@@ -31,7 +31,8 @@ public class TableMapper implements EntityMapper<Table, CreateTable> {
         .withDatabaseSchema(getEntityReference(Entity.DATABASE_SCHEMA, create.getDatabaseSchema()))
         .withRetentionPeriod(create.getRetentionPeriod())
         .withSourceHash(create.getSourceHash())
-        .withCertification(create.getCertification());
+        .withCertification(create.getCertification())
+        .withReplacedBy(getEntityReference(Entity.TABLE, create.getReplacedBy()));
   }
 
   public CustomMetric createCustomMetricToEntity(CreateCustomMetric create, String user) {

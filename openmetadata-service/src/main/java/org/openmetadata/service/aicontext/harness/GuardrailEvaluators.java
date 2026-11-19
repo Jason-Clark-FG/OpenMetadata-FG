@@ -13,6 +13,7 @@
 package org.openmetadata.service.aicontext.harness;
 
 import static org.openmetadata.common.utils.CommonUtil.listOrEmpty;
+import static org.openmetadata.common.utils.CommonUtil.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -44,10 +45,34 @@ public final class GuardrailEvaluators {
       int failedTests,
       boolean certified,
       boolean hasCertifiedAlternative,
-      List<String> owners) {
+      List<String> owners,
+      String replacedBy) {
     public LiveAsset {
       piiColumns = List.copyOf(piiColumns);
       owners = List.copyOf(owners);
+    }
+
+    public LiveAsset(
+        AssetRef ref,
+        boolean deprecated,
+        List<String> piiColumns,
+        boolean piiVisibleUnmasked,
+        int openIncidents,
+        int failedTests,
+        boolean certified,
+        boolean hasCertifiedAlternative,
+        List<String> owners) {
+      this(
+          ref,
+          deprecated,
+          piiColumns,
+          piiVisibleUnmasked,
+          openIncidents,
+          failedTests,
+          certified,
+          hasCertifiedAlternative,
+          owners,
+          null);
     }
 
     public LiveAsset(
@@ -68,7 +93,8 @@ public final class GuardrailEvaluators {
           failedTests,
           certified,
           hasCertifiedAlternative,
-          List.of());
+          List.of(),
+          null);
     }
   }
 
@@ -145,13 +171,19 @@ public final class GuardrailEvaluators {
   }
 
   /**
-   * OpenMetadata stores no replacement for a deprecated asset, so the only structured pointer is
-   * its owner. Lineage and description text are not read: neither says an asset replaces another.
+   * The table's recorded replacement when it has one, else its owner as the only other structured
+   * pointer. Lineage and description text are not read: neither says an asset replaces another.
    */
   private static String replacementHint(final LiveAsset asset) {
-    return listOrEmpty(asset.owners()).isEmpty()
-        ? ""
-        : " Ask the owner, " + String.join(", ", asset.owners()) + ", for the replacement.";
+    final String hint;
+    if (!nullOrEmpty(asset.replacedBy())) {
+      hint = " Use " + asset.replacedBy() + " instead.";
+    } else if (listOrEmpty(asset.owners()).isEmpty()) {
+      hint = "";
+    } else {
+      hint = " Ask the owner, " + String.join(", ", asset.owners()) + ", for the replacement.";
+    }
+    return hint;
   }
 
   private static Optional<String> unmaskedPii(final LiveAsset asset) {

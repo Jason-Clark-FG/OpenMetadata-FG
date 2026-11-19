@@ -81,7 +81,7 @@ class FinishAnswerIT extends McpTestBase {
     termFqn = createTerm(owner);
     analystToken = "Bearer " + tokenFor(createAnalyst());
     certified = createCertifiedTableWithAFailingTest(owner);
-    deprecated = createDeprecatedTable();
+    deprecated = createDeprecatedTable(certified);
     hidden = createHiddenTable();
   }
 
@@ -132,7 +132,13 @@ class FinishAnswerIT extends McpTestBase {
                 + certified.getFullyQualifiedName()
                 + "` (");
     assertThat(text).contains("(not certified, deprecated)");
-    assertThat(text).contains("⚠ `" + deprecated.getFullyQualifiedName() + "` is deprecated");
+    assertThat(text)
+        .contains(
+            "⚠ `"
+                + deprecated.getFullyQualifiedName()
+                + "` is deprecated, replaced by `"
+                + certified.getFullyQualifiedName()
+                + "`.");
     assertThat(text).contains("Data → a table that is not visible to you");
     assertThat(text).contains("Data → `svc.does.not.exist` not found in OpenMetadata");
     assertThat(text).contains("Not run: no warehouse connector is connected here. SQL below.");
@@ -155,6 +161,8 @@ class FinishAnswerIT extends McpTestBase {
     assertThat(tables.get(0).path("openIncidents").get(0).path("id").asText())
         .isEqualTo(incidentId);
     assertThat(tables.get(1).path("deprecated").asBoolean()).isTrue();
+    assertThat(tables.get(1).path("replacedBy").asText())
+        .isEqualTo(certified.getFullyQualifiedName());
     assertThat(tables.get(2).path("unresolved").asText()).isEqualTo("notVisible");
     assertThat(tables.get(2).has("fqn")).isFalse();
     assertThat(tables.get(3).path("unresolved").asText()).isEqualTo("notFound");
@@ -354,12 +362,20 @@ class FinishAnswerIT extends McpTestBase {
     return table;
   }
 
-  private static Table createDeprecatedTable() throws Exception {
+  private static Table createDeprecatedTable(Table replacement) throws Exception {
     Table table = createServiceDatabaseSchemaTable("fa_dep");
     patch(
         "tables/" + table.getId(),
         OBJECT_MAPPER.writeValueAsString(
-            List.of(Map.of("op", "add", "path", "/entityStatus", "value", "Deprecated"))));
+            List.of(
+                Map.of("op", "add", "path", "/entityStatus", "value", "Deprecated"),
+                Map.of(
+                    "op",
+                    "add",
+                    "path",
+                    "/replacedBy",
+                    "value",
+                    Map.of("id", replacement.getId().toString(), "type", "table")))));
     return table;
   }
 

@@ -67,6 +67,26 @@ class GuardrailEvaluatorTest {
   }
 
   @Test
+  void aRecordedReplacementIsNamedInPlaceOfTheOwner() {
+    final LiveAsset replaced =
+        new LiveAsset(
+            ORDERS,
+            true,
+            List.of(),
+            false,
+            0,
+            0,
+            true,
+            false,
+            List.of("Sales Data"),
+            "svc.db.sales.orders_v2");
+
+    assertEquals(
+        List.of("table svc.db.sales.orders is deprecated. Use svc.db.sales.orders_v2 instead."),
+        decide(List.of(replaced), List.of()).getReasons());
+  }
+
+  @Test
   void piiColumnsAreDeniedOnlyWhenTheyAreMaskedForTheCaller() {
     final LiveAsset masked =
         new LiveAsset(ORDERS, false, List.of("email", "ssn"), false, 0, 0, true, false);

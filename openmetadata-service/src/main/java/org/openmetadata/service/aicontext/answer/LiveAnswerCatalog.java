@@ -43,7 +43,7 @@ import org.openmetadata.service.util.EntityUtil;
  * not view.
  */
 public final class LiveAnswerCatalog implements AnswerCatalog {
-  private static final Set<String> FIELDS = Set.of("owners", "tags", "certification");
+  private static final Set<String> FIELDS = Set.of("owners", "tags", "certification", "replacedBy");
 
   private final LiveTrustReader trust;
   private final String baseUrl;
@@ -106,6 +106,7 @@ public final class LiveAnswerCatalog implements AnswerCatalog {
         .withTier(LiveTrustReader.tierOf(entity))
         .withCertified(LiveTrustReader.isCertified(entity))
         .withDeprecated(LiveTrustReader.isDeprecated(entity))
+        .withReplacedBy(trust.replacement(entity).orElse(null))
         .withOwners(LiveTrustReader.ownerNames(entity))
         .withFreshness(freshness(fqn, tests))
         .withFailingTests(failingTests(tests))

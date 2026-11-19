@@ -39,7 +39,8 @@
         "outputPort",
         "assignedTo",
         "mappedTo",
-        "derivedFrom"
+        "derivedFrom",
+        "replacedBy"
       ],
       "javaEnums": [
         { "name": "CONTAINS" },
@@ -69,7 +70,8 @@
         { "name": "OUTPUT_PORT" },
         { "name": "ASSIGNED_TO" },
         { "name": "MAPPED_TO" },
-        { "name": "DERIVED_FROM" }
+        { "name": "DERIVED_FROM" },
+        { "name": "REPLACED_BY" }
       ]
     }
   },

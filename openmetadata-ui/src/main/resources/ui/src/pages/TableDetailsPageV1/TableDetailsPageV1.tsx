@@ -54,6 +54,7 @@ import {
 import { ResourceEntity } from '../../enums/permissions.enum';
 import { Tag } from '../../generated/entity/classification/tag';
 import { Table, TableType } from '../../generated/entity/data/table';
+import { EntityReference } from '../../generated/entity/type';
 import { PageType } from '../../generated/system/ui/page';
 import { TestCaseStatus } from '../../generated/tests/testCase';
 import { TagLabel } from '../../generated/type/tagLabel';
@@ -243,7 +244,7 @@ const TableDetailsPageV1: React.FC = () => {
   // a "lite" cached body to a "heavy" caller. {@link tableQueryKey} also covers the
   // fqn axis so navigating between tables hits a fresh slot.
   const tableFields = useMemo(() => {
-    let fields = defaultFieldsWithColumns;
+    let fields = `${defaultFieldsWithColumns},${TabSpecificField.REPLACED_BY}`;
     if (viewUsagePermission) {
       fields += `,${TabSpecificField.USAGE_SUMMARY}`;
     }
@@ -700,6 +701,15 @@ const TableDetailsPageV1: React.FC = () => {
     [tableDetails, onTableUpdate, tableTags]
   );
 
+  const onReplacedByUpdate = useCallback(
+    async (replacedBy?: EntityReference) => {
+      if (tableDetails) {
+        await onTableUpdate({ ...tableDetails, replacedBy }, 'replacedBy');
+      }
+    },
+    [tableDetails, onTableUpdate]
+  );
+
   const onCertificationUpdate = useCallback(
     async (newCertification?: Tag) => {
       if (tableDetails) {
@@ -1083,6 +1093,7 @@ const TableDetailsPageV1: React.FC = () => {
               onDisplayNameUpdate={handleDisplayNameUpdate}
               onFollowClick={handleFollowTable}
               onOwnerUpdate={handleUpdateOwner}
+              onReplacedByUpdate={onReplacedByUpdate}
               onRestoreDataAsset={handleRestoreTable}
               onTierUpdate={onTierUpdate}
               onUpdateRetentionPeriod={handleUpdateRetentionPeriod}

@@ -146,10 +146,10 @@ public class TableRepository extends EntityRepository<Table> {
 
   // Table fields that can be patched in a PATCH request
   public static final String PATCH_FIELDS =
-      "tableConstraints,tablePartition,tableSharding,columns,schemaDefinition";
+      "tableConstraints,tablePartition,tableSharding,columns,schemaDefinition,replacedBy";
   // Table fields that can be updated in a PUT request
   public static final String UPDATE_FIELDS =
-      "tableConstraints,tablePartition,tableSharding,dataModel,sourceUrl,columns,schemaDefinition";
+      "tableConstraints,tablePartition,tableSharding,dataModel,sourceUrl,columns,schemaDefinition,replacedBy";
 
   public static final String FIELD_RELATION_COLUMN_TYPE = "table.columns.column";
   public static final String FIELD_RELATION_TABLE_TYPE = "table";
@@ -169,6 +169,7 @@ public class TableRepository extends EntityRepository<Table> {
   public static final String COLUMN_FIELD = "columns";
   public static final String TABLE_CONSTRAINTS_FIELD = "tableConstraints";
   public static final String CUSTOM_METRICS = "customMetrics";
+  public static final String REPLACED_BY_FIELD = "replacedBy";
   private static final String RETENTION_PERIOD_FIELD = "retentionPeriod";
   private static final Set<String> CHANGE_SUMMARY_FIELDS =
       Set.of("description", "owners", "columns.description");
@@ -202,6 +203,7 @@ public class TableRepository extends EntityRepository<Table> {
     fieldFetchers.put(FIELD_TAGS, this::fetchAndSetTableTags);
     fieldFetchers.put(COLUMN_FIELD, this::fetchAndSetColumnTags);
     fieldFetchers.put("pipelineObservability", this::fetchAndSetPipelineObservability);
+    fieldFetchers.put(REPLACED_BY_FIELD, this::fetchAndSetReplacedBy);
   }
 
   @Override
@@ -222,6 +224,10 @@ public class TableRepository extends EntityRepository<Table> {
             ? getTableProfilerConfig(table)
             : table.getTableProfilerConfig());
     table.setTestSuite(fields.contains("testSuite") ? getTestSuite(table) : table.getTestSuite());
+    table.setReplacedBy(
+        fields.contains(REPLACED_BY_FIELD)
+            ? getToEntityRef(table.getId(), Relationship.REPLACED_BY, TABLE, false)
+            : table.getReplacedBy());
     if (fields.contains(CUSTOM_METRICS)) {
       metadataLoader.loadMetrics(List.of(table), fields.contains(COLUMN_FIELD));
     }
@@ -300,6 +306,18 @@ public class TableRepository extends EntityRepository<Table> {
     }
   }
 
+  private void fetchAndSetReplacedBy(List<Table> tables, Fields fields) {
+    if (!fields.contains(REPLACED_BY_FIELD) || tables == null || tables.isEmpty()) {
+      return;
+    }
+    Map<UUID, List<EntityReference>> replacements =
+        batchFetchFromIdsManyToOne(tables, Relationship.REPLACED_BY, TABLE);
+    for (Table table : tables) {
+      table.setReplacedBy(
+          replacements.getOrDefault(table.getId(), List.of()).stream().findFirst().orElse(null));
+    }
+  }
+
   private void fetchAndSetColumnTags(List<Table> tables, Fields fields) {
     if (fields.contains(COLUMN_FIELD)) {
       bulkPopulateEntityFieldTags(tables, Table::getColumns);
@@ -326,6 +344,7 @@ public class TableRepository extends EntityRepository<Table> {
     table.setTableProfilerConfig(
         fields.contains(TABLE_PROFILER_CONFIG) ? table.getTableProfilerConfig() : null);
     table.setTestSuite(fields.contains("testSuite") ? table.getTestSuite() : null);
+    table.setReplacedBy(fields.contains(REPLACED_BY_FIELD) ? table.getReplacedBy() : null);
   }
 
   @Override
@@ -1509,6 +1528,8 @@ public class TableRepository extends EntityRepository<Table> {
       }
     }
 
+    table.setReplacedBy(validatedReplacement(table));
+
     // For create operations (update=false), validate constraints immediately.
     // For update operations (PATCH/PUT), constraint validation happens in updateTableConstraints()
     // where we have access to both original and updated entities to properly detect removed
@@ -1626,7 +1647,7 @@ public class TableRepository extends EntityRepository<Table> {
 
   @Override
   protected List<String> getFieldsStrippedFromStorageJson() {
-    return List.of("service");
+    return List.of("service", REPLACED_BY_FIELD);
   }
 
   @Override
@@ -1672,6 +1693,11 @@ public class TableRepository extends EntityRepository<Table> {
     List<UUID> ids = entities.stream().map(Table::getId).toList();
     deleteToMany(ids, Entity.TABLE, Relationship.CONTAINS, Entity.DATABASE_SCHEMA);
     deleteFromMany(ids, Entity.TABLE, Relationship.RELATED_TO, Entity.TABLE);
+    List<UUID> withReplacement =
+        entities.stream().filter(t -> t.getReplacedBy() != null).map(Table::getId).toList();
+    if (!withReplacement.isEmpty()) {
+      deleteFromMany(withReplacement, Entity.TABLE, Relationship.REPLACED_BY, Entity.TABLE);
+    }
 
     List<String> columnFqns = new ArrayList<>();
     for (Table table : entities) {
@@ -1705,6 +1731,35 @@ public class TableRepository extends EntityRepository<Table> {
         DATABASE_SCHEMA,
         TABLE,
         Relationship.CONTAINS);
+    if (table.getReplacedBy() != null) {
+      addRelationship(
+          table.getId(), table.getReplacedBy().getId(), TABLE, TABLE, Relationship.REPLACED_BY);
+    }
+  }
+
+  /**
+   * The replacement as a live table reference, or null when none is set. The target must be an
+   * existing, non-deleted table other than this one.
+   */
+  private EntityReference validatedReplacement(Table table) {
+    EntityReference replacement = table.getReplacedBy();
+    if (replacement == null) {
+      return null;
+    }
+    if (replacement.getType() != null && !TABLE.equals(replacement.getType())) {
+      throw new IllegalArgumentException(
+          "replacedBy must reference a table, not a " + replacement.getType());
+    }
+    EntityReference resolved =
+        replacement.getId() != null
+            ? getEntityReferenceById(TABLE, replacement.getId(), NON_DELETED)
+            : Entity.getEntityReferenceByName(
+                TABLE, replacement.getFullyQualifiedName(), NON_DELETED);
+    if (resolved.getId().equals(table.getId())
+        || resolved.getFullyQualifiedName().equals(table.getFullyQualifiedName())) {
+      throw new IllegalArgumentException("A table cannot be replaced by itself");
+    }
+    return resolved;
   }
 
   @Override
@@ -1727,6 +1782,17 @@ public class TableRepository extends EntityRepository<Table> {
     // path (recursive CSV import, bulk create) only restored CONTAINS, so a table's foreign-key
     // relationship disappeared even though its tableConstraints JSON was preserved.
     relationships.addAll(buildConstraintRelationships(entities));
+    entities.stream()
+        .filter(table -> table.getReplacedBy() != null)
+        .forEach(
+            table ->
+                relationships.add(
+                    newRelationship(
+                        table.getId(),
+                        table.getReplacedBy().getId(),
+                        TABLE,
+                        TABLE,
+                        Relationship.REPLACED_BY)));
     bulkInsertRelationships(relationships);
   }
 
@@ -2377,6 +2443,21 @@ public class TableRepository extends EntityRepository<Table> {
                 COLUMN_FIELD, origTable.getColumns(), updated.getColumns(), EntityUtil.columnMatch);
             updateProcessedLineage(origTable, updatedTable);
           });
+      if (operation.isPut() && updatedTable.getReplacedBy() == null) {
+        updatedTable.withReplacedBy(origTable.getReplacedBy());
+      }
+      compareAndUpdate(
+          REPLACED_BY_FIELD,
+          () ->
+              updateToRelationship(
+                  REPLACED_BY_FIELD,
+                  TABLE,
+                  origTable.getId(),
+                  Relationship.REPLACED_BY,
+                  TABLE,
+                  origTable.getReplacedBy(),
+                  updatedTable.getReplacedBy(),
+                  false));
       compareAndUpdate(
           "tableType",
           () -> recordChange("tableType", origTable.getTableType(), updatedTable.getTableType()));

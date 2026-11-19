@@ -257,6 +257,50 @@ class AgentHarnessCompileIT extends McpTestBase {
   }
 
   @Test
+  void aTermWhoseOnlyTaggedTableIsDeprecatedNamesItsReplacement() throws Exception {
+    final String termFqn = createGlossaryTerm(uniqueName("Churn").replace("_", ""));
+    final Table old = createServiceDatabaseSchemaTable("harness_use_retired");
+    final Table replacement = createServiceDatabaseSchemaTable("harness_use_successor");
+    tagWithTerm(old, termFqn);
+    patch(
+        "tables/" + old.getId(),
+        "[{\"op\":\"add\",\"path\":\"/entityStatus\",\"value\":\"Deprecated\"},"
+            + "{\"op\":\"add\",\"path\":\"/replacedBy\",\"value\":{\"id\":\""
+            + replacement.getId()
+            + "\",\"type\":\"table\"}}]");
+    final Caller caller =
+        callerWithHarness(
+            "compile_replacement_uses",
+            spec -> {
+              spec.getContext()
+                  .withRules(
+                      List.of(
+                          new ContextRule()
+                              .withName("terms")
+                              .withEntityType(Entity.GLOSSARY_TERM)
+                              .withQueryFilter(
+                                  "{\"query\":{\"term\":{\"fullyQualifiedName\":\""
+                                      + termFqn
+                                      + "\"}}}")
+                              .withSections(Set.of())
+                              .withMaxAssets(1)
+                              .withEnabled(true)
+                              .withAlwaysInContext(true)
+                              .withFilteredInSearch(false)));
+              return spec;
+            });
+
+    await("search indexes the deprecated table and its replacement")
+        .atMost(Duration.ofSeconds(60))
+        .pollInterval(Duration.ofSeconds(2))
+        .untilAsserted(
+            () ->
+                assertThat(compile(caller.token(), CompileEvent.SESSION_START).getText())
+                    .contains("Use: `" + replacement.getFullyQualifiedName() + "` (table)")
+                    .doesNotContain(old.getFullyQualifiedName()));
+  }
+
+  @Test
   void aMetricNamesTheVisibleNonDeprecatedAssetsItIsComputedOn() throws Exception {
     final Table live = createServiceDatabaseSchemaTable("harness_metric_live");
     final Table retired = createServiceDatabaseSchemaTable("harness_metric_old");
@@ -371,6 +415,37 @@ class AgentHarnessCompileIT extends McpTestBase {
         .isEqualTo("deny");
     assertThat(denied.path("hookSpecificOutput").path("permissionDecisionReason").asText())
         .isEqualTo("table " + table.getFullyQualifiedName() + " is deprecated.");
+  }
+
+  @Test
+  void aDeprecatedTableWithAReplacementNamesItInTheDenial() throws Exception {
+    final Table old = createServiceDatabaseSchemaTable("harness_replaced_old");
+    final Table replacement = createServiceDatabaseSchemaTable("harness_replaced_new");
+    final Caller caller = callerWithHarness("hook_replaced", spec -> spec);
+    patch(
+        "tables/" + old.getId(),
+        "[{\"op\":\"add\",\"path\":\"/entityStatus\",\"value\":\"Deprecated\"},"
+            + "{\"op\":\"add\",\"path\":\"/replacedBy\",\"value\":{\"id\":\""
+            + replacement.getId()
+            + "\",\"type\":\"table\"}}]");
+
+    final JsonNode denied =
+        hook(
+            caller.token(),
+            Map.of(
+                "hook_event_name", "PreToolUse",
+                "tool_name", "mcp__warehouse__run_query",
+                "tool_input",
+                    JsonUtils.pojoToJson(
+                        Map.of("sql", "select * from " + old.getFullyQualifiedName()))));
+
+    assertThat(denied.path("hookSpecificOutput").path("permissionDecisionReason").asText())
+        .isEqualTo(
+            "table "
+                + old.getFullyQualifiedName()
+                + " is deprecated. Use "
+                + replacement.getFullyQualifiedName()
+                + " instead.");
   }
 
   @Test

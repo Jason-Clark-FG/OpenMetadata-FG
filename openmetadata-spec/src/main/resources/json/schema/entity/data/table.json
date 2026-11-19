@@ -1325,6 +1325,10 @@
       "description": "Reference to the data contract for this entity.",
       "$ref": "../../type/entityReference.json"
     },
+    "replacedBy": {
+      "description": "The table that replaces this one. Meant for a deprecated table, so a reader knows where to go instead; it can be set before the table is deprecated.",
+      "$ref": "../../type/entityReference.json"
+    },
     "fileFormat": {
       "description": "File format in case of file/datalake tables.",
       "$ref": "#/definitions/fileFormat"

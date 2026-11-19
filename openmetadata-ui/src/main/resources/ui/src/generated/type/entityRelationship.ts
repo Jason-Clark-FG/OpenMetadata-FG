@@ -85,6 +85,7 @@ export enum RelationshipType {
     ReactedTo = "reactedTo",
     RelatedTo = "relatedTo",
     RelatesTo = "relatesTo",
+    ReplacedBy = "replacedBy",
     RepliedTo = "repliedTo",
     Reviews = "reviews",
     TestedBy = "testedBy",

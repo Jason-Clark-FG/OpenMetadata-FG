@@ -30,8 +30,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.entity.data.Metric;
+import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.type.Include;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
@@ -55,6 +58,7 @@ import org.openmetadata.service.security.policyevaluator.SubjectContext;
 final class KnowledgeAssetLookup {
   static final int MAX_ITEMS = 20;
   private static final int MAX_ASSETS_PER_METRIC = 10;
+  private static final int MAX_REPLACEMENT_LOOKUPS = 10;
   private static final String TERMS = "knowledge_keys";
   private static final String HITS = "knowledge_assets";
   private static final String TAGS_FQN = "tags.tagFQN";
@@ -65,6 +69,12 @@ final class KnowledgeAssetLookup {
       List.of(Entity.GLOSSARY_TERM, Entity.TABLE_COLUMN, Entity.DATA_PRODUCT);
   private static final List<String> SOURCE_FIELDS =
       List.of("fullyQualifiedName", "entityType", "certification", "entityStatus");
+
+  private enum Group {
+    CERTIFIED,
+    OTHER,
+    DEPRECATED_TABLE
+  }
 
   private final SearchRepository searchRepository;
   private final SubjectContext caller;
@@ -96,7 +106,74 @@ final class KnowledgeAssetLookup {
             uses.put(
                 term,
                 AssetUse.choose(byTag.getOrDefault(lower(term.fullyQualifiedName()), List.of()))));
+    useReplacements(uses);
     return uses;
+  }
+
+  /**
+   * A term whose only tagged tables are deprecated is answered by their replacements, when the
+   * catalog records them and the caller can search them. Bounded to {@link
+   * #MAX_REPLACEMENT_LOOKUPS} repository reads and three more aggregations, only when a term has
+   * no live asset.
+   */
+  private void useReplacements(final Map<AssetRef, List<AssetUse>> uses) {
+    final List<AssetRef> bare =
+        uses.entrySet().stream()
+            .filter(entry -> entry.getValue().isEmpty())
+            .map(Map.Entry::getKey)
+            .toList();
+    if (bare.isEmpty()) {
+      return;
+    }
+    final Map<String, List<AssetUse>> deprecated =
+        topAssets(
+            TAGS_FQN,
+            bare.stream().map(term -> lower(term.fullyQualifiedName())).toList(),
+            List.of(Group.DEPRECATED_TABLE));
+    final Map<String, String> replacementIds = replacementIds(deprecated);
+    final Map<String, List<AssetUse>> replacements =
+        replacementIds.isEmpty()
+            ? Map.of()
+            : topAssets(ID_KEYWORD, replacementIds.values().stream().distinct().toList());
+    bare.forEach(
+        term ->
+            uses.put(
+                term,
+                AssetUse.choose(
+                    deprecated.getOrDefault(lower(term.fullyQualifiedName()), List.of()).stream()
+                        .map(asset -> replacementIds.get(asset.fullyQualifiedName()))
+                        .filter(Objects::nonNull)
+                        .flatMap(id -> replacements.getOrDefault(id, List.of()).stream())
+                        .toList())));
+  }
+
+  private static Map<String, String> replacementIds(final Map<String, List<AssetUse>> deprecated) {
+    final Map<String, String> ids = new HashMap<>();
+    deprecated.values().stream()
+        .flatMap(List::stream)
+        .map(AssetUse::fullyQualifiedName)
+        .filter(Objects::nonNull)
+        .distinct()
+        .limit(MAX_REPLACEMENT_LOOKUPS)
+        .forEach(fqn -> replacementId(fqn).ifPresent(id -> ids.put(fqn, id)));
+    return ids;
+  }
+
+  private static Optional<String> replacementId(final String tableFqn) {
+    Optional<String> id = Optional.empty();
+    try {
+      final Table table =
+          (Table) Entity.getEntityByName(Entity.TABLE, tableFqn, "replacedBy", Include.NON_DELETED);
+      id =
+          Optional.ofNullable(table.getReplacedBy())
+              .filter(replacement -> !Boolean.TRUE.equals(replacement.getDeleted()))
+              .map(replacement -> lower(replacement.getId().toString()));
+    } catch (EntityNotFoundException exception) {
+      LOG.debug("Deprecated table {} no longer exists", tableFqn);
+    } catch (RuntimeException exception) {
+      LOG.warn("Could not read the replacement of {}: {}", tableFqn, exception.getMessage());
+    }
+    return id;
   }
 
   private Map<AssetRef, List<AssetUse>> metricUses(final List<AssetRef> metrics) {
@@ -146,11 +223,16 @@ final class KnowledgeAssetLookup {
    * groups are separate so a certified asset is not crowded out of a key's few top hits by others.
    */
   private Map<String, List<AssetUse>> topAssets(final String field, final List<String> keys) {
+    return topAssets(field, keys, List.of(Group.CERTIFIED, Group.OTHER));
+  }
+
+  private Map<String, List<AssetUse>> topAssets(
+      final String field, final List<String> keys, final List<Group> groups) {
     final Map<String, List<AssetUse>> byKey = new HashMap<>();
     if (!keys.isEmpty()) {
       try {
-        for (final boolean certified : new boolean[] {true, false}) {
-          aggregate(field, keys, certified)
+        for (final Group group : groups) {
+          aggregate(field, keys, group)
               .forEach(
                   (key, hits) -> byKey.computeIfAbsent(key, k -> new ArrayList<>()).addAll(hits));
         }
@@ -163,13 +245,13 @@ final class KnowledgeAssetLookup {
   }
 
   private Map<String, List<AssetUse>> aggregate(
-      final String field, final List<String> keys, final boolean certified) throws IOException {
+      final String field, final List<String> keys, final Group group) throws IOException {
     final SearchAggregationNode terms = SearchAggregation.terms(TERMS, field, keys.size(), keys);
     terms.addChild(
         SearchAggregation.topHits(HITS, AssetUse.MAX_PER_ITEM, ID_KEYWORD, "asc", SOURCE_FIELDS));
     final JsonObject response =
         searchRepository.aggregate(
-            filter(field, keys, certified),
+            filter(field, keys, group),
             GLOBAL_SEARCH_ALIAS,
             SearchAggregation.fromTree(terms),
             new SearchListFilter(),
@@ -177,22 +259,28 @@ final class KnowledgeAssetLookup {
     return buckets(response);
   }
 
-  private static String filter(
-      final String field, final List<String> keys, final boolean certified) {
+  private static String filter(final String field, final List<String> keys, final Group group) {
     final ObjectNode bool = JsonUtils.getObjectMapper().createObjectNode();
     final ObjectNode query = bool.putObject("query").putObject("bool");
     final ArrayNode must = query.putArray("must");
     must.addObject().putObject("terms").set(field, JsonUtils.valueToTree(keys));
     must.addObject().putObject("term").put("deleted", false);
     final ArrayNode mustNot = query.putArray("must_not");
-    mustNot.addObject().putObject("term").put("entityStatus", "Deprecated");
+    if (group == Group.DEPRECATED_TABLE) {
+      must.addObject().putObject("term").put("entityStatus", "Deprecated");
+      must.addObject().putObject("term").put("entityType", Entity.TABLE);
+    } else {
+      mustNot.addObject().putObject("term").put("entityStatus", "Deprecated");
+    }
     mustNot
         .addObject()
         .putObject("terms")
         .set("entityType", JsonUtils.valueToTree(NOT_DATA_ASSETS));
-    final ObjectNode exists = JsonUtils.getObjectMapper().createObjectNode();
-    exists.putObject("exists").put("field", CERTIFICATION);
-    (certified ? must : mustNot).add(exists);
+    if (group != Group.DEPRECATED_TABLE) {
+      final ObjectNode exists = JsonUtils.getObjectMapper().createObjectNode();
+      exists.putObject("exists").put("field", CERTIFICATION);
+      (group == Group.CERTIFIED ? must : mustNot).add(exists);
+    }
     return bool.toString();
   }
 

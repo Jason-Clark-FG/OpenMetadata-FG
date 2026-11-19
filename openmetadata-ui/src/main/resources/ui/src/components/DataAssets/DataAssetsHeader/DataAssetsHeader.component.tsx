@@ -114,6 +114,7 @@ import TitleBreadcrumbSkeleton from '../../common/Skeleton/BreadCrumb/TitleBread
 import RetentionPeriod from '../../Database/RetentionPeriod/RetentionPeriod.component';
 import ContractLatestResultBadge from '../../DataContract/ContractLatestResultBadge/ContractLatestResultBadge';
 import { EntityPageTitle } from '../../Entity/EntityPageTitle/EntityPageTitle';
+import { ReplacedBy } from '../ReplacedBy/ReplacedBy';
 import { EntityStatusBadge } from '../../Entity/EntityStatusBadge/EntityStatusBadge.component';
 import { LearningIcon } from '../../Learning/LearningIcon/LearningIcon.component';
 import IconColorModal from '../../Modals/IconColorModal/IconColorModal';
@@ -188,6 +189,7 @@ export const DataAssetsHeader = ({
   afterTriggerAction,
   isAutoPilotWorkflowStatusLoading = false,
   onCertificationUpdate,
+  onReplacedByUpdate,
   onStyleUpdate,
   disableRunAgentsButtonMessage,
   breadcrumbData,
@@ -563,6 +565,24 @@ export const DataAssetsHeader = ({
     editCertificationPermission,
     editStylePermission
   );
+
+  const replacedByLine = useMemo(() => {
+    const isDeprecatedTable =
+      entityType === EntityType.TABLE &&
+      'entityStatus' in dataAsset &&
+      dataAsset.entityStatus === EntityStatus.Deprecated;
+
+    return isDeprecatedTable && onReplacedByUpdate ? (
+      <ReplacedBy
+        canEdit={flags.canEditAll}
+        replacedBy={
+          'replacedBy' in dataAsset ? dataAsset.replacedBy : undefined
+        }
+        tableFqn={dataAsset.fullyQualifiedName ?? ''}
+        onUpdate={onReplacedByUpdate}
+      />
+    ) : null;
+  }, [entityType, dataAsset, onReplacedByUpdate, flags.canEditAll]);
 
   const currentStyle = useMemo<Style | undefined>(
     () => ('style' in dataAsset ? dataAsset.style : undefined),
@@ -1199,6 +1219,7 @@ export const DataAssetsHeader = ({
               <>
                 {badge}
                 {!dataAsset.deleted && statusBadge}
+                {!dataAsset.deleted && replacedByLine}
                 {dqFailureAlert}
               </>
             }

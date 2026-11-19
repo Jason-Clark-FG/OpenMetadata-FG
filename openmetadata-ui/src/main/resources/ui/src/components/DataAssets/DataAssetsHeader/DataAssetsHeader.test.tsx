@@ -483,6 +483,49 @@ describe('DataAssetsHeader component', () => {
     expect(screen.queryByText('Approved')).not.toBeInTheDocument();
   });
 
+  it('names the replacement only while a table is deprecated', () => {
+    const table = {
+      id: 'table-id',
+      name: 'orders',
+      fullyQualifiedName: 'svc.db.sales.orders',
+      entityStatus: 'Deprecated',
+      replacedBy: {
+        id: 'new-id',
+        type: 'table',
+        fullyQualifiedName: 'svc.db.sales.orders_v2',
+      },
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <DataAssetsHeader
+          {...mockProps}
+          dataAsset={table as unknown as Container}
+          entityType={EntityType.TABLE}
+          onReplacedByUpdate={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('replaced-by-link')).toHaveTextContent(
+      'svc.db.sales.orders_v2'
+    );
+
+    rerender(
+      <MemoryRouter>
+        <DataAssetsHeader
+          {...mockProps}
+          dataAsset={
+            { ...table, entityStatus: 'Approved' } as unknown as Container
+          }
+          entityType={EntityType.TABLE}
+          onReplacedByUpdate={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByTestId('replaced-by')).not.toBeInTheDocument();
+  });
+
   it('should call getContainerAncestors API on Page load for container assets', () => {
     const mockGetContainerAncestors = getContainerAncestors as jest.Mock;
     render(<DataAssetsHeader {...mockProps} />);

@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.openmetadata.schema.EntityInterface;
+import org.openmetadata.schema.entity.data.Table;
 import org.openmetadata.schema.tests.TestCase;
 import org.openmetadata.schema.tests.type.TestCaseResolutionStatus;
 import org.openmetadata.schema.tests.type.TestCaseResolutionStatusTypes;
@@ -127,6 +128,16 @@ public final class LiveTrustReader {
     return Optional.ofNullable(json)
         .map(text -> JsonUtils.readValue(text, EntityProfile.class))
         .map(EntityProfile::getTimestamp);
+  }
+
+  /** The replacing table's name, when the entity is a table with a live replacement the caller may view. */
+  public Optional<String> replacement(final EntityInterface entity) {
+    return Optional.of(entity)
+        .filter(Table.class::isInstance)
+        .map(table -> ((Table) table).getReplacedBy())
+        .filter(replacement -> !Boolean.TRUE.equals(replacement.getDeleted()))
+        .map(EntityReference::getFullyQualifiedName)
+        .filter(fqn -> canView(Entity.TABLE, fqn));
   }
 
   public static boolean isDeprecated(final EntityInterface entity) {

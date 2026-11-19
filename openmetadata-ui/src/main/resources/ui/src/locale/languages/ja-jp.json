@@ -3215,6 +3215,7 @@
     "replace": "置換",
     "replace-entire-contract": "契約全体を置き換える",
     "replace-existing": "既存を置換",
+    "replaced-by": "置き換え先",
     "replica": "レプリカ",
     "replica-shards": "レプリカの破片",
     "replication-factor": "レプリケーション係数",

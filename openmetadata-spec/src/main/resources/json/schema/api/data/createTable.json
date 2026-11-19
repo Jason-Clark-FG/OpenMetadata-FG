@@ -110,6 +110,10 @@
         "$ref" : "../../type/basic.json#/definitions/fullyQualifiedEntityName"
       }
     },
+    "replacedBy": {
+      "description": "Fully qualified name of the table that replaces this one.",
+      "$ref": "../../type/basic.json#/definitions/fullyQualifiedEntityName"
+    },
     "fileFormat": {
       "description": "File format in case of file/datalake tables.",
       "$ref": "../../entity/data/table.json#/definitions/fileFormat"

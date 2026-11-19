@@ -165,6 +165,7 @@ export type DataAssetsHeaderProps = {
   afterTriggerAction?: VoidFunction;
   isAutoPilotWorkflowStatusLoading?: boolean;
   onCertificationUpdate?: (certificate?: Tag) => Promise<void>;
+  onReplacedByUpdate?: (replacedBy?: EntityReference) => Promise<void>;
   onStyleUpdate?: (style: Style | null) => Promise<void>;
   disableRunAgentsButtonMessage?: string;
   breadcrumbData?: TitleBreadcrumbProps['titleLinks'];
