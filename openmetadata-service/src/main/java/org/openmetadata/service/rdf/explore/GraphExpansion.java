@@ -149,11 +149,34 @@ public final class GraphExpansion {
             groups.stream().map(ExpansionGroup::relationship),
             groups.stream()
                 .flatMap(group -> group.listed().stream())
-                .flatMap(far -> far.status().keySet().stream()),
+                .flatMap(far -> statusNames(far.status())),
             pageCards.stream().flatMap(card -> PropertyDescriptions.namesOf(card).stream()))
         .flatMap(Function.identity())
         .distinct()
         .toList();
+  }
+
+  /** The status properties a short entry names, those of a pointed-to node included. */
+  private static Stream<String> statusNames(final Map<String, Object> status) {
+    return status.entrySet().stream()
+        .flatMap(
+            entry ->
+                Stream.concat(
+                    Stream.of(entry.getKey()),
+                    nestedMaps(entry.getValue())
+                        .flatMap(nested -> nested.keySet().stream())
+                        .map(Object::toString)
+                        .filter(key -> !"id".equals(key))));
+  }
+
+  private static Stream<Map<?, ?>> nestedMaps(final Object value) {
+    return switch (value) {
+      case Map<?, ?> map -> Stream.of(map);
+      case List<?> list -> list.stream()
+          .filter(Map.class::isInstance)
+          .map(item -> (Map<?, ?>) item);
+      default -> Stream.empty();
+    };
   }
 
   /**
@@ -231,6 +254,10 @@ public final class GraphExpansion {
             .sum();
   }
 
+  /**
+   * The short forms of {@code ids}, each status relationship shown as the status of the node it
+   * points to, from one read.
+   */
   private Map<String, FarNode> shortForms(final List<String> ids) {
     final List<String> queryable = ids.stream().filter(ExplorationQueries::isQueryable).toList();
     final Map<String, ShortForm> read = new HashMap<>();
@@ -339,18 +366,46 @@ public final class GraphExpansion {
   private static final class ShortForm {
     private final Map<String, String> fields = new HashMap<>();
     private final Set<String> types = new TreeSet<>();
-    private final Map<String, Object> status = new TreeMap<>();
+    private final Map<String, Set<String>> literals = new TreeMap<>();
+    private final Map<String, Map<String, Map<String, Set<String>>>> pointed = new TreeMap<>();
 
     void add(final QuerySolution row, final OntologyVocabulary vocabulary) {
       final String field = row.getLiteral(ExplorationQueries.FIELD).getString();
       final RDFNode value = row.get(ExplorationQueries.VALUE);
       switch (field) {
         case "type" -> types.add(value.asResource().getURI());
-        case "status" -> status.put(
+        case "status" -> addStatus(
             vocabulary.compact(SparqlRows.iri(row, ExplorationQueries.STATUS)),
-            value.isLiteral() ? value.asLiteral().getLexicalForm() : Boolean.TRUE);
-        default -> fields.putIfAbsent(
-            field, value.isLiteral() ? value.asLiteral().getLexicalForm() : value.toString());
+            value,
+            row,
+            vocabulary);
+        default -> fields.putIfAbsent(field, lexical(value));
+      }
+    }
+
+    private void addStatus(
+        final String property,
+        final RDFNode value,
+        final QuerySolution row,
+        final OntologyVocabulary vocabulary) {
+      if (value.isLiteral()) {
+        literals.computeIfAbsent(property, ignored -> new TreeSet<>()).add(lexical(value));
+        return;
+      }
+      final Map<String, Set<String>> node =
+          pointed
+              .computeIfAbsent(property, ignored -> new TreeMap<>())
+              .computeIfAbsent(value.toString(), ignored -> new TreeMap<>());
+      if (row.contains(ExplorationQueries.NESTED_STATUS)) {
+        final RDFNode nested = row.get(ExplorationQueries.NESTED_VALUE);
+        final String shown =
+            nested.isLiteral() || !row.contains(ExplorationQueries.NESTED_NAME)
+                ? lexical(nested)
+                : lexical(row.get(ExplorationQueries.NESTED_NAME));
+        node.computeIfAbsent(
+                vocabulary.compact(SparqlRows.iri(row, ExplorationQueries.NESTED_STATUS)),
+                ignored -> new TreeSet<>())
+            .add(shown);
       }
     }
 
@@ -365,7 +420,33 @@ public final class GraphExpansion {
       final String type =
           Optional.ofNullable(cards.entityType(id, types))
               .orElse(types.isEmpty() ? null : vocabulary.compact(types.iterator().next()));
+      final Map<String, Object> status = new TreeMap<>();
+      literals.forEach((property, values) -> status.put(property, single(List.copyOf(values))));
+      pointed.forEach(
+          (property, targets) ->
+              status.put(
+                  property,
+                  single(
+                      targets.entrySet().stream()
+                          .map(target -> nested(target.getKey(), target.getValue()))
+                          .toList())));
       return new FarNode(id, name, type, status);
+    }
+
+    private static Map<String, Object> nested(
+        final String iri, final Map<String, Set<String>> status) {
+      final Map<String, Object> node = new TreeMap<>();
+      node.put("id", iri);
+      status.forEach((property, values) -> node.put(property, single(List.copyOf(values))));
+      return node;
+    }
+
+    private static Object single(final List<?> values) {
+      return values.size() == 1 ? values.getFirst() : values;
+    }
+
+    private static String lexical(final RDFNode value) {
+      return value.isLiteral() ? value.asLiteral().getLexicalForm() : value.toString();
     }
   }
 }

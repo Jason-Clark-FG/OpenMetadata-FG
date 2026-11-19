@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's) · v18 2026-11-19 (a status relationship shows the status it points to)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -422,3 +422,15 @@ withheld by its client, as lowered sizes had cut listings in round 3. `maxChars`
 schema and the texts; every find, expand and query answer is fitted to 40,000 characters, never more
 than 80% of the MCP server's `maxResponseChars` (the operator setting in the MCP configuration),
 and a call that still sends `maxChars` is answered as if it had not.
+
+## Amendment 2026-11-19. A status relationship shows the status it points to
+
+In round 4 the strict score was lost in one repeated place: the model found the failing check,
+saw `om:hasOpenIncident: true` in the listing, and did not make the second call for the assignee
+and the severity (H1, H3, H4). A status property whose value is a node now shows, in a far node's
+short entry, that node's id and the values of the status properties its class is marked with, from
+the same read; a relationship there shows the name (`rdfs:label`) of the node it points to, and
+nothing further. `om:TestCaseIncident` is marked with `om:incidentSeverity` and
+`om:incidentAssignee` beside `om:incidentState`, so a card's `reachable` status counts on
+`om:hasOpenIncident` count those too. On the play server the listing of `orders`' 11 tests grows
+from 2,139 to 2,731 characters.

@@ -252,10 +252,16 @@ final class ExplorationQueries {
   }
 
   static final String FIELD = "field";
+  static final String VALUE_NAME = "valueName";
+  static final String NESTED_STATUS = "nestedStatus";
+  static final String NESTED_VALUE = "nestedValue";
+  static final String NESTED_NAME = "nestedName";
 
   /**
    * The short form of far nodes: one row per label, display name, qualified name, type, and value
-   * of a status property the ontology marks for the node's class ({@code ?status} bound).
+   * of a status property the ontology marks for the node's class ({@code ?status} bound). A value
+   * that is a node comes with its name and, one level down, the values of its own status
+   * properties ({@code ?nestedStatus}), a node there by its name.
    */
   static String farNodes(
       final Collection<String> nodes, final Map<String, List<String>> statusProperties) {
@@ -263,13 +269,18 @@ final class ExplorationQueries {
         statusProperties.isEmpty()
             ? ""
             : """
-              UNION { VALUES (?class ?status) { %s }
-                      ?other a ?class ; ?status ?value . BIND("status" AS ?field) }
+              UNION { VALUES (?class ?status) { %1$s }
+                      ?other a ?class ; ?status ?value . BIND("status" AS ?field)
+                      OPTIONAL { ?value rdfs:label ?valueName }
+                      OPTIONAL { VALUES (?valueClass ?nestedStatus) { %1$s }
+                                 ?value a ?valueClass ; ?nestedStatus ?nestedValue .
+                                 OPTIONAL { ?nestedValue rdfs:label ?nestedName } } }
               """
                 .formatted(statusPairs(statusProperties));
     return PREFIXES
         + """
-        SELECT ?other ?field ?value ?status WHERE {
+        SELECT ?other ?field ?value ?status ?valueName ?nestedStatus ?nestedValue ?nestedName
+        WHERE {
           VALUES ?other { %s }
           { ?other rdfs:label ?value . BIND("label" AS ?field) }
           UNION { ?other skos:prefLabel ?value . BIND("display" AS ?field) }

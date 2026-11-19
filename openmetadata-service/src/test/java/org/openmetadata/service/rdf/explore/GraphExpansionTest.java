@@ -271,7 +271,11 @@ class GraphExpansionTest {
                 E + "testCase/t00",
                 "orders_test_00",
                 "testCase",
-                Map.of("om:latestResultStatus", "Failed", "om:hasOpenIncident", true)));
+                Map.of(
+                    "om:latestResultStatus",
+                    "Failed",
+                    "om:hasOpenIncident",
+                    Map.of("id", E + "incident/i00"))));
     assertThat(tests.listed())
         .filteredOn(far -> "Failed".equals(far.status().get("om:latestResultStatus")))
         .hasSize(4);
@@ -383,5 +387,49 @@ class GraphExpansionTest {
                   .contains(group.listed().size() + " of 300 are listed")
                   .contains("OFFSET " + group.listed().size());
             });
+  }
+
+  /**
+   * In round 4 the model saw an open incident in the listing and did not make the second call for
+   * its assignee and severity: a status relationship now shows the far node's own status, one level
+   * deep, with a relationship there shown by the name of the node it points to.
+   */
+  @Test
+  void aStatusRelationshipShowsTheStatusOfTheNodeItPointsTo() {
+    final InMemoryGraph graph =
+        InMemoryGraph.ofTurtle(
+            """
+            <%1$stestCase/fresh> a om:TestCase ; rdfs:label "orders_fresh" ;
+                om:testsEntity <%2$s> ; om:latestResultStatus "Failed" ;
+                om:hasOpenIncident <%1$sincident/1> .
+            <%1$sincident/1> a om:TestCaseIncident ; om:incidentState "Assigned" ;
+                om:incidentSeverity "Severity2" ; om:incidentAssignee <%1$suser/aisha> .
+            <%1$suser/aisha> a om:User ; rdfs:label "aisha_khan" ; skos:prefLabel "Aisha Khan" ;
+                om:hasOpenIncident <%1$sincident/2> .
+            """
+                .formatted(E, ORDERS));
+
+    final ExpandPage page =
+        new GraphExpansion(graph, NodeCardReaderTest.reader(graph), OntologyVocabulary.canonical())
+            .expand(
+                new ExpandRequest(
+                    List.of(ORDERS),
+                    List.of(OM + "testsEntity"),
+                    Set.of(Direction.INCOMING),
+                    20,
+                    0,
+                    UNBOUNDED));
+
+    assertThat(page.expansions().getFirst().listed().getFirst().status())
+        .containsExactly(
+            Map.entry(
+                "om:hasOpenIncident",
+                Map.of(
+                    "id", E + "incident/1",
+                    "om:incidentAssignee", "aisha_khan",
+                    "om:incidentSeverity", "Severity2",
+                    "om:incidentState", "Assigned")),
+            Map.entry("om:latestResultStatus", "Failed"));
+    assertThat(page.properties()).containsKeys("om:incidentAssignee", "om:incidentSeverity");
   }
 }

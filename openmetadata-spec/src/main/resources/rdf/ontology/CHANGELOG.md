@@ -39,7 +39,8 @@ this repository.
   how a node of that class stands. It entails nothing; a knowledge_graph card counts the nodes on
   the other side of a relationship by it. Asserted as `om:TestCase om:statusProperty
   om:latestResultStatus`, `om:TestCase om:statusProperty om:hasOpenIncident` and
-  `om:TestCaseIncident om:statusProperty om:incidentState`. See
+  `om:TestCaseIncident om:statusProperty om:incidentState`, `om:incidentSeverity` and
+  `om:incidentAssignee`. See
   ADR:2026-11-17-one-knowledge-graph-tool-explores-through-node-cards.
 
 ### Changed — Column-level composite primary keys
