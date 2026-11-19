@@ -183,11 +183,11 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
     final RunContext run = new RunContext(call.runOrNew(), principalOf(securityContext));
     return switch (call.request()) {
       case KnowledgeGraphCall.Find find -> find(
-          authorizer, securityContext, repository, new Turn(run, budget(call)), find);
+          authorizer, securityContext, repository, new Turn(run, budget()), find);
       case KnowledgeGraphCall.Expand expand -> expand(
-          securityContext, repository, new Turn(run, budget(call)), expand);
+          securityContext, repository, new Turn(run, budget()), expand);
       case KnowledgeGraphCall.Query query -> query(
-          securityContext, repository, new Turn(run, budget(call)), query);
+          securityContext, repository, new Turn(run, budget()), query);
       case KnowledgeGraphCall.Trace ignored -> trace(securityContext, repository, run);
       case KnowledgeGraphCall.Cite cite -> cite(securityContext, repository, run, cite);
     };
@@ -274,16 +274,12 @@ public class KnowledgeGraphTool extends RdfMcpTool<KnowledgeGraphTool.Response> 
   }
 
   /**
-   * The characters a find, an expand or a query may fill: the caller's {@code maxChars} when it is
-   * larger than {@link #DEFAULT_RESPONSE_CHARS}, else the default, never more than the server's own
-   * budget, less the envelope's room. A smaller size only ever bought a fragment.
+   * The characters every find, expand and query answer may fill: {@link #DEFAULT_RESPONSE_CHARS},
+   * never more than the server's own budget (80% of the MCP server's {@code maxResponseChars}), less
+   * the envelope's room. A caller cannot change it.
    */
-  static long budget(final KnowledgeGraphCall call) {
-    final long requested =
-        call.maxChars() == null
-            ? DEFAULT_RESPONSE_CHARS
-            : Math.max(call.maxChars(), DEFAULT_RESPONSE_CHARS);
-    return Math.min(requested, ResponseBudget.defaultBudgetChars()) - ENVELOPE_RESERVE;
+  static long budget() {
+    return Math.min(DEFAULT_RESPONSE_CHARS, ResponseBudget.defaultBudgetChars()) - ENVELOPE_RESERVE;
   }
 
   private static ExpandRequest expandRequest(

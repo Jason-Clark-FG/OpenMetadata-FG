@@ -39,7 +39,6 @@ import org.apache.jena.vocabulary.RDF;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import org.openmetadata.mcp.util.ResponseBudget;
 import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.rdf.OntologyDocument;
@@ -231,26 +230,86 @@ class KnowledgeGraphToolTest {
     assertThat(found.rest()).isNull();
   }
 
+  private static final int ASKED_FOR_MORE = 80_000;
+
   /**
-   * In round 3 the model lowered maxChars to save its own context in 20 of 38 expands and then read
-   * 1 to 3 of 11 tests: a size below the default is read as the default.
+   * A model cannot know its client's limit: it lowered the size and read fragments (round 3), and
+   * raised it to 80,000 and lost an answer its client withheld (round 4). The size is the server's.
    */
   @Test
-  void aRequestedSizeBelowTheDefaultIsReadAsTheDefault() {
-    final long standard =
-        KnowledgeGraphTool.budget(
-            KnowledgeGraphCall.parse(Map.of("operation", "find", "question", "q")));
+  void aFindAQueryAndAnExpandSentWithMaxCharsAreFittedToTheDefault() throws IOException {
+    callersAreAdministrators(false);
+    final List<UUID> ids = IntStream.range(0, 10).mapToObj(index -> UUID.randomUUID()).toList();
+    final KnowledgeGraphTool wide = wideCatalog(ids);
+    final KnowledgeGraphTool tested = testedTable();
 
+    final List<KnowledgeGraphTool.Response> answers =
+        List.of(
+            wide.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "find",
+                    "question",
+                    "wide tables",
+                    "limit",
+                    10,
+                    "maxChars",
+                    ASKED_FOR_MORE)),
+            wide.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "query",
+                    "sparql",
+                    "SELECT ?s ?p ?o WHERE { ?s ?p ?o } ORDER BY ?s ?p ?o",
+                    "maxChars",
+                    ASKED_FOR_MORE)),
+            tested.execute(
+                GRANTED,
+                CALLER,
+                Map.of(
+                    "operation",
+                    "expand",
+                    "nodes",
+                    List.of(ORDERS),
+                    "relationships",
+                    List.of("om:testsEntity"),
+                    "direction",
+                    "incoming",
+                    "limit",
+                    50,
+                    "maxChars",
+                    ASKED_FOR_MORE)));
+
+    assertThat(answers)
+        .allSatisfy(
+            answer ->
+                assertThat((long) JsonUtils.pojoToJson(answer).length())
+                    .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS));
     assertThat(
-            KnowledgeGraphTool.budget(
-                KnowledgeGraphCall.parse(
-                    Map.of("operation", "find", "question", "q", "maxChars", 8_000))))
-        .isEqualTo(standard);
-    assertThat(
-            KnowledgeGraphTool.budget(
-                KnowledgeGraphCall.parse(
-                    Map.of("operation", "find", "question", "q", "maxChars", 60_000))))
-        .isGreaterThan(standard);
+            ((KnowledgeGraphTool.ExpandResponse) answers.get(2)).expansions().getFirst().listed())
+        .hasSize(30);
+  }
+
+  /** orders with 30 tests whose cards together are about 90,000 characters. */
+  private KnowledgeGraphTool testedTable() {
+    final StringBuilder turtle = new StringBuilder(GRAPH);
+    for (int index = 0; index < 30; index++) {
+      turtle.append(
+          "<%stestCase/t%d> a om:TestCase ; rdfs:label \"orders_test_%d\" ; om:testsEntity <%s> ; om:latestResultStatus \"Success\" ; <http://purl.org/dc/terms/description> \"%s\" .%n"
+              .formatted(
+                  E, index, index, ORDERS, "What this test checks, at length. ".repeat(80).trim()));
+    }
+    final RdfRepository repositoryOfTests = JenaBackedRepository.ofTurtle(turtle.toString());
+    return new KnowledgeGraphTool(
+        () -> repositoryOfTests,
+        () -> RdfProjectionState.READY,
+        (authorizer, caller, find) -> CatalogHits.of(List.of()),
+        () -> traces,
+        Clock.systemUTC());
   }
 
   @Test
@@ -613,55 +672,6 @@ class KnowledgeGraphToolTest {
         .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS);
     assertThat(found.moreMatched()).isEqualTo(10 - found.nodes().size());
     assertThat(found.nodes()).hasSizeGreaterThanOrEqualTo(8);
-  }
-
-  @Test
-  void aCallerThatCanTakeMoreAsksForItUpToTheServerLimit() throws IOException {
-    callersAreAdministrators(false);
-    final List<UUID> ids = IntStream.range(0, 10).mapToObj(index -> UUID.randomUUID()).toList();
-    final KnowledgeGraphTool tool = wideCatalog(ids);
-
-    final KnowledgeGraphTool.FindResponse small =
-        (KnowledgeGraphTool.FindResponse)
-            tool.execute(
-                GRANTED,
-                CALLER,
-                Map.of(
-                    "operation",
-                    "find",
-                    "question",
-                    "wide tables",
-                    "limit",
-                    10,
-                    "maxChars",
-                    12_000));
-    final KnowledgeGraphTool.FindResponse beyond =
-        (KnowledgeGraphTool.FindResponse)
-            tool.execute(
-                GRANTED,
-                CALLER,
-                Map.of(
-                    "operation",
-                    "find",
-                    "question",
-                    "wide tables",
-                    "limit",
-                    10,
-                    "maxChars",
-                    10_000_000));
-
-    final KnowledgeGraphTool.FindResponse standard =
-        (KnowledgeGraphTool.FindResponse)
-            tool.execute(
-                GRANTED,
-                CALLER,
-                Map.of("operation", "find", "question", "wide tables", "limit", 10));
-
-    assertThat(small.nodes()).hasSameSizeAs(standard.nodes());
-    assertThat((long) JsonUtils.pojoToJson(small).length())
-        .isLessThanOrEqualTo(KnowledgeGraphTool.DEFAULT_RESPONSE_CHARS);
-    assertThat((long) JsonUtils.pojoToJson(beyond).length())
-        .isLessThanOrEqualTo(ResponseBudget.defaultBudgetChars());
   }
 
   @Test

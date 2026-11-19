@@ -1,7 +1,7 @@
 # One knowledge-graph tool explores the graph through self-describing node cards
 
 - **Status:** Accepted
-- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out)
+- **Revisions:** v1 2026-11-17 (initial) · v2 2026-11-18 (find matches ontology terms by label) · v3 2026-11-18 (every stored value on the card, descriptions once per response) · v4 2026-11-18 (cite, term kinds, labels for unnamed nodes) · v5 2026-11-18 (the catalog half of find reads a question word by word) · v6 2026-11-18 (a server can offer knowledge_graph alone) · v7 2026-11-18 (with semantic search on, the catalog half is one hybrid search) · v8 2026-11-18 (answers fit the smallest client; cheaper cards) · v9 2026-11-18 (hybrid legs ranked over their whole scope; find covers the data asset types) · v10 2026-11-18 (a query serves the nodes it names) · v11 2026-11-18 (cards say how healthy and how trusted a node is) · v12 2026-11-18 (the query path does not mislead) · v13 2026-11-18 (find reflects trust and symptom questions) · v14 2026-11-18 (the description and instructions name the signals) · v15 2026-11-18 (trust is stated on the card, not in the rank) · v16 2026-11-19 (a listing is complete or says what it left out) · v17 2026-11-19 (the response size is the server's)
 - **Deciders:** Pere Miquel Brull
 - **Guard:** `KnowledgeGraphToolTest`, `KnowledgeGraphCallTest`, `NodeCardReaderTest`,
   `OntologyVocabularyTest`, `GraphExpansionTest`, `NodeCardValuesTest`, `RdfToolGatingTest`,
@@ -411,3 +411,14 @@ another dataset.
 - **A qualified name resolves exactly.** A dotted name in the question is read as the end of a
   fully qualified name; the assets it names, and the table of a named column, are looked up through
   the caller's own search and come first on every path.
+
+## Amendment 2026-11-19. The response size is the server's
+
+Round 4 (eight new questions, three runs per arm) showed the listings working: the tool arm was
+fully right in 22 of 24 runs, and none of its five false "there is none" statements came from a
+partial page. It also showed that the model cannot know its client's limit: told it could ask for
+more, it sent `maxChars` 60,000 or 80,000 on ten queries, and one answer of 55,921 characters was
+withheld by its client, as lowered sizes had cut listings in round 3. `maxChars` is gone from the
+schema and the texts; every find, expand and query answer is fitted to 40,000 characters, never more
+than 80% of the MCP server's `maxResponseChars` (the operator setting in the MCP configuration),
+and a call that still sends `maxChars` is answered as if it had not.

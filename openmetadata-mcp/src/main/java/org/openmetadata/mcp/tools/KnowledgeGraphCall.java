@@ -32,8 +32,11 @@ import org.openmetadata.service.rdf.explore.Operation;
  * The arguments of one {@code knowledge_graph} call, validated once. Every rejection names the
  * argument, the rule and an accepted value, so a model can repeat the call correctly.
  */
-/** {@code maxChars} is the largest response the caller asked for, or null for the default. */
-record KnowledgeGraphCall(UUID run, Request request, Long maxChars) {
+/**
+ * One knowledge_graph call: its run and what it asks. A {@code maxChars} argument is ignored: the
+ * response size is the server's, since a model cannot know its client's limit.
+ */
+record KnowledgeGraphCall(UUID run, Request request) {
 
   static final int DEFAULT_FIND_LIMIT = 5;
   static final int MAX_FIND_LIMIT = 10;
@@ -54,7 +57,6 @@ record KnowledgeGraphCall(UUID run, Request request, Long maxChars) {
   private static final String CURSOR = "cursor";
   private static final String SPARQL = "sparql";
   private static final String EDGES = "edges";
-  private static final String MAX_CHARS = "maxChars";
   private static final String EDGE_NODE = "node";
   private static final String EDGE_RELATIONSHIP = "relationship";
   private static final String EDGE_OTHER = "other";
@@ -99,10 +101,7 @@ record KnowledgeGraphCall(UUID run, Request request, Long maxChars) {
     final McpToolParameters parameters = McpToolParameters.from(values);
     final Operation operation = operation(parameters.optionalString(OPERATION));
     final UUID run = run(parameters.optionalString(RUN), operation);
-    return new KnowledgeGraphCall(
-        run,
-        request(operation, values, parameters),
-        maxChars(McpParams.getInt(values, MAX_CHARS, 0)));
+    return new KnowledgeGraphCall(run, request(operation, values, parameters));
   }
 
   /** The run this call belongs to: the one passed back, or a new one. */
@@ -273,15 +272,6 @@ record KnowledgeGraphCall(UUID run, Request request, Long maxChars) {
           "'cursor' must be the 'nextCursor' an earlier expand returned, passed back unchanged");
     }
     return decoded.map(PageCursor.Cursor::offset).orElse(0);
-  }
-
-  private static Long maxChars(final int requested) {
-    if (requested < 0) {
-      throw new IllegalArgumentException(
-          "'maxChars' must be a positive number of characters, e.g. 80000; got %d"
-              .formatted(requested));
-    }
-    return requested == 0 ? null : (long) requested;
   }
 
   private static int limit(final McpToolParameters parameters, final int fallback, final int max) {
