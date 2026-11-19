@@ -1,0 +1,76 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/lineageCard.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LineageCard",
+  "description": "The lineage of one asset as the caller may see it, two hops each way. It is the `structuredContent` of `get_entity_lineage`, and the data of the lineage card an MCP Apps host shows. The text content of the tool is the full graph.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.LineageCard",
+  "definitions": {
+    "node": {
+      "javaType": "org.openmetadata.schema.api.context.LineageCardNode",
+      "description": "One asset in the graph.",
+      "type": "object",
+      "properties": {
+        "entityType": { "type": "string" },
+        "name": { "type": "string" },
+        "displayName": { "type": "string" },
+        "fqn": { "type": "string" },
+        "url": { "description": "Absolute URL of its page in OpenMetadata.", "type": "string" },
+        "tier": { "description": "Tier tag, such as Tier1.", "type": "string" },
+        "certification": { "type": "string" },
+        "detail": { "description": "Where it is built, such as dbt, or its service type.", "type": "string" },
+        "hop": { "description": "Edges between it and the root.", "type": "integer", "minimum": 1 },
+        "hasFailingCheck": { "type": "boolean", "default": false },
+        "failingLabel": { "description": "What fails, such as Freshness failing.", "type": "string" }
+      },
+      "required": ["entityType", "name"],
+      "additionalProperties": false
+    },
+    "impactGroup": {
+      "javaType": "org.openmetadata.schema.api.context.LineageCardImpactGroup",
+      "type": "object",
+      "properties": {
+        "entityType": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["entityType", "count"],
+      "additionalProperties": false
+    },
+    "impact": {
+      "javaType": "org.openmetadata.schema.api.context.LineageCardImpact",
+      "description": "What depends on the asset and what feeding it is failing, counted over the graph the caller may view.",
+      "type": "object",
+      "properties": {
+        "downstream": { "type": "array", "items": { "$ref": "#/definitions/impactGroup" } },
+        "teams": { "description": "Distinct teams that own a downstream asset.", "type": "integer", "minimum": 0 },
+        "failingUpstream": { "description": "Names of upstream assets with a failing check.", "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "columnMapping": {
+      "javaType": "org.openmetadata.schema.api.context.LineageCardColumn",
+      "type": "object",
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" }
+      },
+      "required": ["from", "to"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "root": { "$ref": "#/definitions/node" },
+    "upstream": { "type": "array", "maxItems": 6, "items": { "$ref": "#/definitions/node" } },
+    "downstream": { "type": "array", "maxItems": 6, "items": { "$ref": "#/definitions/node" } },
+    "upstreamTotal": { "description": "Assets within two hops upstream, shown or not.", "type": "integer", "minimum": 0 },
+    "downstreamTotal": { "type": "integer", "minimum": 0 },
+    "upstreamHops": { "type": "integer", "minimum": 0 },
+    "downstreamHops": { "type": "integer", "minimum": 0 },
+    "hiddenNodes": { "description": "Assets left out because the caller may not view them.", "type": "integer", "minimum": 0 },
+    "impact": { "$ref": "#/definitions/impact" },
+    "columns": { "type": "array", "maxItems": 12, "items": { "$ref": "#/definitions/columnMapping" } },
+    "columnsTotal": { "type": "integer", "minimum": 0 }
+  },
+  "required": ["root"],
+  "additionalProperties": false
+}

@@ -365,6 +365,32 @@ class DefaultToolContextTest {
   }
 
   @Test
+  void aCardResultKeepsTheTextAndSendsTheCardAsStructuredContent() {
+    Map<String, Object> text = Map.of("format", "markdown", "content", "# Revenue");
+    Map<String, Object> card = Map.of("kind", "metric", "name", "Revenue");
+
+    McpSchema.CallToolResult built =
+        DefaultToolContext.buildSuccessResult(new CardResult(text, card), "get_concept_context");
+
+    assertThat(built.isError()).isFalse();
+    assertThat(textOf(built))
+        .contains("\"content\":\"# Revenue\"")
+        .doesNotContain("Revenue\",\"kind");
+    assertThat(textOf(built)).doesNotContain("metric");
+    assertThat(built.structuredContent()).isEqualTo(card);
+  }
+
+  @Test
+  void aCardResultWithoutACardFallsBackToTheText() {
+    Map<String, Object> text = Map.of("fqn", "svc.db.orders");
+
+    McpSchema.CallToolResult built =
+        DefaultToolContext.buildSuccessResult(new CardResult(text, null), "get_entity_lineage");
+
+    assertThat(built.structuredContent()).isEqualTo(text);
+  }
+
+  @Test
   void buildSuccessResultOversizedStaysUnflaggedAndStructuredContentIsEnvelope() {
     Map<String, Object> result =
         Map.of("blob", "z".repeat(McpResponseTrim.MAX_RESPONSE_CHARS + 1), "tool", "ignored");

@@ -23,14 +23,16 @@
     return node.displayName || node.name || node.fqn || "";
   }
 
+  function muted(element) { element.style.color = "var(--card-fg3)"; return element; }
+
   function nodeCard(node, isRoot) {
     var kind = [kindLabel(node.entityType), tierLabel(node.tier)].filter(Boolean).join(" · ");
     var flagged = !isRoot && node.hasFailingCheck;
     var body = [
       h("span", "om-node-kind", kind),
-      h("span", "om-node-name" + (node.entityType === "table" ? " mono" : ""), shortName(node)),
+      h("span", "om-node-name" + (node.entityType === "table" ? " mono" : ""), isRoot ? node.name : shortName(node)),
       flagged ? h("span", "om-node-flag", node.failingLabel || "Check failing") : null,
-      isRoot && node.detail ? h("span", "om-node-kind", node.detail) : null
+      isRoot && node.detail ? muted(h("span", "om-node-kind", node.detail)) : null
     ];
     var className = "om-node" + (isRoot ? " root" : "") + (flagged ? " warn" : "");
     return isRoot ? h.apply(null, ["div", className].concat(body)) : OM.link.apply(null, [node.url, className].concat(body));
@@ -51,8 +53,9 @@
       parts.push(plural(group.count, kindLabel(group.entityType).toLowerCase().replace(/^ml model$/, "ML model")));
     });
     var failing = (impact.failingUpstream || []);
+    var freshness = (card.upstream || []).some(function (node) { return node.hasFailingCheck && /freshness/i.test(node.failingLabel || ""); });
     var lead = failing.length
-      ? failing.join(", ") + (failing.length === 1 ? " has" : " have") + " a failing check. "
+      ? failing.join(", ") + (failing.length === 1 ? " has" : " have") + " a failing " + (freshness ? "freshness test" : "check") + ". "
       : "";
     var effects = parts.length ? "Changing " + (card.root && card.root.name || "this asset") + " affects " + parts.join(" and ")
       + (impact.teams ? ", owned by " + plural(impact.teams, "team") : "") + "." : "";

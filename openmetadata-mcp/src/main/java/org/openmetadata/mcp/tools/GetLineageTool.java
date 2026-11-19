@@ -21,6 +21,7 @@ import org.openmetadata.mcp.util.McpResponseTrim;
 import org.openmetadata.mcp.util.PageCursor;
 import org.openmetadata.mcp.util.VectorPagingContract;
 import org.openmetadata.schema.EntityInterface;
+import org.openmetadata.schema.api.context.LineageCard;
 import org.openmetadata.schema.type.ColumnLineage;
 import org.openmetadata.schema.type.Edge;
 import org.openmetadata.schema.type.EntityLineage;
@@ -31,6 +32,9 @@ import org.openmetadata.schema.type.MetadataOperation;
 import org.openmetadata.schema.type.TempLineageTable;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.Entity;
+import org.openmetadata.service.aicontext.LineageCardBuilder;
+import org.openmetadata.service.aicontext.LiveLineageFacts;
+import org.openmetadata.service.aicontext.answer.EntityLinks;
 import org.openmetadata.service.jdbi3.LineageRepository;
 import org.openmetadata.service.limits.Limits;
 import org.openmetadata.service.lineage.LineagePermissionFilter;
@@ -99,7 +103,18 @@ public class GetLineageTool implements McpTool {
   record EdgeOptions(boolean includeColumnLineage, boolean includeSql) {}
 
   @Override
+  @SuppressWarnings("unchecked")
   public Map<String, Object> execute(
+      Authorizer authorizer, CatalogSecurityContext securityContext, Map<String, Object> params)
+      throws IOException {
+    return (Map<String, Object>) executeWithCard(authorizer, securityContext, params).payload();
+  }
+
+  /**
+   * The text is the graph the caller may view, as it always was. The card is cut from that same
+   * filtered graph, so it cannot name an asset the text leaves out.
+   */
+  CardResult executeWithCard(
       Authorizer authorizer, CatalogSecurityContext securityContext, Map<String, Object> params)
       throws IOException {
     validateParams(params);
@@ -160,7 +175,28 @@ public class GetLineageTool implements McpTool {
     if (column != null) {
       annotateUnmappedEdges(result, unmappedEdges);
     }
-    return annotateVisibility(result, filtered, pruned.hiddenNodes());
+    int hidden = filtered.hiddenNodes() + pruned.hiddenNodes();
+    Map<String, Object> payload = annotateVisibility(result, filtered, pruned.hiddenNodes());
+    return new CardResult(payload, card(authorizer, securityContext, filtered.lineage(), hidden));
+  }
+
+  private static LineageCard card(
+      Authorizer authorizer,
+      CatalogSecurityContext securityContext,
+      EntityLineage lineage,
+      int hiddenNodes) {
+    LineageCard card = null;
+    try {
+      if (lineage != null && lineage.getEntity() != null) {
+        card =
+            new LineageCardBuilder(
+                    EntityLinks.fromSettings(), new LiveLineageFacts(authorizer, securityContext))
+                .build(lineage, hiddenNodes);
+      }
+    } catch (RuntimeException exception) {
+      LOG.warn("No lineage card: {}", exception.getMessage());
+    }
+    return card;
   }
 
   /**

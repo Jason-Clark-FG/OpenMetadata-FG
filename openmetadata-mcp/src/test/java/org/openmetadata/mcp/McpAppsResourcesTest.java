@@ -29,15 +29,17 @@ import org.openmetadata.schema.api.configuration.MCPConfiguration;
 class McpAppsResourcesTest {
   private static final String CITATION_URI = "ui://openmetadata/answer-citation-v1.html";
   private static final String ASSET_URI = "ui://openmetadata/entity-v1.html";
+  private static final String LINEAGE_URI = "ui://openmetadata/lineage-v1.html";
+  private static final String ONTOLOGY_URI = "ui://openmetadata/ontology-v1.html";
   private static final String MIME_TYPE = "text/html;profile=mcp-app";
 
   @Test
-  void bothCardsAreListedWithTheMcpAppsMimeType() {
+  void everyCardIsListedWithTheMcpAppsMimeType() {
     final List<McpSchema.Resource> resources = serverWithResources().listResources();
 
     assertThat(resources)
         .extracting(McpSchema.Resource::uri)
-        .containsExactlyInAnyOrder(CITATION_URI, ASSET_URI);
+        .containsExactlyInAnyOrder(CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI);
     assertThat(resources)
         .allSatisfy(
             resource -> {
@@ -47,7 +49,7 @@ class McpAppsResourcesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {CITATION_URI, ASSET_URI})
+  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI})
   void aCardIsReadAsOneSelfContainedHtmlFile(final String uri) {
     final McpSchema.TextResourceContents card = read(uri);
 
@@ -65,7 +67,7 @@ class McpAppsResourcesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {CITATION_URI, ASSET_URI})
+  @ValueSource(strings = {CITATION_URI, ASSET_URI, LINEAGE_URI, ONTOLOGY_URI})
   void aCardWritesCatalogTextAsTextAndLoadsNothing(final String uri) {
     final String card = read(uri).text();
 
@@ -93,7 +95,7 @@ class McpAppsResourcesTest {
   }
 
   @Test
-  void finishAnswerAndEntityDetailsPointAtTheirCards() {
+  void eachCardToolPointsAtItsCard() {
     final List<McpSchema.Tool> tools = new McpServer().getTools();
 
     final Map<String, Object> withView = new java.util.TreeMap<>();
@@ -101,11 +103,34 @@ class McpAppsResourcesTest {
         .filter(tool -> tool.meta() != null && tool.meta().containsKey("ui"))
         .forEach(tool -> withView.put(tool.name(), tool.meta()));
     assertThat(withView)
-        .containsOnlyKeys("finish_answer", "get_entity_details")
+        .containsOnlyKeys(
+            "finish_answer",
+            "get_entity_details",
+            "find_context",
+            "get_concept_context",
+            "get_concept_relations",
+            "get_entity_lineage")
         .containsEntry("finish_answer", Map.of("ui", Map.of("resourceUri", CITATION_URI)))
-        .containsEntry("get_entity_details", Map.of("ui", Map.of("resourceUri", ASSET_URI)));
+        .containsEntry("get_entity_details", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
+        .containsEntry("find_context", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
+        .containsEntry("get_concept_context", Map.of("ui", Map.of("resourceUri", ASSET_URI)))
+        .containsEntry("get_concept_relations", Map.of("ui", Map.of("resourceUri", ONTOLOGY_URI)))
+        .containsEntry("get_entity_lineage", Map.of("ui", Map.of("resourceUri", LINEAGE_URI)));
     assertThat(McpAppsResources.ANSWER_CITATION_URI).isEqualTo(CITATION_URI);
     assertThat(McpAppsResources.ENTITY_URI).isEqualTo(ASSET_URI);
+    assertThat(McpAppsResources.LINEAGE_URI).isEqualTo(LINEAGE_URI);
+    assertThat(McpAppsResources.ONTOLOGY_URI).isEqualTo(ONTOLOGY_URI);
+  }
+
+  @Test
+  void theLineageAndOntologyCardsAreTheirOwnPages() {
+    final String lineage = read(LINEAGE_URI).text();
+    final String ontology = read(ONTOLOGY_URI).text();
+
+    assertThat(lineage)
+        .contains("Upstream", "This asset", "Downstream", "Column lineage")
+        .doesNotContain("Join path");
+    assertThat(ontology).contains("Join path", "om-relation").doesNotContain("Column lineage");
   }
 
   private static McpSchema.TextResourceContents read(final String uri) {

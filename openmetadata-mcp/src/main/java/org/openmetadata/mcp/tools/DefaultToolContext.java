@@ -104,7 +104,10 @@ public class DefaultToolContext {
           result = new GetUserContextTool().execute(authorizer, securityContext, params);
           break;
         case "find_context":
-          result = new FindContextTool().execute(authorizer, securityContext, params);
+          result = new FindContextTool().executeWithCard(authorizer, securityContext, params);
+          break;
+        case "get_concept_relations":
+          result = new GetConceptRelationsTool().execute(authorizer, securityContext, params);
           break;
         case "get_concept_context":
           result = new GetConceptContextTool().execute(authorizer, securityContext, params);
@@ -123,8 +126,7 @@ public class DefaultToolContext {
           result = tool.execute(authorizer, securityContext, params);
           break;
         case "get_entity_lineage":
-          tool = new GetLineageTool();
-          result = tool.execute(authorizer, securityContext, params);
+          result = new GetLineageTool().executeWithCard(authorizer, securityContext, params);
           break;
         case "create_lineage":
           result = new LineageTool().execute(authorizer, securityContext, params);
@@ -210,11 +212,16 @@ public class DefaultToolContext {
    * ({@code hasMore:true}) are successful partial responses, so they stay unflagged.
    */
   static McpSchema.CallToolResult buildSuccessResult(Object result, String toolName) {
-    boolean isError = logicalError(result);
-    BudgetedResult budgeted = applyBudget(result, toolName);
+    CardResult withCard = result instanceof CardResult card ? card : null;
+    Object text = withCard == null ? result : withCard.payload();
+    boolean isError = logicalError(text);
+    BudgetedResult budgeted = applyBudget(text, toolName);
     return McpSchema.CallToolResult.builder()
         .content(List.of(McpSchema.TextContent.builder(budgeted.json()).build()))
-        .structuredContent(budgeted.payload())
+        .structuredContent(
+            withCard == null || withCard.card() == null
+                ? budgeted.payload()
+                : JsonUtils.getMap(withCard.card()))
         .isError(isError)
         .build();
   }

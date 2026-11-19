@@ -1,0 +1,30 @@
+{
+  "$id": "https://open-metadata.org/schema/api/context/conceptHits.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConceptHits",
+  "description": "The knowledge `find_context` found for a question, as the `structuredContent` of the tool when the top hit is not one clear concept. When it is, the structured content is the ConceptCard of that concept instead.",
+  "type": "object",
+  "javaType": "org.openmetadata.schema.api.context.ConceptHits",
+  "definitions": {
+    "hit": {
+      "javaType": "org.openmetadata.schema.api.context.ConceptHit",
+      "type": "object",
+      "properties": {
+        "entityType": { "description": "glossaryTerm, metric or page.", "type": "string" },
+        "name": { "type": "string" },
+        "displayName": { "type": "string" },
+        "fqn": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "required": ["entityType", "name", "fqn"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "query": { "type": "string" },
+    "hits": { "type": "array", "maxItems": 50, "items": { "$ref": "#/definitions/hit" } },
+    "candidateAssets": { "description": "Fully qualified names of the data assets the hits route to.", "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["hits"],
+  "additionalProperties": false
+}
