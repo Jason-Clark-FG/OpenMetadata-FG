@@ -35,8 +35,11 @@ import org.openmetadata.schema.api.rdf.RdfProjectionState;
 import org.openmetadata.schema.entity.teams.User;
 import org.openmetadata.schema.utils.JsonUtils;
 import org.openmetadata.service.rdf.RdfRepository;
+import org.openmetadata.service.rdf.explore.LearnedCandidate;
+import org.openmetadata.service.rdf.explore.LearnedKind;
 import org.openmetadata.service.rdf.explore.MemoryEntry;
 import org.openmetadata.service.rdf.explore.MemoryNote;
+import org.openmetadata.service.rdf.explore.MemoryWriter;
 import org.openmetadata.service.rdf.explore.NodeCard;
 import org.openmetadata.service.rdf.explore.RunStep;
 import org.openmetadata.service.rdf.explore.RunTraceStore;
@@ -93,7 +96,15 @@ class KnowledgeGraphMemoriesTest {
     subjects.close();
   }
 
-  private static KnowledgeGraphTool tool(final String turtle) {
+  private final Traces traces = new Traces();
+  private final List<LearnedCandidate> written = new ArrayList<>();
+
+  private KnowledgeGraphTool tool(final String turtle) {
+    return tool(turtle, (authorizer, caller, baseUri) -> saving());
+  }
+
+  private KnowledgeGraphTool tool(
+      final String turtle, final KnowledgeGraphTool.MemoryWriters writers) {
     final RdfRepository repository = JenaBackedRepository.ofTurtle(turtle);
     return new KnowledgeGraphTool(
         () -> repository,
@@ -103,8 +114,102 @@ class KnowledgeGraphMemoriesTest {
                 List.of(
                     new SearchHit("table", "warehouse.shop.public.orders", ORDERS_ID),
                     new SearchHit("table", "warehouse.shop.public.customers", CUSTOMERS_ID))),
-        Traces::new,
-        Clock.systemUTC());
+        () -> traces,
+        Clock.systemUTC(),
+        writers);
+  }
+
+  private MemoryWriter saving() {
+    return (candidate, shown, run) -> {
+      written.add(candidate);
+      return new MemoryWriter.Written.Saved(
+          new MemoryEntry(
+              E + "contextMemory/saved",
+              candidate.title(),
+              candidate.answer(),
+              null,
+              "Approved",
+              null,
+              null));
+    };
+  }
+
+  private static Map<String, Object> correction(final String about, final String corrects) {
+    final Map<String, Object> candidate = new HashMap<>();
+    candidate.put("title", "Orders with at most one line are test tickets");
+    candidate.put("question", "Which orders are test tickets?");
+    candidate.put("answer", "Orders with zero or one line are test tickets.");
+    candidate.put("kind", "correction");
+    candidate.put("evidence", Map.of("source", "user", "quote", "one line is a test too"));
+    if (about != null) {
+      candidate.put("about", about);
+    }
+    if (corrects != null) {
+      candidate.put("corrects", corrects);
+    }
+    return candidate;
+  }
+
+  private KnowledgeGraphTool.CiteResponse cite(
+      final KnowledgeGraphTool tool, final UUID run, final List<Map<String, Object>> learned)
+      throws IOException {
+    return (KnowledgeGraphTool.CiteResponse)
+        tool.execute(
+            GRANTED,
+            CALLER,
+            Map.of("operation", "cite", "run", run.toString(), "learned", learned));
+  }
+
+  @Test
+  void aCiteWithOnlyWhatTheTurnLearntSavesItAndSaysWhatWasSaved() throws IOException {
+    final KnowledgeGraphTool tool = tool(TABLES + MEMORIES);
+    final UUID run = find(tool, Map.of("operation", "find", "question", "orders")).run();
+
+    final KnowledgeGraphTool.CiteResponse cited =
+        cite(tool, run, List.of(correction(ORDERS, null)));
+
+    assertThat(written).extracting(LearnedCandidate::kind).containsExactly(LearnedKind.CORRECTION);
+    assertThat(cited.learned())
+        .singleElement()
+        .satisfies(
+            outcome -> {
+              assertThat(outcome.saved().title())
+                  .isEqualTo("Orders with at most one line are test tickets");
+              assertThat(outcome.about()).isEqualTo(ORDERS);
+              assertThat(outcome.effect()).contains("Approved", "in force now");
+              assertThat(outcome.candidate()).isNull();
+            });
+  }
+
+  @Test
+  void aMemoryShownAmongTheNotesOrThePreferencesMayBeCorrected() throws IOException {
+    final KnowledgeGraphTool tool = tool(TABLES + MEMORIES);
+    final UUID run = find(tool, Map.of("operation", "find", "question", "orders revenue")).run();
+
+    final KnowledgeGraphTool.CiteResponse cited =
+        cite(
+            tool,
+            run,
+            List.of(
+                correction(null, E + "contextMemory/refunds"),
+                correction(null, E + "contextMemory/euros")));
+
+    assertThat(cited.learned()).extracting(outcome -> outcome.reason()).containsOnlyNulls();
+    assertThat(written).hasSize(2);
+  }
+
+  @Test
+  void aReadOnlyServerSavesNothingAndSaysSo() throws IOException {
+    final KnowledgeGraphTool tool =
+        tool(
+            TABLES,
+            (authorizer, caller, baseUri) -> MemoryWriter.refusing(KnowledgeGraphTool.READ_ONLY));
+    final UUID run = find(tool, Map.of("operation", "find", "question", "orders")).run();
+
+    final KnowledgeGraphTool.CiteResponse cited =
+        cite(tool, run, List.of(correction(ORDERS, null)));
+
+    assertThat(cited.learned().getFirst().reason()).contains("read-only", "nothing is saved");
   }
 
   private static KnowledgeGraphTool.FindResponse find(

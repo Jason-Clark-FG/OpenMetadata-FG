@@ -25,6 +25,7 @@ import org.openmetadata.service.rdf.RdfIriValidator;
 import org.openmetadata.service.rdf.explore.Citation;
 import org.openmetadata.service.rdf.explore.CitedRelationship;
 import org.openmetadata.service.rdf.explore.Direction;
+import org.openmetadata.service.rdf.explore.LearnedCandidate;
 import org.openmetadata.service.rdf.explore.OntologyTermKind;
 import org.openmetadata.service.rdf.explore.Operation;
 
@@ -57,6 +58,7 @@ record KnowledgeGraphCall(UUID run, Request request) {
   private static final String CURSOR = "cursor";
   private static final String SPARQL = "sparql";
   private static final String EDGES = "edges";
+  private static final String LEARNED = "learned";
   private static final String EDGE_NODE = "node";
   private static final String EDGE_RELATIONSHIP = "relationship";
   private static final String EDGE_OTHER = "other";
@@ -95,7 +97,12 @@ record KnowledgeGraphCall(UUID run, Request request) {
 
   record Trace() implements Request {}
 
-  record Cite(Citation citation) implements Request {}
+  record Cite(Citation citation, List<LearnedCandidate> learned) implements Request {
+    /** A cite of what the answer relied on, carrying nothing learnt. */
+    Cite(final Citation citation) {
+      this(citation, List.of());
+    }
+  }
 
   static KnowledgeGraphCall parse(final Map<String, Object> values) {
     final McpToolParameters parameters = McpToolParameters.from(values);
@@ -217,16 +224,19 @@ record KnowledgeGraphCall(UUID run, Request request) {
                         .formatted(value)));
   }
 
+  /** A cite names what the answer relied on, what the turn learnt, or both. */
   private static Cite cite(final Map<String, Object> values) {
     final List<String> nodes = McpParams.getStringList(values, NODES);
-    if (nodes.isEmpty()) {
+    final List<LearnedCandidate> learned = LearnedCandidates.parse(values.get(LEARNED));
+    if (nodes.isEmpty() && learned.isEmpty()) {
       throw new IllegalArgumentException(
-          "'nodes' is required for cite: pass the 'id' of every card your answer relied on");
+          "'nodes' is required for cite: pass the 'id' of every card your answer relied on, or 'learned' with what the turn taught");
     }
     return new Cite(
         new Citation(
             requireAtMost(nodes, NODES, MAX_CITED).stream().map(KnowledgeGraphCall::node).toList(),
-            requireAtMost(edges(values.get(EDGES)), EDGES, MAX_CITED)));
+            requireAtMost(edges(values.get(EDGES)), EDGES, MAX_CITED)),
+        learned);
   }
 
   private static List<CitedRelationship> edges(final Object value) {
