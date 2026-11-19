@@ -187,6 +187,21 @@ describe('UserProfileIcon', () => {
     expect(screen.getByText('app-mode-extra-item')).toBeInTheDocument();
   });
 
+  it('should open the connect AI tools modal from the profile menu', async () => {
+    render(
+      <MockWrapper>
+        <UserProfileIcon />
+      </MockWrapper>
+    );
+
+    await openDropdown();
+    await user.click(await screen.findByTestId('connect-ai-tools'));
+
+    expect(
+      await screen.findByTestId('connect-ai-tools-modal')
+    ).toBeInTheDocument();
+  });
+
   it('should display personas with pagination and sorting', async () => {
     render(
       <MockWrapper>

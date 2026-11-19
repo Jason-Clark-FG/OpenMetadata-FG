@@ -662,7 +662,10 @@ export const surfacesCellText = (
 /** The shell command that installs the plugin on a CLI host; undefined for the other surfaces. */
 export const getInstallCommand = (
   surface: SurfaceID,
-  { serverName, serverUrl }: AgentHarnessManagedSettings
+  {
+    serverName,
+    serverUrl,
+  }: Pick<AgentHarnessManagedSettings, 'serverName' | 'serverUrl'>
 ) => {
   switch (surface) {
     case SurfaceID.ClaudeCode:

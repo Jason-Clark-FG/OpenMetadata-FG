@@ -20,6 +20,7 @@ import {
 } from '@openmetadata/ui-core-components';
 import {
   ChevronDown,
+  ConnectionPlug,
   InheritedRoles,
   LogOut01,
   Persona,
@@ -56,6 +57,7 @@ import { getEmptyTextFromUserProfileItem } from '../../../../utils/UsersPureUtil
 import InterfaceModeMenuItem from '../../../AppModeSwitcher/InterfaceModeMenuItem';
 import { useAuthProvider } from '../../../Auth/AuthProviders/AuthProvider';
 import ProfilePicture from '../../../common/ProfilePicture/ProfilePicture';
+import ConnectAiToolsModal from '../../../ContextCenter/AgentHarness/ConnectAiToolsModal/ConnectAiToolsModal';
 import './user-profile-icon.less';
 
 const LIST_ITEM_CLASS = 'tw:pl-6';
@@ -131,6 +133,7 @@ export const UserProfileIcon = () => {
     ImageQuality['6x'],
     currentUser?.profile?.images
   );
+  const [isConnectOpen, setIsConnectOpen] = useState<boolean>(false);
   const [showAllPersona, setShowAllPersona] = useState<boolean>(false);
 
   const handleOnImageError = useCallback(() => {
@@ -264,123 +267,136 @@ export const UserProfileIcon = () => {
   }, [personas, defaultPersona?.id, selectedPersona?.id]);
 
   return (
-    <Dropdown.Root>
-      <AriaButton
-        className="user-profile-btn tw:flex tw:cursor-pointer tw:items-center tw:gap-4 tw:bg-transparent tw:p-0"
-        data-testid="dropdown-profile">
-        {isImgUrlValid ? (
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- onError load fallback
-          <img
-            alt={getEntityName(currentUser)}
-            className="app-bar-user-profile-pic"
-            data-testid="app-bar-user-profile-pic"
-            referrerPolicy="no-referrer"
-            src={profilePicture ?? ''}
-            onError={handleOnImageError}
-          />
-        ) : (
-          <ProfilePicture
-            displayName={currentUser?.name}
-            name={currentUser?.name ?? ''}
-            width="40"
-          />
-        )}
-        <div className="name-persona-container">
-          <Tooltip
-            arrow
-            excludeTriggerFromTabOrder
-            title={getEntityName(currentUser)}
-            triggerClassName="tw:inline-flex">
-            <Typography
-              className="name-persona-text font-semibold"
-              data-testid="nav-user-name">
-              {getEntityName(currentUser)}
-            </Typography>
-          </Tooltip>
+    <>
+      <Dropdown.Root>
+        <AriaButton
+          className="user-profile-btn tw:flex tw:cursor-pointer tw:items-center tw:gap-4 tw:bg-transparent tw:p-0"
+          data-testid="dropdown-profile">
+          {isImgUrlValid ? (
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- onError load fallback
+            <img
+              alt={getEntityName(currentUser)}
+              className="app-bar-user-profile-pic"
+              data-testid="app-bar-user-profile-pic"
+              referrerPolicy="no-referrer"
+              src={profilePicture ?? ''}
+              onError={handleOnImageError}
+            />
+          ) : (
+            <ProfilePicture
+              displayName={currentUser?.name}
+              name={currentUser?.name ?? ''}
+              width="40"
+            />
+          )}
+          <div className="name-persona-container">
+            <Tooltip
+              arrow
+              excludeTriggerFromTabOrder
+              title={getEntityName(currentUser)}
+              triggerClassName="tw:inline-flex">
+              <Typography
+                className="name-persona-text font-semibold"
+                data-testid="nav-user-name">
+                {getEntityName(currentUser)}
+              </Typography>
+            </Tooltip>
 
-          <Typography
-            className="name-persona-text"
-            data-testid="default-persona">
-            {isEmpty(selectedPersona)
-              ? t('label.default')
-              : getEntityName(selectedPersona)}
-          </Typography>
-        </div>
-        <ChevronDown size={12} />
-      </AriaButton>
-      <Dropdown.Popover
-        className="user-profile-dropdown-overlay tw:w-68"
-        placement="bottom end">
-        <Dropdown.Menu
-          aria-label={getEntityName(currentUser)}
-          className="profile-dropdown tw:max-h-72 tw:overflow-y-auto"
-          selectionMode="none">
-          <Dropdown.Item
-            data-testid="user-name"
-            href={userPath}
-            id="user"
-            label={t('label.view-entity', { entity: t('label.profile') })}
-          />
-          <Dropdown.Separator />
-          {renderListSection({
-            id: 'personas',
-            icon: Persona,
-            title: t('label.switch-persona'),
-            listItems: sortedPersonas,
-            sizeLimit: showAllPersona ? sortedPersonas.length : 2,
-            labelRenderer: personaLabelRenderer,
-            onItemAction: setSelectedPersona,
-            renderReadMore: (count) => (
-              <Dropdown.Item
-                className={LIST_ITEM_CLASS}
-                id="more-persona"
-                label={`${count} ${t('label.more')}`}
-                shouldCloseOnSelect={false}
-                onAction={() => setShowAllPersona(true)}
-              />
-            ),
-          })}
-          <Dropdown.Separator />
-          {renderListSection({
-            id: 'roles',
-            icon: Role,
-            title: t('label.role-plural'),
-            listItems: roles ?? [],
-            labelRenderer: getEntityName,
-            renderReadMore: (count) => renderMoreItem('roles', count),
-          })}
-          <Dropdown.Separator />
-          {renderListSection({
-            id: 'inheritedRoles',
-            icon: InheritedRoles,
-            title: t('label.inherited-role-plural'),
-            listItems: inheritedRoles ?? [],
-            labelRenderer: getEntityName,
-            renderReadMore: (count) => renderMoreItem('inherited-roles', count),
-          })}
-          <Dropdown.Separator />
-          {renderListSection({
-            id: 'teams',
-            icon: Teams,
-            title: t('label.team-plural'),
-            listItems: teams ?? [],
-            labelRenderer: getEntityName,
-            getItemHref: getTeamHref,
-            renderReadMore: (count) => renderMoreItem('teams', count),
-          })}
-          <Dropdown.Separator />
-          <Dropdown.Item
-            icon={LogOut01}
-            id="logout"
-            label={t('label.logout')}
-            onAction={onLogoutHandler}
-          />
-        </Dropdown.Menu>
-        <div className="tw:flex tw:flex-col tw:gap-3 tw:border-t tw:border-secondary tw:px-4 tw:py-3">
-          <InterfaceModeMenuItem />
-          {navbarUtilClassBase.getUserProfileExtraItems()}
-        </div>
-      </Dropdown.Popover>
-    </Dropdown.Root>
+            <Typography
+              className="name-persona-text"
+              data-testid="default-persona">
+              {isEmpty(selectedPersona)
+                ? t('label.default')
+                : getEntityName(selectedPersona)}
+            </Typography>
+          </div>
+          <ChevronDown size={12} />
+        </AriaButton>
+        <Dropdown.Popover
+          className="user-profile-dropdown-overlay tw:w-68"
+          placement="bottom end">
+          <Dropdown.Menu
+            aria-label={getEntityName(currentUser)}
+            className="profile-dropdown tw:max-h-72 tw:overflow-y-auto"
+            selectionMode="none">
+            <Dropdown.Item
+              data-testid="user-name"
+              href={userPath}
+              id="user"
+              label={t('label.view-entity', { entity: t('label.profile') })}
+            />
+            <Dropdown.Separator />
+            {renderListSection({
+              id: 'personas',
+              icon: Persona,
+              title: t('label.switch-persona'),
+              listItems: sortedPersonas,
+              sizeLimit: showAllPersona ? sortedPersonas.length : 2,
+              labelRenderer: personaLabelRenderer,
+              onItemAction: setSelectedPersona,
+              renderReadMore: (count) => (
+                <Dropdown.Item
+                  className={LIST_ITEM_CLASS}
+                  id="more-persona"
+                  label={`${count} ${t('label.more')}`}
+                  shouldCloseOnSelect={false}
+                  onAction={() => setShowAllPersona(true)}
+                />
+              ),
+            })}
+            <Dropdown.Separator />
+            {renderListSection({
+              id: 'roles',
+              icon: Role,
+              title: t('label.role-plural'),
+              listItems: roles ?? [],
+              labelRenderer: getEntityName,
+              renderReadMore: (count) => renderMoreItem('roles', count),
+            })}
+            <Dropdown.Separator />
+            {renderListSection({
+              id: 'inheritedRoles',
+              icon: InheritedRoles,
+              title: t('label.inherited-role-plural'),
+              listItems: inheritedRoles ?? [],
+              labelRenderer: getEntityName,
+              renderReadMore: (count) =>
+                renderMoreItem('inherited-roles', count),
+            })}
+            <Dropdown.Separator />
+            {renderListSection({
+              id: 'teams',
+              icon: Teams,
+              title: t('label.team-plural'),
+              listItems: teams ?? [],
+              labelRenderer: getEntityName,
+              getItemHref: getTeamHref,
+              renderReadMore: (count) => renderMoreItem('teams', count),
+            })}
+            <Dropdown.Separator />
+            <Dropdown.Item
+              data-testid="connect-ai-tools"
+              icon={ConnectionPlug}
+              id="connect-ai-tools"
+              label={t('label.connect-your-ai-tools')}
+              onAction={() => setIsConnectOpen(true)}
+            />
+            <Dropdown.Item
+              icon={LogOut01}
+              id="logout"
+              label={t('label.logout')}
+              onAction={onLogoutHandler}
+            />
+          </Dropdown.Menu>
+          <div className="tw:flex tw:flex-col tw:gap-3 tw:border-t tw:border-secondary tw:px-4 tw:py-3">
+            <InterfaceModeMenuItem />
+            {navbarUtilClassBase.getUserProfileExtraItems()}
+          </div>
+        </Dropdown.Popover>
+      </Dropdown.Root>
+      {isConnectOpen && (
+        <ConnectAiToolsModal onClose={() => setIsConnectOpen(false)} />
+      )}
+    </>
   );
 };

@@ -13,19 +13,15 @@
 import {
   Badge,
   Box,
-  Button,
   Card,
   Skeleton,
   Typography,
 } from '@openmetadata/ui-core-components';
-import { Check, Download01 } from '@openmetadata/ui-core-components/icons';
-import { AxiosError } from 'axios';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CLAUDE_MANAGED_SETTINGS_FILE,
   CODEX_REQUIREMENTS_FILE,
-  DONE_LABEL_MS,
   PLUGIN_INCLUDE_KEYS,
   PLUGIN_TARGETS,
   PLUGIN_ZIP_ENTRIES,
@@ -34,12 +30,10 @@ import {
 import { AgentHarnessManagedSettings } from '../../../../generated/api/context/agentHarnessManagedSettings';
 import { SurfaceID } from '../../../../generated/api/context/agentHarnessSurfaces';
 import { PluginTarget } from '../../../../interface/discovery/agentHarness.interface';
-import { getAgentHarnessPlugin } from '../../../../rest/AgentHarnessAPI';
-import { downloadBlob } from '../../../../utils/ContextCenterPureUtils';
 import { getInstallCommand } from '../../../../utils/discovery/context-center/agentHarness.utils';
-import { showErrorToast } from '../../../../utils/ToastUtils';
-import CopyButton from '../../../common/CopyButton/CopyButton';
 import SegmentedControl from '../SegmentedControl/SegmentedControl';
+import PluginCodeBlock from './PluginCodeBlock';
+import PluginDownloadButton from './PluginDownloadButton';
 
 export interface PluginPanelProps {
   /** Server URL and host settings; undefined while they load. */
@@ -49,45 +43,6 @@ export interface PluginPanelProps {
 const PluginPanel = ({ settings }: PluginPanelProps) => {
   const { t } = useTranslation();
   const [target, setTarget] = useState(PluginTarget.Claude);
-  const [download, setDownload] = useState<'idle' | 'loading' | 'done'>('idle');
-  const resetTimer = useRef<number>();
-
-  useEffect(() => () => window.clearTimeout(resetTimer.current), []);
-
-  const handleDownload = async () => {
-    setDownload('loading');
-    try {
-      downloadBlob(await getAgentHarnessPlugin(), PLUGIN_ZIP_NAME);
-      setDownload('done');
-      resetTimer.current = window.setTimeout(
-        () => setDownload('idle'),
-        DONE_LABEL_MS
-      );
-    } catch (error) {
-      setDownload('idle');
-      showErrorToast(error as AxiosError);
-    }
-  };
-
-  const renderCode = (code: string, testId: string, copyLabel?: string) => (
-    <Box className="tw:relative" direction="col">
-      <pre
-        className="tw:m-0 tw:max-h-80 tw:overflow-auto tw:rounded-lg tw:bg-primary-solid tw:p-4 tw:pr-14 tw:font-mono tw:text-xs tw:text-white tw:whitespace-pre-wrap tw:break-all"
-        data-testid={testId}>
-        {code}
-      </pre>
-      <div className="tw:absolute tw:right-2 tw:top-2">
-        <CopyButton
-          color="secondary"
-          size="sm"
-          testId={`${testId}-copy`}
-          tooltip={copyLabel ?? t('label.copy')}
-          value={code}
-        />
-      </div>
-    </Box>
-  );
-
   const renderSteps = (stepKeys: string[]) => (
     <ol className="tw:m-0 tw:flex tw:flex-col tw:gap-1 tw:pl-5">
       {stepKeys.map((key) => (
@@ -146,17 +101,7 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
         {t('message.agent-harness-plugin-served-at-run-time')}
       </Typography>
       <Box>
-        <Button
-          color="primary"
-          data-testid="download-plugin"
-          iconLeading={download === 'done' ? Check : Download01}
-          isLoading={download === 'loading'}
-          size="sm"
-          onPress={handleDownload}>
-          {t(
-            download === 'done' ? 'label.downloaded' : 'label.download-plugin'
-          )}
-        </Button>
+        <PluginDownloadButton />
       </Box>
     </Box>
   );
@@ -177,11 +122,11 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
           <Typography size="text-sm" weight="semibold">
             {t('label.connector-url')}
           </Typography>
-          {renderCode(
-            settings.serverUrl,
-            'chatgpt-connector-url',
-            t('label.copy-item', { item: t('label.connector-url') })
-          )}
+          <PluginCodeBlock
+            code={settings.serverUrl}
+            copyLabel={t('label.copy-item', { item: t('label.connector-url') })}
+            testId="chatgpt-connector-url"
+          />
           <Typography size="text-sm" weight="semibold">
             {t('label.authentication')}
           </Typography>
@@ -222,17 +167,17 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
         <Typography className="tw:text-tertiary" size="text-sm">
           {t('message.agent-harness-plugin-claude-code-step')}
         </Typography>
-        {renderCode(
-          getInstallCommand(SurfaceID.ClaudeCode, settings) ?? '',
-          'claude-code-command'
-        )}
+        <PluginCodeBlock
+          code={getInstallCommand(SurfaceID.ClaudeCode, settings) ?? ''}
+          testId="claude-code-command"
+        />
         <Typography size="text-sm" weight="semibold">
           {t('label.codex')}
         </Typography>
-        {renderCode(
-          getInstallCommand(SurfaceID.Codex, settings) ?? '',
-          'codex-command'
-        )}
+        <PluginCodeBlock
+          code={getInstallCommand(SurfaceID.Codex, settings) ?? ''}
+          testId="codex-command"
+        />
         <Typography size="text-sm" weight="semibold">
           {t('label.managed-setting-plural')}
         </Typography>
@@ -242,15 +187,15 @@ const PluginPanel = ({ settings }: PluginPanelProps) => {
         <Typography className="tw:font-mono" size="text-xs">
           {CLAUDE_MANAGED_SETTINGS_FILE}
         </Typography>
-        {renderCode(
-          JSON.stringify(settings.claudeCode, null, 2),
-          'claude-managed-settings'
-        )}
+        <PluginCodeBlock
+          code={JSON.stringify(settings.claudeCode, null, 2)}
+          testId="claude-managed-settings"
+        />
         <Typography className="tw:font-mono" size="text-xs">
           {CODEX_REQUIREMENTS_FILE}
         </Typography>
         {toml ? (
-          renderCode(toml, 'codex-requirements')
+          <PluginCodeBlock code={toml} testId="codex-requirements" />
         ) : (
           <Typography
             className="tw:text-tertiary"
