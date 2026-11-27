@@ -286,7 +286,7 @@
     "knip": "^6.48.0",
     "less": "4.9.1",
     "license-check-and-add": "^4.0.5",
-    "msw": "2.15.0",
+    "msw": "3.0.7",
     "organize-imports-cli": "^0.10.0",
     "pinst": "^3.0.0",
     "postcss": "8.5.33",
