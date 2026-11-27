@@ -84,7 +84,7 @@
     <plexus-utils.version>4.2.0</plexus-utils.version>
     <!-- Single source for the AWS SDK v2 BOM version, consumed by the root BOM
          import below and by openmetadata-service's BOM import. -->
-    <awssdk.version>2.59.7</awssdk.version>
+    <awssdk.version>2.59.8</awssdk.version>
     <dropwizard.version>5.0.2</dropwizard.version>
     <dropwizard-jdbi3.version>5.0.2</dropwizard-jdbi3.version>
     <diffMatch.version>1.0</diffMatch.version>
@@ -1332,7 +1332,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>versions-maven-plugin</artifactId>
-        <version>2.25.2</version>
+        <version>2.25.3</version>
         <configuration>
           <generateBackupPoms>false</generateBackupPoms>
         </configuration>
