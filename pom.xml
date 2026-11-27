@@ -711,7 +711,7 @@
       <dependency>
         <groupId>io.github.classgraph</groupId>
         <artifactId>classgraph</artifactId>
-        <version>4.8.177</version>
+        <version>6.0.2</version>
       </dependency>
       <dependency>
         <groupId>org.reflections</groupId>
