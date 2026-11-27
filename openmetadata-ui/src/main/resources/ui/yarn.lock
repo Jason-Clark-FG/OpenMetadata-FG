@@ -11681,10 +11681,10 @@ react-aria@3.48.0, react-aria@^3.47.0, react-aria@^3.48.0:
     react-stately "3.46.0"
     use-sync-external-store "^1.6.0"
 
-react-data-grid@7.0.0-beta.47:
-  version "7.0.0-beta.47"
-  resolved "https://registry.yarnpkg.com/react-data-grid/-/react-data-grid-7.0.0-beta.47.tgz#5c4b324f57a1e6fe76ae1659e566dc6cb36fcb79"
-  integrity sha512-28kjsmwQGD/9RXYC50zn5Zv/SQMhBBoSvG5seq0fM8XXi9TZ0zr9Z5T3YJqLwcEtoNzTOq3y0njkmdujGkIwQQ==
+react-data-grid@7.0.0-beta.48:
+  version "7.0.0-beta.48"
+  resolved "https://registry.yarnpkg.com/react-data-grid/-/react-data-grid-7.0.0-beta.48.tgz#bf07ae15fbb1049a64a970db180c9194f31e1914"
+  integrity sha512-dCOi4XGV4oGlyv1cy9YlNCUAf/rdO3C7PQaoCRilC8hBWsz8UhNnXi5/eq9SzpfbY4vU97FGM19bTGpRzrwKHA==
   dependencies:
     clsx "^2.0.0"
 
