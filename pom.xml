@@ -218,7 +218,7 @@
     <angus-mail.version>2.0.5</angus-mail.version>
     <commonmark.version>0.33.0</commonmark.version>
     <flexmark.version>0.64.8</flexmark.version>
-    <owasp-html-sanitizer.version>20260101.1</owasp-html-sanitizer.version>
+    <owasp-html-sanitizer.version>20261110.1</owasp-html-sanitizer.version>
     <!-- Nothing is published to Maven Central by default; publish-maven-package.yml publishes an
          explicit module list (ADR:2026-10-21-maven-central-publishing-is-opt-in-per-module). -->
     <skipPublishing>true</skipPublishing>
